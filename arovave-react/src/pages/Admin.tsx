@@ -4,6 +4,7 @@ import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, 
 import { useEnquiry } from '../context';
 import { products as initialProducts, categories } from '../data';
 import type { Product, Enquiry } from '../types';
+import { saveVideoToDB, getVideoFromDB } from '../utils/storage';
 
 // Get products from localStorage or use initial
 const getStoredProducts = (): Product[] => {
@@ -26,9 +27,9 @@ export function Admin() {
     const [selectedQualityCategory, setSelectedQualityCategory] = useState<string>('food');
 
     // Video URL state
-    const [videoUrl, setVideoUrl] = useState(localStorage.getItem('arovaveVideoUrl') || 'https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
+    const [videoUrl, setVideoUrl] = useState('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
 
-    // Scroll to top on mount
+    // Scroll to top on mount and load data
     useEffect(() => {
         window.scrollTo(0, 0);
         // Load quality content
@@ -36,6 +37,10 @@ export function Admin() {
         if (saved) {
             setQualityContent(JSON.parse(saved));
         }
+        // Load video from IndexedDB
+        getVideoFromDB().then(video => {
+            if (video) setVideoUrl(video);
+        });
     }, []);
 
     const qualityCategories = [
@@ -416,23 +421,28 @@ export function Admin() {
                                 Landing Page Background Video
                             </label>
 
-                            {/* File Upload */}
+                            {/* File Upload - Up to 25MB */}
                             <input
                                 type="file"
                                 accept="video/mp4,video/webm,video/ogg"
                                 onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (file) {
-                                        if (file.size > 50 * 1024 * 1024) {
-                                            alert('Video file too large! Maximum 50MB allowed.');
+                                        // Max 25MB for IndexedDB
+                                        if (file.size > 25 * 1024 * 1024) {
+                                            alert('Video file too large! Maximum 25MB allowed.');
                                             return;
                                         }
                                         const reader = new FileReader();
-                                        reader.onload = () => {
+                                        reader.onload = async () => {
                                             const base64 = reader.result as string;
-                                            setVideoUrl(base64);
-                                            localStorage.setItem('arovaveVideoUrl', base64);
-                                            alert('Video uploaded and saved! Refresh homepage to see changes.');
+                                            try {
+                                                await saveVideoToDB(base64);
+                                                setVideoUrl(base64);
+                                                alert('✅ Video saved! Go to homepage to see it.');
+                                            } catch (err) {
+                                                alert('❌ Storage error! Please try a smaller video.');
+                                            }
                                         };
                                         reader.readAsDataURL(file);
                                     }
@@ -440,7 +450,7 @@ export function Admin() {
                                 className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white file:cursor-pointer"
                             />
                             <p className="text-xs text-zinc-400 mt-2">
-                                Upload a .mp4, .webm or .ogg video file (max 50MB). Recommended: short, looping video.
+                                Upload .mp4, .webm or .ogg video (max 25MB). Short looping video recommended.
                             </p>
 
                             {/* Or URL Input */}

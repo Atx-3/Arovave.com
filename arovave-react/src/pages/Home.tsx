@@ -4,6 +4,7 @@ import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products, categories } from '../data';
 import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
+import { getVideoFromDB } from '../utils/storage';
 
 export function Home() {
     const t = useTranslation();
@@ -19,6 +20,20 @@ export function Home() {
     // Scroll to top on mount
     useEffect(() => {
         window.scrollTo(0, 0);
+    }, []);
+
+    // Load video from IndexedDB
+    useEffect(() => {
+        const loadVideo = async () => {
+            const saved = await getVideoFromDB();
+            if (saved) {
+                setVideoUrl(saved);
+            }
+        };
+        loadVideo();
+        // Check periodically for changes
+        const interval = setInterval(loadVideo, 2000);
+        return () => clearInterval(interval);
     }, []);
 
     // Auto-close popup after 3 seconds
