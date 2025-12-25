@@ -68,10 +68,10 @@ export function Home() {
     }, []);
 
     const trustCards = [
-        { id: 'middleman', icon: Handshake, title: t('trust_middleman'), desc: t('trust_middleman_desc') },
-        { id: 'certificate', icon: Award, title: t('trust_certificate'), desc: t('trust_certificate_desc') },
-        { id: 'rates', icon: TrendingDown, title: t('trust_rates'), desc: t('trust_rates_desc') },
-        { id: 'history', icon: Calendar, title: t('trust_history'), desc: t('trust_history_desc') }
+        { id: 'middleman', icon: Handshake, title: 'Direct Manufacturer Access', desc: t('trust_middleman_desc') },
+        { id: 'certificate', icon: Award, title: 'Certificates and Verified Quality', desc: t('trust_certificate_desc') },
+        { id: 'rates', icon: TrendingDown, title: 'Factory Direct Pricing', desc: t('trust_rates_desc') },
+        { id: 'history', icon: Calendar, title: 'Decades of Industrial Experience', desc: t('trust_history_desc') }
     ];
 
     const categoryNav = [

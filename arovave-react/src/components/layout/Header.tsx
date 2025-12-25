@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Globe, User, ShoppingBag } from 'lucide-react';
+import { Search, Globe, User, ShoppingBag, Menu, X } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useLanguage, useTranslation, useAuth, useEnquiry } from '../../context';
 import { products } from '../../data';
@@ -14,6 +14,7 @@ export function Header() {
     const [showLangMenu, setShowLangMenu] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const langMenuRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLDivElement>(null);
 
@@ -31,7 +32,7 @@ export function Header() {
         ).slice(0, 5)
         : [];
 
-    // Close language menu when clicking outside OR scrolling
+    // Close menus when clicking outside OR scrolling
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) {
@@ -54,6 +55,11 @@ export function Header() {
             window.removeEventListener('scroll', handleScroll);
         };
     }, []);
+
+    // Close mobile menu on route change
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [location.pathname]);
 
     const languages = [
         { code: 'en', name: 'English', short: 'EN' },
@@ -79,18 +85,18 @@ export function Header() {
 
     return (
         <header className="header-sticky border-b border-zinc-100">
-            <div className="max-w-7xl mx-auto px-6 py-4">
-                <div className="flex items-center justify-between gap-6">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 py-4">
+                <div className="flex items-center justify-between gap-4 md:gap-6">
                     {/* Logo */}
                     <Link to="/" className="flex-shrink-0">
                         <img
                             src="/logo.png"
                             alt="Arovave"
-                            className="h-12 w-auto"
+                            className="h-10 md:h-12 w-auto"
                         />
                     </Link>
 
-                    {/* Search - Centered with Suggestions */}
+                    {/* Search - Desktop Only */}
                     <div className="hidden md:block flex-1 max-w-xl relative" ref={searchRef}>
                         <div className="flex items-center bg-zinc-50 rounded-2xl px-5 py-3">
                             <Search className="w-4 h-4 text-zinc-400 mr-3 flex-shrink-0" />
@@ -140,8 +146,8 @@ export function Header() {
                         )}
                     </div>
 
-                    {/* Nav */}
-                    <nav className="flex items-center gap-6">
+                    {/* Desktop Nav */}
+                    <nav className="hidden md:flex items-center gap-6">
                         {/* Language */}
                         <div className="relative" ref={langMenuRef}>
                             <button
@@ -191,7 +197,94 @@ export function Header() {
                             <User className="w-4 h-4" />
                         </Link>
                     </nav>
+
+                    {/* Mobile Nav Icons */}
+                    <div className="flex md:hidden items-center gap-4">
+                        {/* Enquiries */}
+                        <Link
+                            to="/enquiries"
+                            className={`relative transition-colors ${isActive('/enquiries') ? 'text-black' : 'text-zinc-400 hover:text-black'}`}
+                        >
+                            <ShoppingBag className="w-5 h-5" />
+                            {userEnquiryCount > 0 && (
+                                <span className="absolute -top-2 -right-2 bg-black text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                                    {userEnquiryCount}
+                                </span>
+                            )}
+                        </Link>
+
+                        {/* Hamburger Menu */}
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="p-2 text-zinc-600 hover:text-black transition-colors"
+                        >
+                            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                        </button>
+                    </div>
                 </div>
+
+                {/* Mobile Menu */}
+                {mobileMenuOpen && (
+                    <div className="md:hidden mt-4 pt-4 border-t border-zinc-100">
+                        {/* Mobile Search */}
+                        <div className="flex items-center bg-zinc-50 rounded-2xl px-4 py-3 mb-4">
+                            <Search className="w-4 h-4 text-zinc-400 mr-3" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && searchQuery.trim()) {
+                                        navigate(`/catalog?search=${encodeURIComponent(searchQuery.trim())}`);
+                                        setMobileMenuOpen(false);
+                                    }
+                                }}
+                                placeholder="Search products..."
+                                className="bg-transparent text-sm font-medium w-full focus:outline-none"
+                            />
+                        </div>
+
+                        {/* Mobile Menu Links */}
+                        <div className="space-y-2">
+                            <Link
+                                to="/"
+                                className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50 transition-colors"
+                            >
+                                Home
+                            </Link>
+                            <Link
+                                to="/catalog"
+                                className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50 transition-colors"
+                            >
+                                Catalog
+                            </Link>
+                            <Link
+                                to="/profile"
+                                className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50 transition-colors"
+                            >
+                                Profile
+                            </Link>
+
+                            {/* Language Selector */}
+                            <div className="px-4 py-3">
+                                <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Language</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {languages.map(lang => (
+                                        <button
+                                            key={lang.code}
+                                            onClick={() => {
+                                                setLanguage(lang.code as 'en' | 'hi' | 'es' | 'fr');
+                                            }}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${language === lang.code ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600'}`}
+                                        >
+                                            {lang.short}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </header>
     );

@@ -81,8 +81,8 @@ export function Footer() {
                         <h4 className="text-xs font-black uppercase tracking-widest mb-6">Contact</h4>
                         <div className="space-y-3 text-zinc-400 text-sm">
                             <p>Email: export@arovave.com</p>
-                            <p>Phone: +91 98765 43210</p>
-                            <p>Mumbai, India</p>
+                            <p>Phone: +91 9315728922</p>
+                            <p>Lucknow, Uttarpradesh</p>
                         </div>
                     </div>
                 </div>
