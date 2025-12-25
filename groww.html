@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arovave | Global Export Authority</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        :root {
+            --bg-main: #FFFFFF;
+            --text-main: #000000;
+            --text-muted: #4B5563;
+            --border-color: #E5E7EB;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            overflow-x: hidden;
+        }
+
+        /* Hero Video Background */
+        .hero-area {
+            position: relative;
+            height: 85vh;
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .hero-video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+            z-index: -1;
+        }
+        .hero-overlay {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(4px);
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+
+        .header-sticky {
+            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .b2b-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 24px;
+        }
+        .b2b-card:hover {
+            border-color: #000;
+            transform: translateY(-5px);
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.1);
+        }
+
+        .category-box {
+            aspect-ratio: 1/1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            background: #F9FAFB;
+            border: 2px solid #F3F4F6;
+            transition: all 0.3s ease;
+        }
+        .category-box:hover {
+            background: #000;
+            color: #FFF;
+            border-color: #000;
+        }
+
+        .modal-overlay {
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .search-input {
+            background: #F3F4F6;
+            border: 1px solid var(--border-color);
+            border-radius: 99px;
+            transition: all 0.2s ease;
+        }
+        .search-input:focus {
+            background: white;
+            border-color: #000;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(0,0,0,0.05);
+        }
+
+        .trust-card {
+            cursor: pointer;
+            padding: 2.5rem;
+            border-radius: 2rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            transition: all 0.4s ease;
+        }
+        .trust-card:hover {
+            background: #ffffff;
+            border-color: #000000;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+        }
+
+        .page-enter { animation: fadeInUp 0.7s ease-out forwards; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="selection:bg-black selection:text-white">
+
+    <!-- LANGUAGE MODAL -->
+    <div id="lang-overlay" class="modal-overlay fixed inset-0">
+        <div class="bg-white p-8 rounded-[32px] w-full max-w-sm shadow-2xl">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="font-black text-2xl uppercase tracking-tighter">Global Language</h3>
+                <button onclick="toggleLangDialog(false)"><i data-lucide="x"></i></button>
+            </div>
+            <div class="grid gap-3">
+                <button onclick="changeLanguage('en')" class="w-full text-left p-5 rounded-2xl hover:bg-black hover:text-white font-bold transition-all flex justify-between items-center">English <span>EN</span></button>
+                <button onclick="changeLanguage('hi')" class="w-full text-left p-5 rounded-2xl hover:bg-black hover:text-white font-bold transition-all flex justify-between items-center">Hindi <span>हिन्दी</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTACT SUCCESS MODAL -->
+    <div id="contact-modal" class="modal-overlay fixed inset-0">
+        <div class="bg-white p-12 rounded-[40px] w-full max-w-md shadow-2xl text-center">
+            <div class="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-8">
+                <i data-lucide="check-circle-2" class="w-12 h-12 text-green-600"></i>
+            </div>
+            <h3 id="modal-title" class="text-3xl font-black mb-4 tracking-tight">Request Received</h3>
+            <p id="modal-desc" class="text-slate-500 mb-10 text-lg">Our global export desk has been notified. We will connect with you shortly via your corporate email.</p>
+            <button onclick="toggleModal(false)" class="w-full py-5 bg-black text-white rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-zinc-800 transition-colors">Understood</button>
+        </div>
+    </div>
+
+    <!-- HEADER SYSTEM -->
+    <header class="fixed top-0 w-full z-50 header-sticky">
+        <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-10">
+            <a href="#" onclick="navigate('home')" class="text-3xl font-black tracking-tighter text-black shrink-0">AROVAVE</a>
+            
+            <div class="flex-1 max-w-xl relative hidden md:block">
+                <i data-lucide="search" class="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"></i>
+                <input type="text" placeholder="Search by product name, category or HSN code..." class="search-input w-full py-3.5 pl-12 pr-6 text-sm font-semibold">
+            </div>
+
+            <div class="flex items-center gap-8 shrink-0">
+                <button onclick="toggleLangDialog(true)" class="flex items-center gap-2 text-[10px] font-black tracking-[0.2em] uppercase bg-zinc-100 px-4 py-2 rounded-full hover:bg-black hover:text-white transition-all">
+                    <i data-lucide="globe" class="w-3.5 h-3.5"></i> <span id="lang-label">EN</span>
+                </button>
+                <button onclick="navigate('enquiries')" class="relative group">
+                    <i data-lucide="shopping-bag" class="w-6 h-6 text-zinc-600 group-hover:text-black transition-all"></i>
+                    <span id="cart-count" class="absolute -top-1.5 -right-1.5 bg-black text-white text-[9px] w-4.5 h-4.5 px-1 flex items-center justify-center rounded-full opacity-0">0</span>
+                </button>
+                <button onclick="navigate('profile')" class="text-zinc-600 hover:text-black transition-all"><i data-lucide="user-circle" class="w-6 h-6"></i></button>
+            </div>
+        </div>
+
+        <nav class="border-t border-zinc-100 bg-white/80 py-4">
+            <div class="max-w-7xl mx-auto px-6 flex items-center justify-center gap-12 text-center">
+                <button onclick="navigate('catalog', 'food')" class="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-black transition-all">Processed Food</button>
+                <button onclick="navigate('catalog', 'pharma')" class="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-black transition-all">Generic Medicines</button>
+                <button onclick="navigate('catalog', 'glass')" class="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-black transition-all">Glass Bottles</button>
+                <button onclick="navigate('catalog', 'promo')" class="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-black transition-all">Promotional Items</button>
+            </div>
+        </nav>
+    </header>
+
+    <main id="app-view" class="min-h-screen pt-32">
+        <!-- Views Injected Here -->
+    </main>
+
+    <footer class="bg-zinc-50 border-t border-zinc-200 mt-24 py-24 px-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid md:grid-cols-4 gap-20 mb-20">
+                <div class="col-span-2 space-y-8">
+                    <h2 class="text-3xl font-black tracking-tighter">AROVAVE GLOBAL</h2>
+                    <p class="text-zinc-500 max-w-md leading-relaxed text-lg font-medium">
+                        Bridging global markets with direct manufacturer access. Certified quality and 25+ years of market heritage.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black uppercase tracking-widest text-black mb-8">Trust Points</h4>
+                    <ul class="space-y-4 text-sm text-zinc-500 font-semibold text-left">
+                        <li><button onclick="navigate('trust_middleman')" class="hover:text-black">No Middleman</button></li>
+                        <li><button onclick="navigate('trust_certificate')" class="hover:text-black">Certifications</button></li>
+                        <li><button onclick="navigate('trust_rates')" class="hover:text-black">Best Price Strategy</button></li>
+                        <li><button onclick="navigate('trust_history')" class="hover:text-black">25+ Years Experience</button></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black uppercase tracking-widest text-black mb-8">Company</h4>
+                    <ul class="space-y-4 text-sm text-zinc-500 font-semibold text-left">
+                        <li><a href="#" class="hover:text-black transition-colors">Privacy Policy</a></li>
+                        <li><a href="#" class="hover:text-black transition-colors">Compliance</a></li>
+                        <li><a href="#" class="hover:text-black transition-colors">Global Presence</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="pt-12 border-t border-zinc-200 flex flex-col md:flex-row justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-400 gap-6">
+                <p>© 2024 AROVAVE EXPORTS. RELIABLE GLOBAL TRADE AUTHORITY.</p>
+                <div class="flex gap-10">
+                    <span>ISO 9001:2015</span>
+                    <span>Verified Supplier Portal</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const translations = {
+            en: {
+                hero_title: "Global Export.<br>Trusted Supply.",
+                hero_desc: "Direct tie-ups with India's top manufacturing plants.",
+                confused: "STILL CONFUSED?",
+                contact_btn: "Contact Us",
+                cat_title: "EXPLORE CATEGORIES",
+                trust_title: "WHY TRUST AROVAVE",
+                trust_middleman_t: "No Middlemen",
+                trust_middleman_d: "Direct manufacturer tie-ups ensuring quality and speed.",
+                trust_cert_t: "Verified Quality",
+                trust_cert_d: "WHO-GMP, ISO & FSSAI certified production lines.",
+                trust_rates_t: "Best Market Rates",
+                trust_rates_d: "Optimized supply chains for competitive pricing.",
+                trust_history_t: "25+ Years Experience",
+                trust_history_d: "Quarter century of global trade excellence.",
+                trending: "Trending Products",
+                reach_title: "Countries We Serve",
+                reach_desc: "Facilitating trade across 20+ major global economies."
+            },
+            hi: {
+                hero_title: "वैश्विक निर्यात।<br>भरोसेमंद आपूर्ति।",
+                hero_desc: "भारत के शीर्ष विनिर्माण संयंत्रों के साथ सीधा संपर्क।",
+                confused: "अभी भी उलझन में हैं?",
+                contact_btn: "संपर्क करें",
+                cat_title: "श्रेणियों का अन्वेषण करें",
+                trust_title: "AROVAVE पर भरोसा क्यों करें",
+                trust_middleman_t: "कोई बिचौलिया नहीं",
+                trust_middleman_d: "गुणवत्ता और गति सुनिश्चित करने के लिए सीधा विनिर्माण संपर्क।",
+                trust_cert_t: "सत्यापित गुणवत्ता",
+                trust_cert_d: "WHO-GMP, ISO और FSSAI प्रमाणित उत्पादन लाइनें।",
+                trust_rates_t: "सर्वश्रेष्ठ बाजार दरें",
+                trust_rates_d: "प्रतिस्पर्धी मूल्य निर्धारण के लिए अनुकूलित आपूर्ति श्रृंखला।",
+                trust_history_t: "25+ वर्षों का अनुभव",
+                trust_history_d: "वैश्विक व्यापार उत्कृष्टता की एक चौथाई सदी।",
+                trending: "प्रचलन में उत्पाद",
+                reach_title: "देश जिन्हें हम सेवा देते हैं",
+                reach_desc: "20+ प्रमुख वैश्विक अर्थव्यवस्थाओं में व्यापार की सुविधा।"
+            }
+        };
+
+        let currentLang = 'en';
+        let cart = [];
+
+        const products = [
+            { id: 1, name: 'Grade A Basmati Rice', cat: 'food', moq: '20 MT' },
+            { id: 2, name: 'Generic Ibuprofen 400mg', cat: 'pharma', moq: '10,000 Packs' },
+            { id: 3, name: 'Super Flint Glass 750ml', cat: 'glass', moq: '5,000 Units' },
+            { id: 4, name: 'Corporate Merchandise Kit', cat: 'promo', moq: '500 Sets' }
+        ];
+
+        const countries = ['USA', 'UK', 'UAE', 'Germany', 'Australia', 'Japan', 'Canada', 'Singapore', 'France', 'Italy', 'Brazil', 'South Africa', 'Saudi Arabia', 'Russia', 'Vietnam', 'Netherlands', 'Spain', 'Mexico', 'Thailand', 'Malaysia'];
+
+        function init() {
+            lucide.createIcons();
+            navigate('home');
+        }
+
+        function t(key) { return translations[currentLang][key] || key; }
+
+        function toggleModal(show) {
+            const m = document.getElementById('contact-modal');
+            if(show) m.classList.add('active'); else m.classList.remove('active');
+        }
+
+        function toggleLangDialog(show) {
+            const d = document.getElementById('lang-overlay');
+            if(show) d.classList.add('active'); else d.classList.remove('active');
+        }
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            document.getElementById('lang-label').innerText = lang.toUpperCase();
+            toggleLangDialog(false);
+            navigate('home');
+        }
+
+        function navigate(view, filter = null) {
+            const container = document.getElementById('app-view');
+            container.innerHTML = '';
+            
+            if(view === 'home') renderHome(container);
+            else if(view === 'catalog') renderCatalog(container, filter);
+            else if(view === 'enquiries') renderEnquiries(container);
+            else if(view.startsWith('trust_')) renderTrustPage(container, view);
+
+            window.scrollTo(0,0);
+            lucide.createIcons();
+        }
+
+        function renderHome(c) {
+            c.innerHTML = `
+                <div class="page-enter">
+                    <section class="hero-area">
+                        <video class="hero-video" autoplay loop muted playsinline>
+                            <source src="https://assets.mixkit.co/videos/preview/mixkit-cargo-ship-moving-in-the-sea-at-sunset-41619-large.mp4" type="video/mp4">
+                        </video>
+                        <div class="hero-overlay"></div>
+                        <div class="relative z-10 max-w-5xl px-6 text-center">
+                            <h1 class="text-6xl md:text-9xl font-black tracking-tighter leading-[0.85] mb-12 text-black">${t('hero_title')}</h1>
+                            <p class="text-xl md:text-3xl text-zinc-900 font-bold max-w-3xl mx-auto mb-16">${t('hero_desc')}</p>
+                            
+                            <div class="flex flex-col items-center gap-6">
+                                <span class="text-sm uppercase tracking-[0.6em] font-black text-black bg-white/60 px-4 py-1 rounded-sm">${t('confused')}</span>
+                                <button onclick="toggleModal(true)" class="px-16 py-6 bg-black text-white text-xs font-black uppercase tracking-[0.3em] rounded-full hover:scale-110 active:scale-95 transition-all shadow-2xl">${t('contact_btn')}</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- WHY TRUST US SECTION -->
+                    <section class="max-w-7xl mx-auto px-6 py-32">
+                        <h2 class="text-3xl font-black uppercase tracking-[0.4em] text-black text-center mb-20">${t('trust_title')}</h2>
+                        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                            <div class="trust-card" onclick="navigate('trust_middleman')">
+                                <i data-lucide="handshake" class="w-12 h-12 mb-6 text-black"></i>
+                                <h3 class="text-xl font-black mb-4 uppercase">${t('trust_middleman_t')}</h3>
+                                <p class="text-zinc-500 font-medium leading-relaxed">${t('trust_middleman_d')}</p>
+                            </div>
+                            <div class="trust-card" onclick="navigate('trust_certificate')">
+                                <i data-lucide="award" class="w-12 h-12 mb-6 text-black"></i>
+                                <h3 class="text-xl font-black mb-4 uppercase">${t('trust_cert_t')}</h3>
+                                <p class="text-zinc-500 font-medium leading-relaxed">${t('trust_cert_d')}</p>
+                            </div>
+                            <div class="trust-card" onclick="navigate('trust_rates')">
+                                <i data-lucide="trending-down" class="w-12 h-12 mb-6 text-black"></i>
+                                <h3 class="text-xl font-black mb-4 uppercase">${t('trust_rates_t')}</h3>
+                                <p class="text-zinc-500 font-medium leading-relaxed">${t('trust_rates_d')}</p>
+                            </div>
+                            <div class="trust-card" onclick="navigate('trust_history')">
+                                <i data-lucide="calendar" class="w-12 h-12 mb-6 text-black"></i>
+                                <h3 class="text-xl font-black mb-4 uppercase">${t('trust_history_t')}</h3>
+                                <p class="text-zinc-500 font-medium leading-relaxed">${t('trust_history_d')}</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- EXPLORE CATEGORIES -->
+                    <section class="max-w-7xl mx-auto px-6 py-32 border-t border-zinc-100">
+                        <h2 class="text-5xl font-black uppercase tracking-[0.3em] text-black text-center mb-24">${t('cat_title')}</h2>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto">
+                            <button onclick="navigate('catalog', 'food')" class="category-box group shadow-sm">
+                                <i data-lucide="package" class="mb-5 w-10 h-10 opacity-40 group-hover:opacity-100"></i>
+                                <span class="text-[11px] font-black uppercase tracking-[0.2em] transition-all">Food Exports</span>
+                            </button>
+                            <button onclick="navigate('catalog', 'pharma')" class="category-box group shadow-sm">
+                                <i data-lucide="shield-plus" class="mb-5 w-10 h-10 opacity-40 group-hover:opacity-100"></i>
+                                <span class="text-[11px] font-black uppercase tracking-[0.2em] transition-all">Medicines</span>
+                            </button>
+                            <button onclick="navigate('catalog', 'glass')" class="category-box group shadow-sm">
+                                <i data-lucide="flask-conical" class="mb-5 w-10 h-10 opacity-40 group-hover:opacity-100"></i>
+                                <span class="text-[11px] font-black uppercase tracking-[0.2em] transition-all">Glassware</span>
+                            </button>
+                            <button onclick="navigate('catalog', 'promo')" class="category-box group shadow-sm">
+                                <i data-lucide="layers" class="mb-5 w-10 h-10 opacity-40 group-hover:opacity-100"></i>
+                                <span class="text-[11px] font-black uppercase tracking-[0.2em] transition-all">Promotional</span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- TRENDING PRODUCTS -->
+                    <section class="bg-zinc-50 py-32 px-6">
+                        <div class="max-w-7xl mx-auto text-center">
+                            <h2 class="text-4xl font-black tracking-tighter mb-16 uppercase">${t('trending')}</h2>
+                            <div class="grid md:grid-cols-4 gap-10">
+                                ${products.map(p => `
+                                    <div class="b2b-card p-8 group cursor-pointer text-left" onclick="addToEnquiry(${p.id})">
+                                        <div class="aspect-square bg-white mb-8 rounded-2xl flex items-center justify-center border border-zinc-100 overflow-hidden">
+                                            <span class="text-[9px] font-black text-zinc-300 uppercase tracking-widest italic opacity-50">Portfolio Asset</span>
+                                        </div>
+                                        <h4 class="font-black text-xl mb-2 uppercase">${p.name}</h4>
+                                        <div class="flex justify-between items-center text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                                            <span>MOQ: ${p.moq}</span>
+                                            <span class="text-black border-b border-black">Enquire Now</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- COUNTRIES WE SERVE -->
+                    <section class="max-w-7xl mx-auto px-6 py-32">
+                        <div class="text-center mb-24">
+                            <h2 class="text-4xl md:text-5xl font-black tracking-tighter mb-6 uppercase">${t('reach_title')}</h2>
+                            <p class="text-zinc-500 max-w-2xl mx-auto text-lg font-medium">${t('reach_desc')}</p>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-6">
+                            ${countries.map(c => `
+                                <div class="px-8 py-5 border-2 border-zinc-50 text-center rounded-2xl bg-white hover:border-black hover:shadow-xl transition-all cursor-default group">
+                                    <span class="text-[11px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-black transition-colors">${c}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </section>
+                </div>
+            `;
+        }
+
+        function renderTrustPage(c, view) {
+            const data = {
+                trust_middleman: {
+                    t: "No Middlemen - Direct Access",
+                    d: "We eliminate all intermediaries. Arovave maintains direct tie-ups with India's largest manufacturing plants. This ensures absolute transparency in quality control, direct technical support from the production team, and massive speed in order processing.",
+                    icon: "handshake"
+                },
+                trust_certificate: {
+                    t: "Verified Export Quality",
+                    d: "We trust our quality because it is verified by global standards. Our partner facilities are WHO-GMP, ISO 9001, and FSSAI certified. We provide complete documentation including COA and Factory Audits for every order.",
+                    icon: "award",
+                    showDocs: true
+                },
+                trust_rates: {
+                    t: "Best Market Rates Policy",
+                    d: "By bypassing traditional brokerage networks and optimizing the logistics pipeline, we provide the best possible rates for high-volume orders. Our focus is on high-efficiency bulk manufacturing.",
+                    icon: "trending-down"
+                },
+                trust_history: {
+                    t: "25+ Years of Excellence",
+                    d: "Arovave has over a quarter-century of experience in international trade. We have navigated every possible regulatory landscape and logistics challenge to serve thousands of buyers across 5 continents.",
+                    icon: "calendar"
+                }
+            };
+
+            const page = data[view];
+            c.innerHTML = `
+                <div class="page-enter max-w-4xl mx-auto px-6 py-24 text-center">
+                    <div class="w-24 h-24 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-10 border border-zinc-100">
+                        <i data-lucide="${page.icon}" class="w-12 h-12 text-black"></i>
+                    </div>
+                    <h1 class="text-5xl font-black uppercase tracking-tighter mb-10 leading-none">${page.t}</h1>
+                    <p class="text-2xl text-zinc-500 font-light leading-relaxed mb-16">${page.d}</p>
+                    ${page.showDocs ? `
+                        <div class="grid md:grid-cols-2 gap-4 text-left">
+                            <div class="p-6 border-2 border-dashed border-zinc-200 rounded-3xl flex justify-between items-center group cursor-pointer hover:border-black transition-all">
+                                <span class="font-black text-xs uppercase tracking-widest">ISO 9001 CERTIFICATE.PDF</span>
+                                <i data-lucide="download" class="w-4 h-4 opacity-30 group-hover:opacity-100"></i>
+                            </div>
+                            <div class="p-6 border-2 border-dashed border-zinc-200 rounded-3xl flex justify-between items-center group cursor-pointer hover:border-black transition-all">
+                                <span class="font-black text-xs uppercase tracking-widest">WHO-GMP COMPLIANCE.PDF</span>
+                                <i data-lucide="download" class="w-4 h-4 opacity-30 group-hover:opacity-100"></i>
+                            </div>
+                        </div>
+                    ` : ''}
+                    <div class="pt-20">
+                        <button onclick="navigate('home')" class="text-xs font-black uppercase tracking-widest underline decoration-2 underline-offset-8">Return to Home</button>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function renderCatalog(c, filter) {
+            const list = filter ? products.filter(p => p.cat === filter) : products;
+            c.innerHTML = `
+                <div class="page-enter max-w-7xl mx-auto px-6 py-12">
+                    <h2 class="text-5xl font-black tracking-tighter mb-16 uppercase">Market Catalog / ${filter || 'All'}</h2>
+                    <div class="grid md:grid-cols-3 gap-10">
+                        ${list.map(p => `
+                            <div class="b2b-card p-10 group shadow-sm">
+                                <div class="aspect-square bg-zinc-50 mb-10 rounded-3xl flex items-center justify-center">
+                                    <span class="text-[10px] font-black text-zinc-300 uppercase italic">Visualization</span>
+                                </div>
+                                <h3 class="text-3xl font-black mb-4 uppercase">${p.name}</h3>
+                                <p class="text-zinc-400 text-xs font-bold uppercase tracking-[0.2em] mb-10">Verification Protocol Active | MOQ: ${p.moq}</p>
+                                <button onclick="addToEnquiry(${p.id})" class="w-full py-5 border-2 border-black font-black text-[10px] uppercase tracking-[0.3em] hover:bg-black hover:text-white transition-all rounded-xl">Add to Enquiry</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderEnquiries(c) {
+            c.innerHTML = `
+                <div class="page-enter max-w-4xl mx-auto px-6 py-24 text-center">
+                    <h1 class="text-5xl font-black tracking-tighter mb-20 uppercase">Lead Pipeline</h1>
+                    ${cart.length === 0 ? `
+                        <div class="py-24 border-4 border-dashed border-zinc-100 rounded-[40px]">
+                            <p class="text-zinc-400 font-black uppercase tracking-widest mb-10">Your pipeline is empty.</p>
+                            <button onclick="navigate('home')" class="text-xs font-black uppercase underline tracking-widest hover:text-black">Browse Portfolio</button>
+                        </div>
+                    ` : `
+                        <div class="space-y-6 text-left">
+                            ${cart.map(item => `
+                                <div class="flex items-center gap-10 p-8 b2b-card rounded-[32px]">
+                                    <div class="w-24 h-24 bg-zinc-50 rounded-2xl flex items-center justify-center">
+                                        <i data-lucide="package" class="text-zinc-200"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="font-black text-2xl uppercase tracking-tighter">${item.name}</h4>
+                                        <p class="text-xs text-zinc-400 font-bold tracking-widest mt-1">Status: Export Ready</p>
+                                    </div>
+                                    <button onclick="removeFromCart(${item.id})" class="p-4 text-zinc-300 hover:text-black transition-colors"><i data-lucide="trash-2"></i></button>
+                                </div>
+                            `).join('')}
+                            <div class="pt-16">
+                                <button onclick="toggleModal(true)" class="w-full py-8 bg-black text-white font-black uppercase tracking-[0.4em] rounded-3xl shadow-2xl hover:scale-[1.01] transition-all">Submit Lead Documentation</button>
+                            </div>
+                        </div>
+                    `}
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function addToEnquiry(id) {
+            const p = products.find(prod => prod.id === id);
+            if(!cart.find(item => item.id === id)) cart.push(p);
+            updateCartBadge();
+            navigate('enquiries');
+        }
+
+        function removeFromCart(id) {
+            cart = cart.filter(item => item.id !== id);
+            updateCartBadge();
+            navigate('enquiries');
+        }
+
+        function updateCartBadge() {
+            const dot = document.getElementById('cart-count');
+            if(cart.length > 0) { dot.innerText = cart.length; dot.style.opacity = 1; }
+            else dot.style.opacity = 0;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

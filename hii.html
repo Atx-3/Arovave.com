@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arovave | Global Export Authority</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        :root {
+            --bg-main: #FFFFFF;
+            --text-main: #000000;
+            --text-muted: #4B5563;
+            --border-color: #E5E7EB;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            overflow-x: hidden;
+        }
+
+        /* Hide scrollbars but keep scroll functionality */
+        * {
+            scrollbar-width: none;
+            /* Firefox */
+            -ms-overflow-style: none;
+            /* IE/Edge */
+        }
+
+        *::-webkit-scrollbar {
+            display: none;
+            /* Chrome, Safari, Opera */
+        }
+
+        /* Hero Video Background */
+        .hero-area {
+            position: relative;
+            height: 85vh;
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hero-video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+            z-index: -1;
+        }
+
+        .hero-overlay {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(4px);
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+
+        .header-sticky {
+            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .b2b-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 12px;
+        }
+
+        .b2b-card:hover {
+            border-color: #000;
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+        }
+
+        .category-box {
+            aspect-ratio: 1/1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            background: #F9FAFB;
+            border: 2px solid #F3F4F6;
+            transition: all 0.3s ease;
+        }
+
+        .category-box:hover {
+            background: #000;
+            color: #FFF;
+            border-color: #000;
+        }
+
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .search-input {
+            background: #F3F4F6;
+            border: 1px solid var(--border-color);
+            border-radius: 99px;
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            background: white;
+            border-color: #000;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .page-enter {
+            animation: fadeInUp 0.7s ease-out forwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .trust-card {
+            cursor: pointer;
+            padding: 2.5rem;
+            border-radius: 2rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            transition: all 0.4s ease;
+        }
+
+        .trust-card:hover {
+            background: #ffffff;
+            border-color: #000000;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+
+<body class="selection:bg-black selection:text-white">
+
+    <!-- LANGUAGE MODAL -->
+    <div id="lang-overlay" class="modal-overlay fixed inset-0">
+        <div class="bg-white p-8 rounded-[32px] w-full max-w-sm shadow-2xl">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="font-black text-2xl uppercase tracking-tighter">Global Language</h3>
+                <button onclick="toggleLangDialog(false)"><i data-lucide="x"></i></button>
+            </div>
+            <div class="grid gap-3">
+                <button onclick="changeLanguage('en')"
+                    class="w-full text-left p-5 rounded-2xl hover:bg-black hover:text-white font-bold transition-all flex justify-between items-center">English
+                    <span>EN</span></button>
+                <button onclick="changeLanguage('hi')"
+                    class="w-full text-left p-5 rounded-2xl hover:bg-black hover:text-white font-bold transition-all flex justify-between items-center">Hindi
+                    <span>हिन्दी</span></button>
+                <button onclick="changeLanguage('es')"
+                    class="w-full text-left p-5 rounded-2xl hover:bg-black hover:text-white font-bold transition-all flex justify-between items-center">Spanish
+                    <span>ES</span></button>
+                <button onclick="changeLanguage('fr')"
+                    class="w-full text-left p-5 rounded-2xl hover:bg-black hover:text-white font-bold transition-all flex justify-between items-center">French
+                    <span>FR</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTACT SUCCESS MODAL -->
+    <div id="contact-modal" class="modal-overlay fixed inset-0">
+        <div class="bg-white p-12 rounded-[40px] w-full max-w-md shadow-2xl text-center">
+            <div class="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-8">
+                <i data-lucide="check-circle-2" class="w-12 h-12 text-green-600"></i>
+            </div>
+            <h3 id="modal-title" class="text-3xl font-black mb-4 tracking-tight">Request Received</h3>
+            <p id="modal-desc" class="text-slate-500 mb-10 text-lg">Our global export desk has been notified. We will
+                connect with you shortly via your corporate email.</p>
+            <button onclick="toggleModal(false)"
+                class="w-full py-5 bg-black text-white rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-zinc-800 transition-colors">Understood</button>
+        </div>
+    </div>
+
+    <!-- AUTH MODAL - MULTI-STEP WITH OTP -->
+    <div id="auth-modal" class="modal-overlay fixed inset-0">
+        <div class="bg-white p-10 rounded-[40px] w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-10">
+                <div class="flex items-center gap-3">
+                    <button id="auth-back-btn" onclick="authGoBack()"
+                        class="hidden p-2 hover:bg-zinc-100 rounded-xl transition-colors">
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    </button>
+                    <h3 id="auth-modal-title" class="text-2xl font-black uppercase tracking-tighter">Sign Up</h3>
+                </div>
+                <button onclick="toggleAuthModal(false)"><i data-lucide="x"></i></button>
+            </div>
+
+            <!-- Step Indicator -->
+            <div id="auth-step-indicator" class="flex items-center justify-center gap-2 mb-8">
+                <div id="step-dot-1" class="w-3 h-3 rounded-full bg-black"></div>
+                <div class="w-8 h-0.5 bg-zinc-200"></div>
+                <div id="step-dot-2" class="w-3 h-3 rounded-full bg-zinc-200"></div>
+                <div class="w-8 h-0.5 bg-zinc-200"></div>
+                <div id="step-dot-3" class="w-3 h-3 rounded-full bg-zinc-200"></div>
+            </div>
+
+            <!-- STEP 1: User Details -->
+            <div id="auth-step-1">
+                <form id="auth-form-step1" onsubmit="handleAuthStep1(event)">
+                    <div class="space-y-5">
+                        <div id="name-field-container">
+                            <label
+                                class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Full
+                                Name</label>
+                            <input type="text" id="auth-name" required
+                                class="w-full px-5 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors"
+                                placeholder="John Doe">
+                        </div>
+                        <div>
+                            <label
+                                class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Email
+                                Address</label>
+                            <input type="email" id="auth-email" required
+                                class="w-full px-5 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors"
+                                placeholder="john@company.com">
+                        </div>
+                        <div id="country-field-container">
+                            <label
+                                class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Country</label>
+                            <select id="auth-country" required
+                                class="w-full px-5 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors bg-white">
+                                <option value="">Select Country</option>
+                                <option value="USA">United States</option>
+                                <option value="UK">United Kingdom</option>
+                                <option value="UAE">UAE</option>
+                                <option value="Germany">Germany</option>
+                                <option value="Australia">Australia</option>
+                                <option value="Japan">Japan</option>
+                                <option value="Canada">Canada</option>
+                                <option value="Singapore">Singapore</option>
+                                <option value="France">France</option>
+                                <option value="Italy">Italy</option>
+                                <option value="India">India</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div id="phone-field-container">
+                            <label
+                                class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Phone
+                                Number</label>
+                            <input type="tel" id="auth-phone" required
+                                class="w-full px-5 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors"
+                                placeholder="+1 234 567 8900">
+                        </div>
+                    </div>
+                    <button type="submit"
+                        class="w-full mt-8 py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-zinc-800 transition-colors">
+                        <span id="auth-step1-btn-text">Continue</span>
+                    </button>
+                </form>
+                <div class="mt-6 text-center">
+                    <p class="text-zinc-400 text-sm">Already have an account? <button onclick="switchAuthMode()"
+                            class="font-bold text-black underline" id="auth-switch-btn">Sign In</button></p>
+                </div>
+            </div>
+
+            <!-- STEP 2: Email OTP Verification -->
+            <div id="auth-step-2" class="hidden">
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="mail" class="w-8 h-8 text-black"></i>
+                    </div>
+                    <h4 class="font-bold text-lg mb-2">Verify Your Email</h4>
+                    <p class="text-zinc-500 text-sm">We've sent a 6-digit code to<br><span id="email-display"
+                            class="font-semibold text-black"></span></p>
+                </div>
+                <form id="auth-form-step2" onsubmit="handleEmailOTP(event)">
+                    <div class="flex justify-center gap-2 mb-6">
+                        <input type="text" maxlength="1"
+                            class="otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="0">
+                        <input type="text" maxlength="1"
+                            class="otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="1">
+                        <input type="text" maxlength="1"
+                            class="otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="2">
+                        <input type="text" maxlength="1"
+                            class="otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="3">
+                        <input type="text" maxlength="1"
+                            class="otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="4">
+                        <input type="text" maxlength="1"
+                            class="otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="5">
+                    </div>
+                    <p id="email-otp-error" class="text-red-500 text-center text-sm mb-4 hidden">Invalid code. Please
+                        try again.</p>
+                    <button type="submit"
+                        class="w-full py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-zinc-800 transition-colors">
+                        Verify Email
+                    </button>
+                </form>
+                <div class="mt-6 text-center">
+                    <p id="email-resend-timer" class="text-zinc-400 text-sm">Resend code in <span
+                            id="email-timer-count">30</span>s</p>
+                    <button id="email-resend-btn" onclick="resendEmailOTP()"
+                        class="hidden text-sm font-bold text-black underline">Resend Code</button>
+                </div>
+            </div>
+
+            <!-- STEP 3: Phone OTP Verification -->
+            <div id="auth-step-3" class="hidden">
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="smartphone" class="w-8 h-8 text-black"></i>
+                    </div>
+                    <h4 class="font-bold text-lg mb-2">Verify Your Phone</h4>
+                    <p class="text-zinc-500 text-sm">We've sent a 6-digit code to<br><span id="phone-display"
+                            class="font-semibold text-black"></span></p>
+                </div>
+                <form id="auth-form-step3" onsubmit="handlePhoneOTP(event)">
+                    <div class="flex justify-center gap-2 mb-6">
+                        <input type="text" maxlength="1"
+                            class="phone-otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="0">
+                        <input type="text" maxlength="1"
+                            class="phone-otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="1">
+                        <input type="text" maxlength="1"
+                            class="phone-otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="2">
+                        <input type="text" maxlength="1"
+                            class="phone-otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="3">
+                        <input type="text" maxlength="1"
+                            class="phone-otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="4">
+                        <input type="text" maxlength="1"
+                            class="phone-otp-input w-12 h-14 text-center text-2xl font-black border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                            data-index="5">
+                    </div>
+                    <p id="phone-otp-error" class="text-red-500 text-center text-sm mb-4 hidden">Invalid code. Please
+                        try again.</p>
+                    <button type="submit"
+                        class="w-full py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-zinc-800 transition-colors">
+                        Verify Phone & Complete
+                    </button>
+                </form>
+                <div class="mt-6 text-center">
+                    <p id="phone-resend-timer" class="text-zinc-400 text-sm">Resend code in <span
+                            id="phone-timer-count">30</span>s</p>
+                    <button id="phone-resend-btn" onclick="resendPhoneOTP()"
+                        class="hidden text-sm font-bold text-black underline">Resend Code</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HEADER SYSTEM -->
+    <header class="fixed top-0 w-full z-50 header-sticky">
+        <!-- Brand & Actions -->
+        <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-10">
+            <a href="#" onclick="navigate('home')"
+                class="text-3xl font-black tracking-tighter text-black shrink-0">AROVAVE</a>
+
+            <div class="flex-1 max-w-xl relative hidden md:block">
+                <i data-lucide="search" class="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"></i>
+                <input type="text" placeholder="Search by product name, category or HSN code..."
+                    class="search-input w-full py-3.5 pl-12 pr-6 text-sm font-semibold">
+            </div>
+
+            <div class="flex items-center gap-8 shrink-0">
+                <button onclick="toggleLangDialog(true)"
+                    class="flex items-center gap-2 text-[10px] font-black tracking-[0.2em] uppercase bg-zinc-100 px-4 py-2 rounded-full hover:bg-black hover:text-white transition-all">
+                    <i data-lucide="globe" class="w-3.5 h-3.5"></i> <span id="lang-label">EN</span>
+                </button>
+                <button onclick="navigate('enquiries')" class="relative group">
+                    <i data-lucide="shopping-bag"
+                        class="w-6 h-6 text-zinc-600 group-hover:text-black transition-all"></i>
+                    <span id="cart-count"
+                        class="absolute -top-1.5 -right-1.5 bg-black text-white text-[9px] w-4.5 h-4.5 px-1 flex items-center justify-center rounded-full opacity-0">0</span>
+                </button>
+                <button onclick="navigate('profile')" class="text-zinc-600 hover:text-black transition-all"><i
+                        data-lucide="user-circle" class="w-6 h-6"></i></button>
+            </div>
+        </div>
+
+        <!-- Centered Navigation -->
+        <nav class="border-t border-zinc-100 bg-white/80 py-4">
+            <div class="max-w-7xl mx-auto px-6 flex items-center justify-center gap-12">
+                <button onclick="navigate('catalog', 'food')"
+                    class="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-black transition-all"
+                    data-t="nav_food">Processed Food</button>
+                <button onclick="navigate('catalog', 'pharma')"
+                    class="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-black transition-all"
+                    data-t="nav_pharma">Generic Medicines</button>
+                <button onclick="navigate('catalog', 'glass')"
+                    class="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-black transition-all"
+                    data-t="nav_glass">Glass Bottles</button>
+                <button onclick="navigate('catalog', 'promo')"
+                    class="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-black transition-all"
+                    data-t="nav_promo">Promotional Items</button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- CONTENT -->
+    <main id="app-view" class="min-h-screen pt-32">
+        <!-- View injected here -->
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-zinc-50 border-t border-zinc-200 mt-24 py-24 px-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid md:grid-cols-4 gap-20 mb-20">
+                <div class="col-span-2 space-y-8">
+                    <h2 class="text-3xl font-black tracking-tighter">AROVAVE GLOBAL</h2>
+                    <p class="text-zinc-500 max-w-md leading-relaxed text-lg font-medium" data-t="footer_desc">
+                        Bridging global markets with direct manufacturer access. Certified quality and 25+ years of
+                        market heritage.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black uppercase tracking-widest text-black mb-8">Trust Points</h4>
+                    <ul class="space-y-4 text-sm text-zinc-500 font-semibold">
+                        <li><button onclick="navigate('trust_middleman')"
+                                class="hover:text-black transition-colors text-left">No Middleman</button></li>
+                        <li><button onclick="navigate('trust_certificate')"
+                                class="hover:text-black transition-colors text-left">Certifications</button></li>
+                        <li><button onclick="navigate('trust_rates')"
+                                class="hover:text-black transition-colors text-left">Best Price Strategy</button></li>
+                        <li><button onclick="navigate('trust_history')"
+                                class="hover:text-black transition-colors text-left">25+ Years Experience</button></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black uppercase tracking-widest text-black mb-8">Company</h4>
+                    <ul class="space-y-4 text-sm text-zinc-500 font-semibold">
+                        <li><a href="#" onclick="navigate('about'); return false;"
+                                class="hover:text-black transition-colors">About Portal</a></li>
+                        <li><a href="#" onclick="navigate('privacy'); return false;"
+                                class="hover:text-black transition-colors">Privacy</a></li>
+                        <li><a href="#" onclick="navigate('terms'); return false;"
+                                class="hover:text-black transition-colors">Export Terms</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div
+                class="pt-12 border-t border-zinc-200 flex flex-col md:flex-row justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-400 gap-6">
+                <p>© 2024 AROVAVE EXPORTS. RELIABLE GLOBAL TRADE AUTHORITY.</p>
+                <div class="flex gap-10">
+                    <span>ISO 9001:2015</span>
+                    <span>Verified Supplier Portal</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // --- TRANSLATION MAP ---
+        const translations = {
+            en: {
+                hero_title: "Global Export.<br>Trusted Supply.",
+                hero_desc: "Connecting international buyers with India's most certified manufacturing plants.",
+                confused: "STILL CONFUSED?",
+                contact_btn: "Contact Us",
+                cat_title: "EXPLORE CATEGORIES",
+                nav_food: "Processed Food",
+                nav_pharma: "Generic Medicines",
+                nav_glass: "Glass Bottles",
+                nav_promo: "Promotional Items",
+                trending: "Trending Portfolio",
+                reach_title: "Global Presence",
+                reach_desc: "Operating in over 20+ major trade nations across 5 continents.",
+                footer_desc: "Reliable supply chains for global markets. We ensure quality verification at source and seamless international delivery.",
+                profile_title: "Your Profile",
+                profile_guest: "You are browsing as a guest.",
+                profile_login_prompt: "Sign in to manage your enquiries and get personalized export solutions.",
+                search_placeholder: "Search by product name, category or HSN code...",
+                no_results: "No products found",
+                my_enquiries: "My Enquiries",
+                empty_enquiries: "Your enquiries list is empty.",
+                browse_products: "Browse Products",
+                submit_enquiry: "Submit Enquiry",
+                sign_in: "Sign In",
+                sign_up: "Sign Up",
+                logout: "Logout",
+                welcome_back: "Welcome back",
+                trust_title: "WHY TRUST AROVAVE",
+                trust_middleman_t: "No Middlemen",
+                trust_middleman_d: "Direct manufacturer tie-ups ensuring quality and speed.",
+                trust_cert_t: "Verified Quality",
+                trust_cert_d: "WHO-GMP, ISO & FSSAI certified production lines.",
+                trust_rates_t: "Best Market Rates",
+                trust_rates_d: "Optimized supply chains for competitive pricing.",
+                trust_history_t: "25+ Years Experience",
+                trust_history_d: "Quarter century of global trade excellence."
+            },
+            hi: {
+                hero_title: "वैश्विक निर्यात।<br>भरोसेमंद आपूर्ति।",
+                hero_desc: "अंतरराष्ट्रीय खरीदारों को भारत के सबसे प्रमाणित विनिर्माण संयंत्रों से जोड़ना।",
+                confused: "अभी भी उलझन में हैं?",
+                contact_btn: "संपर्क करें",
+                cat_title: "श्रेणियों का अन्वेषण करें",
+                nav_food: "प्रसंस्कृत भोजन",
+                nav_pharma: "जेनेरिक दवाएं",
+                nav_glass: "कांच की बोतलें",
+                nav_promo: "प्रचारक वस्तुएं",
+                trending: "प्रचलन में उत्पाद",
+                reach_title: "वैश्विक उपस्थिति",
+                reach_desc: "5 महाद्वीपों के 20+ प्रमुख व्यापारिक देशों में सक्रिय।",
+                footer_desc: "वैश्विक बाजारों के लिए विश्वसनीय आपूर्ति श्रृंखला। हम स्रोत पर गुणवत्ता सत्यापन सुनिश्चित करते हैं।",
+                profile_title: "आपकी प्रोफ़ाइल",
+                profile_guest: "आप अतिथि के रूप में ब्राउज़ कर रहे हैं।",
+                profile_login_prompt: "अपनी पूछताछ प्रबंधित करने और व्यक्तिगत निर्यात समाधान प्राप्त करने के लिए साइन इन करें।",
+                search_placeholder: "उत्पाद नाम, श्रेणी या HSN कोड से खोजें...",
+                no_results: "कोई उत्पाद नहीं मिला",
+                my_enquiries: "मेरी पूछताछ",
+                empty_enquiries: "आपकी पूछताछ सूची खाली है।",
+                browse_products: "उत्पाद देखें",
+                submit_enquiry: "पूछताछ सबमिट करें",
+                sign_in: "साइन इन करें",
+                sign_up: "साइन अप करें",
+                logout: "लॉग आउट",
+                welcome_back: "स्वागत है",
+                trust_title: "AROVAVE पर भरोसा क्यों करें",
+                trust_middleman_t: "कोई बिचौलिया नहीं",
+                trust_middleman_d: "गुणवत्ता और गति सुनिश्चित करने के लिए सीधा विनिर्माण संपर्क।",
+                trust_cert_t: "सत्यापित गुणवत्ता",
+                trust_cert_d: "WHO-GMP, ISO और FSSAI प्रमाणित उत्पादन लाइनें।",
+                trust_rates_t: "सर्वश्रेष्ठ बाजार दरें",
+                trust_rates_d: "प्रतिस्पर्धी मूल्य निर्धारण के लिए अनुकूलित आपूर्ति श्रृंखला।",
+                trust_history_t: "25+ वर्षों का अनुभव",
+                trust_history_d: "वैश्विक व्यापार उत्कृष्टता की एक चौथाई सदी।"
+            },
+            es: {
+                hero_title: "Exportación Global.<br>Suministro Confiable.",
+                hero_desc: "Conectando compradores internacionales con las plantas de fabricación más certificadas de India.",
+                confused: "¿AÚN CONFUNDIDO?",
+                contact_btn: "Contáctenos",
+                cat_title: "EXPLORAR CATEGORÍAS",
+                nav_food: "Alimentos Procesados",
+                nav_pharma: "Medicamentos Genéricos",
+                nav_glass: "Botellas de Vidrio",
+                nav_promo: "Artículos Promocionales",
+                trending: "Portafolio Destacado",
+                reach_title: "Presencia Global",
+                reach_desc: "Operando en más de 20 países comerciales principales en 5 continentes.",
+                footer_desc: "Cadenas de suministro confiables para mercados globales. Aseguramos verificación de calidad en origen y entrega internacional sin problemas.",
+                profile_title: "Tu Perfil",
+                profile_guest: "Estás navegando como invitado.",
+                profile_login_prompt: "Inicia sesión para gestionar tus consultas y obtener soluciones de exportación personalizadas.",
+                search_placeholder: "Buscar por nombre de producto, categoría o código HSN...",
+                no_results: "No se encontraron productos",
+                my_enquiries: "Mis Consultas",
+                empty_enquiries: "Tu lista de consultas está vacía.",
+                browse_products: "Ver Productos",
+                submit_enquiry: "Enviar Consulta",
+                sign_in: "Iniciar Sesión",
+                sign_up: "Registrarse",
+                logout: "Cerrar Sesión",
+                welcome_back: "Bienvenido de nuevo",
+                trust_title: "POR QUÉ CONFIAR EN AROVAVE",
+                trust_middleman_t: "Sin Intermediarios",
+                trust_middleman_d: "Vínculos directos con fabricantes garantizando calidad y velocidad.",
+                trust_cert_t: "Calidad Verificada",
+                trust_cert_d: "Líneas de producción certificadas WHO-GMP, ISO y FSSAI.",
+                trust_rates_t: "Mejores Precios del Mercado",
+                trust_rates_d: "Cadenas de suministro optimizadas para precios competitivos.",
+                trust_history_t: "25+ Años de Experiencia",
+                trust_history_d: "Un cuarto de siglo de excelencia en comercio global."
+            },
+            fr: {
+                hero_title: "Exportation Mondiale.<br>Approvisionnement Fiable.",
+                hero_desc: "Connecter les acheteurs internationaux aux usines de fabrication les plus certifiées d'Inde.",
+                confused: "ENCORE CONFUS?",
+                contact_btn: "Contactez-nous",
+                cat_title: "EXPLORER LES CATÉGORIES",
+                nav_food: "Aliments Transformés",
+                nav_pharma: "Médicaments Génériques",
+                nav_glass: "Bouteilles en Verre",
+                nav_promo: "Articles Promotionnels",
+                trending: "Portfolio Tendance",
+                reach_title: "Présence Mondiale",
+                reach_desc: "Opérant dans plus de 20 pays commerciaux majeurs sur 5 continents.",
+                footer_desc: "Chaînes d'approvisionnement fiables pour les marchés mondiaux. Nous assurons la vérification de la qualité à la source et une livraison internationale transparente.",
+                profile_title: "Votre Profil",
+                profile_guest: "Vous naviguez en tant qu'invité.",
+                profile_login_prompt: "Connectez-vous pour gérer vos demandes et obtenir des solutions d'exportation personnalisées.",
+                search_placeholder: "Rechercher par nom de produit, catégorie ou code HSN...",
+                no_results: "Aucun produit trouvé",
+                my_enquiries: "Mes Demandes",
+                empty_enquiries: "Votre liste de demandes est vide.",
+                browse_products: "Voir les Produits",
+                submit_enquiry: "Soumettre une Demande",
+                sign_in: "Se Connecter",
+                sign_up: "S'inscrire",
+                logout: "Se Déconnecter",
+                welcome_back: "Bon retour",
+                trust_title: "POURQUOI FAIRE CONFIANCE À AROVAVE",
+                trust_middleman_t: "Sans Intermédiaires",
+                trust_middleman_d: "Liens directs avec les fabricants garantissant qualité et rapidité.",
+                trust_cert_t: "Qualité Vérifiée",
+                trust_cert_d: "Lignes de production certifiées WHO-GMP, ISO et FSSAI.",
+                trust_rates_t: "Meilleurs Prix du Marché",
+                trust_rates_d: "Chaînes d'approvisionnement optimisées pour des prix compétitifs.",
+                trust_history_t: "25+ Ans d'Expérience",
+                trust_history_d: "Un quart de siècle d'excellence dans le commerce mondial."
+            }
+        };
+
+        let currentLang = 'en';
+        let cart = [];
+        let currentUser = null; // User state: null = guest, object = logged in
+        let authMode = 'signup'; // 'signup' or 'signin'
+        let pendingEnquiryId = null; // Store product ID if user needs to auth first
+
+        const products = [
+            {
+                id: 1,
+                name: 'Grade A Basmati Rice',
+                cat: 'food',
+                moq: '20 MT',
+                hsn: '1006.30',
+                priceRange: '$850 - $1,200 / MT',
+                description: 'Premium long-grain Basmati rice sourced from the foothills of the Himalayas. Known for its distinctive aroma, fluffy texture, and exceptional taste. Ideal for biryani, pulao, and international cuisine.',
+                specs: [
+                    { label: 'Grain Length', value: '8.3mm+ (Extra Long)' },
+                    { label: 'Moisture', value: 'Max 12.5%' },
+                    { label: 'Broken Grains', value: 'Max 1%' },
+                    { label: 'Purity', value: '95% Basmati' },
+                    { label: 'Packaging', value: '25kg/50kg PP Bags' },
+                    { label: 'Shelf Life', value: '24 months' }
+                ],
+                images: [
+                    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800',
+                    'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=800',
+                    'https://images.unsplash.com/photo-1594756202469-9ff9799b2e4e?w=800'
+                ],
+                video: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+                certifications: ['FSSAI', 'ISO 22000', 'APEDA Registered']
+            },
+            {
+                id: 2,
+                name: 'Generic Ibuprofen 400mg',
+                cat: 'pharma',
+                moq: '10,000 Packs',
+                hsn: '3004.90',
+                priceRange: '$0.02 - $0.05 / Tablet',
+                description: 'WHO-GMP certified Ibuprofen 400mg tablets. Anti-inflammatory and analgesic medication manufactured in state-of-the-art facilities with complete batch traceability and stability documentation.',
+                specs: [
+                    { label: 'Strength', value: '400mg per tablet' },
+                    { label: 'Pack Size', value: '10/30/100 tablets' },
+                    { label: 'Coating', value: 'Film-coated' },
+                    { label: 'Storage', value: 'Below 25°C' },
+                    { label: 'Shelf Life', value: '36 months' },
+                    { label: 'Regulatory', value: 'WHO-GMP, FDA' }
+                ],
+                images: [
+                    'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800',
+                    'https://images.unsplash.com/photo-1585435557343-3b092031a831?w=800',
+                    'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=800'
+                ],
+                video: null,
+                certifications: ['WHO-GMP', 'ISO 9001', 'FDA Approved']
+            },
+            {
+                id: 3,
+                name: 'Super Flint Glass 750ml',
+                cat: 'glass',
+                moq: '5,000 Units',
+                hsn: '7010.90',
+                priceRange: '$0.45 - $0.80 / Unit',
+                description: 'Premium super flint glass bottles with exceptional clarity and brilliance. Perfect for spirits, wine, and premium beverage packaging. Custom embossing and color options available.',
+                specs: [
+                    { label: 'Capacity', value: '750ml' },
+                    { label: 'Glass Type', value: 'Super Flint (Clear)' },
+                    { label: 'Weight', value: '420g ± 15g' },
+                    { label: 'Finish', value: 'Cork/Screw Cap' },
+                    { label: 'Height', value: '300mm' },
+                    { label: 'Customization', value: 'Embossing, Frosting, Colors' }
+                ],
+                images: [
+                    'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=800',
+                    'https://images.unsplash.com/photo-1602524206684-fdf6393a3a88?w=800',
+                    'https://images.unsplash.com/photo-1547595628-c61a29f496f0?w=800'
+                ],
+                video: null,
+                certifications: ['ISO 9001', 'BIS Certified', 'FDA Compliant']
+            },
+            {
+                id: 4,
+                name: 'Corporate Merchandise Kit',
+                cat: 'promo',
+                moq: '500 Sets',
+                hsn: '4911.99',
+                priceRange: '$8 - $25 / Set',
+                description: 'Complete corporate gift set including branded pen, notebook, keychain, and USB drive. Fully customizable with your company logo and colors. Premium packaging options available.',
+                specs: [
+                    { label: 'Contents', value: 'Pen, Notebook, Keychain, USB' },
+                    { label: 'USB Capacity', value: '8GB/16GB/32GB' },
+                    { label: 'Notebook', value: 'A5, 80 pages' },
+                    { label: 'Branding', value: 'Screen Print/Laser Engrave' },
+                    { label: 'Box Type', value: 'Magnetic Closure Gift Box' },
+                    { label: 'Lead Time', value: '15-20 days' }
+                ],
+                images: [
+                    'https://images.unsplash.com/photo-1589384267710-7a170981ca78?w=800',
+                    'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=800',
+                    'https://images.unsplash.com/photo-1531973576160-7125cd663d86?w=800'
+                ],
+                video: null,
+                certifications: ['ISO 9001', 'Eco-Friendly Materials']
+            }
+        ];
+
+        const countries = ['USA', 'UK', 'UAE', 'Germany', 'Australia', 'Japan', 'Canada', 'Singapore', 'France', 'Italy', 'Brazil', 'South Africa', 'Saudi Arabia', 'Russia', 'Vietnam', 'Netherlands', 'Spain', 'Mexico', 'Thailand', 'Malaysia'];
+
+        function init() {
+            lucide.createIcons();
+            navigate('home');
+            initSearch();
+        }
+
+        function t(key) {
+            return translations[currentLang][key] || key;
+        }
+
+        function toggleModal(show) {
+            const m = document.getElementById('contact-modal');
+            if (show) m.classList.add('active');
+            else m.classList.remove('active');
+        }
+
+        function toggleLangDialog(show) {
+            const d = document.getElementById('lang-overlay');
+            if (show) d.classList.add('active');
+            else d.classList.remove('active');
+        }
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            document.getElementById('lang-label').innerText = lang.toUpperCase();
+            toggleLangDialog(false);
+            navigate('home');
+            updateUI();
+        }
+
+        function updateUI() {
+            document.querySelectorAll('[data-t]').forEach(el => {
+                const key = el.getAttribute('data-t');
+                el.innerHTML = t(key);
+            });
+        }
+
+        function navigate(view, filter = null) {
+            const container = document.getElementById('app-view');
+            container.innerHTML = '';
+            closeSearchResults();
+
+            if (view === 'home') renderHome(container);
+            else if (view === 'catalog') renderCatalog(container, filter);
+            else if (view === 'enquiries') renderEnquiries(container);
+            else if (view === 'profile') renderProfile(container);
+            else if (view === 'about') renderAbout(container);
+            else if (view === 'privacy') renderPrivacy(container);
+            else if (view === 'terms') renderTerms(container);
+            else if (view === 'admin') renderAdmin(container);
+            else if (view.startsWith('trust_')) renderTrustPage(container, view);
+            else if (view.startsWith('product_')) renderProductDetail(container, parseInt(view.split('_')[1]));
+
+            window.scrollTo(0, 0);
+            updateUI();
+            lucide.createIcons();
+        }
+
+        function renderHome(c) {
+            c.innerHTML = `
+                <div class="page-enter">
+                    <!-- HERO AREA WITH VIDEO -->
+                    <section class="hero-area">
+                        <video class="hero-video" autoplay loop muted playsinline>
+                            <source src="https://assets.mixkit.co/videos/preview/mixkit-cargo-ship-moving-in-the-sea-at-sunset-41619-large.mp4" type="video/mp4">
+                        </video>
+                        <div class="hero-overlay"></div>
+                        <div class="relative z-10 max-w-5xl px-6 text-center">
+                            <h1 class="text-6xl md:text-9xl font-black tracking-tighter leading-[0.85] mb-12 text-black">${t('hero_title')}</h1>
+                            <p class="text-xl md:text-3xl text-zinc-900 font-bold max-w-3xl mx-auto mb-16">${t('hero_desc')}</p>
+                            
+                            <div class="flex flex-col items-center gap-6">
+                                <span class="text-sm uppercase tracking-[0.6em] font-black text-black bg-white/60 px-4 py-1 rounded-sm">${t('confused')}</span>
+                                <button onclick="toggleModal(true)" class="px-16 py-6 bg-black text-white text-xs font-black uppercase tracking-[0.3em] rounded-full hover:scale-110 active:scale-95 transition-all shadow-2xl">${t('contact_btn')}</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- WHY TRUST US SECTION -->
+                    <section class="max-w-7xl mx-auto px-6 py-32">
+                        <h2 class="text-3xl font-black uppercase tracking-[0.4em] text-black text-center mb-20">${t('trust_title')}</h2>
+                        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                            <div class="trust-card" onclick="navigate('trust_middleman')">
+                                <i data-lucide="handshake" class="w-12 h-12 mb-6 text-black"></i>
+                                <h3 class="text-xl font-black mb-4 uppercase">${t('trust_middleman_t')}</h3>
+                                <p class="text-zinc-500 font-medium leading-relaxed">${t('trust_middleman_d')}</p>
+                            </div>
+                            <div class="trust-card" onclick="navigate('trust_certificate')">
+                                <i data-lucide="award" class="w-12 h-12 mb-6 text-black"></i>
+                                <h3 class="text-xl font-black mb-4 uppercase">${t('trust_cert_t')}</h3>
+                                <p class="text-zinc-500 font-medium leading-relaxed">${t('trust_cert_d')}</p>
+                            </div>
+                            <div class="trust-card" onclick="navigate('trust_rates')">
+                                <i data-lucide="trending-down" class="w-12 h-12 mb-6 text-black"></i>
+                                <h3 class="text-xl font-black mb-4 uppercase">${t('trust_rates_t')}</h3>
+                                <p class="text-zinc-500 font-medium leading-relaxed">${t('trust_rates_d')}</p>
+                            </div>
+                            <div class="trust-card" onclick="navigate('trust_history')">
+                                <i data-lucide="calendar" class="w-12 h-12 mb-6 text-black"></i>
+                                <h3 class="text-xl font-black mb-4 uppercase">${t('trust_history_t')}</h3>
+                                <p class="text-zinc-500 font-medium leading-relaxed">${t('trust_history_d')}</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- CATEGORIES -->
+                    <section class="max-w-7xl mx-auto px-6 py-32 border-t border-zinc-100">
+                        <h2 class="text-5xl font-black uppercase tracking-[0.3em] text-black text-center mb-24">${t('cat_title')}</h2>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto">
+                            <button onclick="navigate('catalog', 'food')" class="category-box group shadow-sm">
+                                <i data-lucide="package" class="mb-5 w-10 h-10 opacity-40 group-hover:opacity-100"></i>
+                                <span class="text-[11px] font-black uppercase tracking-[0.2em] transition-all">${t('nav_food')}</span>
+                            </button>
+                            <button onclick="navigate('catalog', 'pharma')" class="category-box group shadow-sm">
+                                <i data-lucide="shield-plus" class="mb-5 w-10 h-10 opacity-40 group-hover:opacity-100"></i>
+                                <span class="text-[11px] font-black uppercase tracking-[0.2em] transition-all">${t('nav_pharma')}</span>
+                            </button>
+                            <button onclick="navigate('catalog', 'glass')" class="category-box group shadow-sm">
+                                <i data-lucide="flask-conical" class="mb-5 w-10 h-10 opacity-40 group-hover:opacity-100"></i>
+                                <span class="text-[11px] font-black uppercase tracking-[0.2em] transition-all">${t('nav_glass')}</span>
+                            </button>
+                            <button onclick="navigate('catalog', 'promo')" class="category-box group shadow-sm">
+                                <i data-lucide="layers" class="mb-5 w-10 h-10 opacity-40 group-hover:opacity-100"></i>
+                                <span class="text-[11px] font-black uppercase tracking-[0.2em] transition-all">${t('nav_promo')}</span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- TRENDING -->
+                    <section class="bg-zinc-50 py-32 px-6">
+                        <div class="max-w-7xl mx-auto text-center">
+                            <h2 class="text-4xl md:text-5xl font-black tracking-tighter mb-16 uppercase">${t('trending')}</h2>
+                            <div class="grid md:grid-cols-4 gap-10">
+                                ${products.map(p => `
+                                    <div class="b2b-card group cursor-pointer text-left overflow-hidden" onclick="navigate('product_${p.id}')">
+                                        <div class="aspect-square bg-zinc-100 rounded-t-2xl overflow-hidden">
+                                            <img src="${p.images[0]}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                        </div>
+                                        <div class="p-6">
+                                            <h4 class="font-black text-lg mb-2">${p.name}</h4>
+                                            <p class="text-sm font-bold text-black mb-2">${p.priceRange}</p>
+                                            <div class="flex justify-between items-center text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                                                <span>MOQ: ${p.moq}</span>
+                                                <span class="text-black border-b border-black">View Details</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- GLOBAL COUNTRIES -->
+                    <section class="max-w-7xl mx-auto px-6 py-32">
+                        <div class="text-center mb-24">
+                            <h2 class="text-4xl md:text-5xl font-black tracking-tighter mb-6 uppercase">${t('reach_title')}</h2>
+                            <p class="text-zinc-500 max-w-2xl mx-auto text-lg">${t('reach_desc')}</p>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-6">
+                            ${countries.map(c => `
+                                <div class="px-8 py-5 border-2 border-zinc-50 text-center rounded-2xl bg-white hover:border-black hover:shadow-xl transition-all cursor-default">
+                                    <span class="text-[11px] font-black uppercase tracking-widest text-zinc-600">${c}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </section>
+                </div>
+            `;
+        }
+
+        function renderCatalog(c, filter) {
+            const list = filter ? products.filter(p => p.cat === filter) : products;
+            c.innerHTML = `
+                <div class="page-enter max-w-7xl mx-auto px-6 py-12">
+                    <h2 class="text-5xl font-black tracking-tighter mb-16 uppercase">Market Catalog / ${filter || 'All'}</h2>
+                    <div class="grid md:grid-cols-3 gap-10">
+                        ${list.map(p => `
+                            <div class="b2b-card group shadow-sm overflow-hidden">
+                                <div class="aspect-square bg-zinc-50 rounded-t-3xl overflow-hidden cursor-pointer" onclick="navigate('product_${p.id}')">
+                                    <img src="${p.images[0]}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                </div>
+                                <div class="p-8">
+                                    <h3 class="text-2xl font-black mb-2 cursor-pointer hover:underline" onclick="navigate('product_${p.id}')">${p.name}</h3>
+                                    <p class="text-zinc-400 text-xs font-bold uppercase tracking-[0.2em] mb-2">HSN: ${p.hsn} | MOQ: ${p.moq}</p>
+                                    <p class="text-lg font-black text-black mb-4">${p.priceRange}</p>
+                                    <div class="flex gap-3">
+                                        <button onclick="navigate('product_${p.id}')" class="flex-1 py-4 border-2 border-zinc-200 font-black text-[9px] uppercase tracking-[0.2em] hover:border-black transition-all rounded-xl">View Details</button>
+                                        <button onclick="event.stopPropagation(); addToEnquiry(${p.id})" class="flex-1 py-4 bg-black text-white font-black text-[9px] uppercase tracking-[0.2em] hover:bg-zinc-800 transition-all rounded-xl">Enquire</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderEnquiries(c) {
+            c.innerHTML = `
+                <div class="page-enter max-w-4xl mx-auto px-6 py-24 text-center">
+                    <h1 class="text-5xl font-black tracking-tighter mb-20 uppercase ${currentLang !== 'en' ? 'text-4xl md:text-5xl' : ''}">${t('my_enquiries')}</h1>
+                    ${cart.length === 0 ? `
+                        <div class="py-24 border-4 border-dashed border-zinc-100 rounded-[40px]">
+                            <p class="text-zinc-400 font-black uppercase tracking-widest mb-10 ${currentLang !== 'en' ? 'text-sm tracking-normal' : ''}">${t('empty_enquiries')}</p>
+                            <button onclick="navigate('home')" class="text-xs font-black uppercase underline tracking-widest hover:text-black">${t('browse_products')}</button>
+                        </div>
+                    ` : `
+                        <div class="space-y-6 text-left">
+                            ${cart.map(item => `
+                                <div class="flex items-center gap-10 p-8 b2b-card rounded-[32px]">
+                                    <div class="w-24 h-24 bg-zinc-50 rounded-2xl"></div>
+                                    <div class="flex-1">
+                                        <h4 class="font-black text-2xl uppercase tracking-tighter">${item.name}</h4>
+                                        <p class="text-xs text-zinc-400 font-bold tracking-widest mt-1">Export Regulation: Certified</p>
+                                    </div>
+                                    <button onclick="removeFromCart(${item.id})" class="p-4 text-zinc-300 hover:text-black transition-colors"><i data-lucide="trash-2"></i></button>
+                                </div>
+                            `).join('')}
+                            <div class="pt-16">
+                                <button onclick="toggleModal(true)" class="w-full py-8 bg-black text-white font-black uppercase tracking-[0.4em] rounded-3xl shadow-2xl hover:scale-[1.02] transition-all ${currentLang !== 'en' ? 'tracking-[0.2em] text-sm' : ''}">${t('submit_enquiry')}</button>
+                            </div>
+                        </div>
+                    `}
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function renderProfile(c) {
+            if (currentUser) {
+                // Logged in state
+                c.innerHTML = `
+                    <div class="page-enter max-w-2xl mx-auto px-6 py-24 text-center">
+                        <div class="w-32 h-32 bg-gradient-to-br from-zinc-800 to-black rounded-full flex items-center justify-center mx-auto mb-12">
+                            <span class="text-4xl font-black text-white">${currentUser.name.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <h1 class="text-5xl font-black tracking-tighter mb-4 uppercase ${currentLang !== 'en' ? 'text-3xl md:text-4xl' : ''}">${t('welcome_back')}</h1>
+                        <p class="text-2xl font-bold text-black mb-2">${currentUser.name}</p>
+                        <p class="text-zinc-500 mb-2">${currentUser.email}</p>
+                        <p class="text-zinc-400 text-sm mb-12">${currentUser.country} • ${currentUser.phone}</p>
+                        <div class="space-y-4">
+                            <button onclick="navigate('enquiries')" class="w-full py-5 border-2 border-black font-black text-[10px] uppercase tracking-[0.3em] hover:bg-black hover:text-white transition-all rounded-xl">
+                                ${t('my_enquiries')} (${cart.length})
+                            </button>
+                            <button onclick="navigate('admin')" class="w-full py-5 bg-zinc-900 text-white font-black text-[10px] uppercase tracking-[0.3em] hover:bg-black transition-all rounded-xl flex items-center justify-center gap-2">
+                                <i data-lucide="settings" class="w-4 h-4"></i> Admin Panel
+                            </button>
+                            <button onclick="handleLogout()" class="w-full py-5 bg-zinc-100 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-red-50 hover:text-red-600 transition-all rounded-xl">
+                                ${t('logout')}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Guest state - show login/signup options
+                c.innerHTML = `
+                    <div class="page-enter max-w-2xl mx-auto px-6 py-24 text-center">
+                        <div class="w-32 h-32 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-12">
+                            <i data-lucide="user" class="w-16 h-16 text-zinc-300"></i>
+                        </div>
+                        <h1 class="text-5xl font-black tracking-tighter mb-8 uppercase ${currentLang !== 'en' ? 'text-3xl md:text-4xl' : ''}">${t('profile_title')}</h1>
+                        <p class="text-xl text-zinc-500 mb-4 ${currentLang !== 'en' ? 'text-lg' : ''}">${t('profile_guest')}</p>
+                        <p class="text-zinc-400 mb-12 max-w-md mx-auto ${currentLang !== 'en' ? 'text-sm' : ''}">${t('profile_login_prompt')}</p>
+                        <div class="space-y-4">
+                            <button onclick="openAuthModal('signup')" class="w-full py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.3em] hover:bg-zinc-800 transition-all rounded-xl">
+                                ${t('sign_up')}
+                            </button>
+                            <button onclick="openAuthModal('signin')" class="w-full py-5 border-2 border-black font-black text-[10px] uppercase tracking-[0.3em] hover:bg-black hover:text-white transition-all rounded-xl">
+                                ${t('sign_in')}
+                            </button>
+                            <button onclick="navigate('home')" class="w-full py-5 bg-zinc-100 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-zinc-200 transition-all rounded-xl">
+                                ${t('browse_products')}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            lucide.createIcons();
+        }
+
+        function renderAbout(c) {
+            c.innerHTML = `
+                <div class="page-enter max-w-4xl mx-auto px-6 py-24">
+                    <h1 class="text-5xl font-black tracking-tighter mb-12 uppercase">About Arovave</h1>
+                    <div class="prose prose-lg max-w-none space-y-8">
+                        <p class="text-xl text-zinc-600 leading-relaxed">Arovave is a premier B2B export platform connecting international buyers with India's most certified manufacturing plants.</p>
+                        <div class="grid md:grid-cols-3 gap-8 py-12">
+                            <div class="b2b-card p-8 text-center">
+                                <div class="text-4xl font-black mb-2">20+</div>
+                                <div class="text-xs font-bold uppercase tracking-widest text-zinc-400">Countries Served</div>
+                            </div>
+                            <div class="b2b-card p-8 text-center">
+                                <div class="text-4xl font-black mb-2">500+</div>
+                                <div class="text-xs font-bold uppercase tracking-widest text-zinc-400">Verified Manufacturers</div>
+                            </div>
+                            <div class="b2b-card p-8 text-center">
+                                <div class="text-4xl font-black mb-2">ISO</div>
+                                <div class="text-xs font-bold uppercase tracking-widest text-zinc-400">9001:2015 Certified</div>
+                            </div>
+                        </div>
+                        <h2 class="text-2xl font-black mt-12 mb-6">Our Mission</h2>
+                        <p class="text-zinc-600 leading-relaxed">To simplify global trade by providing a trusted platform where international buyers can source high-quality products directly from verified Indian manufacturers, ensuring quality verification at source and seamless international delivery.</p>
+                        <h2 class="text-2xl font-black mt-12 mb-6">Why Choose Us</h2>
+                        <ul class="space-y-4 text-zinc-600">
+                            <li class="flex items-start gap-4"><i data-lucide="check-circle" class="w-5 h-5 text-green-600 mt-1 shrink-0"></i> All manufacturers are pre-verified and certified</li>
+                            <li class="flex items-start gap-4"><i data-lucide="check-circle" class="w-5 h-5 text-green-600 mt-1 shrink-0"></i> Quality assurance at every step of the supply chain</li>
+                            <li class="flex items-start gap-4"><i data-lucide="check-circle" class="w-5 h-5 text-green-600 mt-1 shrink-0"></i> Seamless logistics and freight tracking</li>
+                            <li class="flex items-start gap-4"><i data-lucide="check-circle" class="w-5 h-5 text-green-600 mt-1 shrink-0"></i> Compliance with international export regulations</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function renderPrivacy(c) {
+            c.innerHTML = `
+                <div class="page-enter max-w-4xl mx-auto px-6 py-24">
+                    <h1 class="text-5xl font-black tracking-tighter mb-12 uppercase">Privacy Policy</h1>
+                    <div class="prose prose-lg max-w-none space-y-8 text-zinc-600">
+                        <p class="text-xl leading-relaxed">At Arovave, we are committed to protecting your privacy and ensuring the security of your personal information.</p>
+                        
+                        <h2 class="text-2xl font-black text-black mt-12 mb-6">Information We Collect</h2>
+                        <p>We collect information you provide directly to us, including name, email address, phone number, company details, and enquiry information when you use our platform.</p>
+                        
+                        <h2 class="text-2xl font-black text-black mt-12 mb-6">How We Use Your Information</h2>
+                        <ul class="space-y-3">
+                            <li>To process and respond to your enquiries</li>
+                            <li>To connect you with verified manufacturers</li>
+                            <li>To improve our services and user experience</li>
+                            <li>To send you relevant updates about your enquiries</li>
+                        </ul>
+                        
+                        <h2 class="text-2xl font-black text-black mt-12 mb-6">Data Security</h2>
+                        <p>We implement industry-standard security measures to protect your data. All data transmission is encrypted using SSL technology.</p>
+                        
+                        <h2 class="text-2xl font-black text-black mt-12 mb-6">Contact Us</h2>
+                        <p>If you have questions about this privacy policy, please contact our data protection team.</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTerms(c) {
+            c.innerHTML = `
+                <div class="page-enter max-w-4xl mx-auto px-6 py-24">
+                    <h1 class="text-5xl font-black tracking-tighter mb-12 uppercase">Export Terms</h1>
+                    <div class="prose prose-lg max-w-none space-y-8 text-zinc-600">
+                        <p class="text-xl leading-relaxed">These terms govern the use of Arovave's B2B export platform and services.</p>
+                        
+                        <h2 class="text-2xl font-black text-black mt-12 mb-6">Platform Usage</h2>
+                        <p>Arovave acts as a facilitator between international buyers and Indian manufacturers. We do not directly handle goods or payments.</p>
+                        
+                        <h2 class="text-2xl font-black text-black mt-12 mb-6">Enquiry Process</h2>
+                        <ul class="space-y-3">
+                            <li>All enquiries are non-binding expressions of interest</li>
+                            <li>Final terms are negotiated directly between buyer and manufacturer</li>
+                            <li>Arovave facilitates initial communication and verification</li>
+                        </ul>
+                        
+                        <h2 class="text-2xl font-black text-black mt-12 mb-6">Export Compliance</h2>
+                        <p>All exports are subject to applicable Indian export regulations and destination country import regulations. Buyers are responsible for ensuring compliance with their local import requirements.</p>
+                        
+                        <h2 class="text-2xl font-black text-black mt-12 mb-6">Liability</h2>
+                        <p>Arovave provides manufacturer verification services but does not guarantee transaction outcomes. Users are advised to conduct their own due diligence.</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Admin Panel State
+        let adminTab = 'users';
+        let adminUsers = []; // Will load from localStorage
+        let allEnquiries = []; // All enquiries from all users
+        let editingProductId = null;
+
+        function loadAdminUsers() {
+            // Load all users who have signed up (in production, this would be from backend)
+            const savedUser = localStorage.getItem('arovaveUser');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                // Check if already in list
+                if (!adminUsers.find(u => u.email === user.email)) {
+                    adminUsers.push(user);
+                }
+            }
+            // Add some mock users for demo
+            const mockUsers = [
+                { name: 'John Smith', email: 'john@acmecorp.com', country: 'USA', phone: '+1 555 123 4567', createdAt: '2024-01-15' },
+                { name: 'Maria Garcia', email: 'maria@eurofoods.es', country: 'Spain', phone: '+34 612 345 678', createdAt: '2024-02-20' },
+                { name: 'Ahmed Hassan', email: 'ahmed@gulftrading.ae', country: 'UAE', phone: '+971 50 123 4567', createdAt: '2024-03-10' }
+            ];
+            mockUsers.forEach(u => {
+                if (!adminUsers.find(eu => eu.email === u.email)) {
+                    adminUsers.push(u);
+                }
+            });
+        }
+
+        function renderAdmin(c) {
+            loadAdminUsers();
+
+            c.innerHTML = `
+                <div class="page-enter max-w-7xl mx-auto px-6 py-12">
+                    <div class="flex items-center justify-between mb-12">
+                        <div>
+                            <h1 class="text-5xl font-black tracking-tighter uppercase">Admin Panel</h1>
+                            <p class="text-zinc-400 mt-2">Manage users and product inventory</p>
+                        </div>
+                        <button onclick="navigate('home')" class="text-xs font-black uppercase tracking-widest text-zinc-400 hover:text-black">
+                            ← Back to Home
+                        </button>
+                    </div>
+                    
+                    <!-- Tabs -->
+                    <div class="flex gap-4 mb-8 border-b border-zinc-100 flex-wrap">
+                        <button onclick="switchAdminTab('users')" class="pb-4 px-2 text-sm font-black uppercase tracking-widest ${adminTab === 'users' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}" id="admin-tab-users">
+                            <i data-lucide="users" class="w-4 h-4 inline mr-2"></i>Registered Users
+                        </button>
+                        <button onclick="switchAdminTab('products')" class="pb-4 px-2 text-sm font-black uppercase tracking-widest ${adminTab === 'products' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}" id="admin-tab-products">
+                            <i data-lucide="package" class="w-4 h-4 inline mr-2"></i>Product Inventory
+                        </button>
+                        <button onclick="switchAdminTab('enquiries')" class="pb-4 px-2 text-sm font-black uppercase tracking-widest ${adminTab === 'enquiries' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}" id="admin-tab-enquiries">
+                            <i data-lucide="inbox" class="w-4 h-4 inline mr-2"></i>Enquiries
+                        </button>
+                    </div>
+                    
+                    <!-- Tab Content -->
+                    <div id="admin-content">
+                        ${adminTab === 'users' ? renderAdminUsersTab() : adminTab === 'products' ? renderAdminProductsTab() : renderAdminEnquiriesTab()}
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function switchAdminTab(tab) {
+            adminTab = tab;
+            navigate('admin');
+        }
+
+        function renderAdminUsersTab() {
+            return `
+                <div class="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                    <div class="p-6 border-b border-zinc-100 flex justify-between items-center">
+                        <h3 class="font-black uppercase tracking-widest text-sm">All Registered Users (${adminUsers.length})</h3>
+                        <div class="text-xs text-zinc-400">Export as CSV coming soon</div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-zinc-50">
+                                <tr>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Name</th>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Email</th>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Country</th>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Phone</th>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Joined</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${adminUsers.map((user, idx) => `
+                                    <tr class="border-t border-zinc-50 hover:bg-zinc-50">
+                                        <td class="p-4 font-bold">${user.name}</td>
+                                        <td class="p-4 text-zinc-600">${user.email}</td>
+                                        <td class="p-4"><span class="px-3 py-1 bg-zinc-100 rounded-full text-xs font-bold">${user.country}</span></td>
+                                        <td class="p-4 text-zinc-600">${user.phone}</td>
+                                        <td class="p-4 text-zinc-400 text-sm">${user.createdAt || 'N/A'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAdminProductsTab() {
+            return `
+                <div class="mb-6 flex justify-between items-center">
+                    <p class="text-zinc-400 text-sm">${products.length} products in inventory</p>
+                    <button onclick="openProductModal()" class="flex items-center gap-2 px-6 py-3 bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-colors">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Add Product
+                    </button>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${products.map(p => `
+                        <div class="bg-white rounded-2xl border border-zinc-100 overflow-hidden group">
+                            <div class="aspect-video bg-zinc-100 overflow-hidden">
+                                <img src="${p.images[0]}" alt="${p.name}" class="w-full h-full object-cover">
+                            </div>
+                            <div class="p-5">
+                                <div class="flex items-start justify-between mb-2">
+                                    <div>
+                                        <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400">${p.cat}</span>
+                                        <h4 class="font-bold text-lg">${p.name}</h4>
+                                    </div>
+                                    <span class="text-xs font-bold text-zinc-400">ID: ${p.id}</span>
+                                </div>
+                                <p class="text-sm text-black font-bold mb-1">${p.priceRange}</p>
+                                <p class="text-xs text-zinc-400 mb-4">MOQ: ${p.moq} | HSN: ${p.hsn}</p>
+                                <div class="flex gap-2">
+                                    <button onclick="openProductModal(${p.id})" class="flex-1 py-2 border-2 border-zinc-200 rounded-lg text-[9px] font-black uppercase tracking-widest hover:border-black transition-colors">
+                                        <i data-lucide="edit" class="w-3 h-3 inline mr-1"></i>Edit
+                                    </button>
+                                    <button onclick="deleteProduct(${p.id})" class="px-4 py-2 border-2 border-red-200 text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-red-50 transition-colors">
+                                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderAdminEnquiriesTab() {
+            // Load enquiries from localStorage
+            const savedEnquiries = localStorage.getItem('arovaveAllEnquiries');
+            if (savedEnquiries) {
+                allEnquiries = JSON.parse(savedEnquiries);
+            }
+
+            // Add some mock enquiries for demo if empty
+            if (allEnquiries.length === 0) {
+                allEnquiries = [
+                    {
+                        id: 1,
+                        user: { name: 'John Smith', email: 'john@acmecorp.com', country: 'USA' },
+                        products: [{ id: 1, name: 'Premium Basmati Rice', qty: '50 MT' }],
+                        date: '2024-12-20',
+                        status: 'pending'
+                    },
+                    {
+                        id: 2,
+                        user: { name: 'Maria Garcia', email: 'maria@eurofoods.es', country: 'Spain' },
+                        products: [{ id: 2, name: 'Paracetamol 500mg', qty: '100,000 units' }, { id: 3, name: 'Amber Glass Bottles', qty: '50,000 pcs' }],
+                        date: '2024-12-18',
+                        status: 'contacted'
+                    },
+                    {
+                        id: 3,
+                        user: { name: 'Ahmed Hassan', email: 'ahmed@gulftrading.ae', country: 'UAE' },
+                        products: [{ id: 4, name: 'Custom Promotional Items', qty: '10,000 pcs' }],
+                        date: '2024-12-15',
+                        status: 'completed'
+                    }
+                ];
+            }
+
+            const statusColors = {
+                pending: 'bg-yellow-50 text-yellow-700',
+                contacted: 'bg-blue-50 text-blue-700',
+                completed: 'bg-green-50 text-green-700',
+                cancelled: 'bg-red-50 text-red-700'
+            };
+
+            return `
+                <div class="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                    <div class="p-6 border-b border-zinc-100 flex justify-between items-center">
+                        <h3 class="font-black uppercase tracking-widest text-sm">All Enquiries (${allEnquiries.length})</h3>
+                        <div class="flex gap-2">
+                            <span class="px-3 py-1 bg-yellow-50 text-yellow-700 text-[9px] font-bold rounded-full">Pending: ${allEnquiries.filter(e => e.status === 'pending').length}</span>
+                            <span class="px-3 py-1 bg-blue-50 text-blue-700 text-[9px] font-bold rounded-full">Contacted: ${allEnquiries.filter(e => e.status === 'contacted').length}</span>
+                            <span class="px-3 py-1 bg-green-50 text-green-700 text-[9px] font-bold rounded-full">Completed: ${allEnquiries.filter(e => e.status === 'completed').length}</span>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-zinc-50">
+                                <tr>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">ID</th>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Customer</th>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Products</th>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Date</th>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Status</th>
+                                    <th class="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${allEnquiries.map(enq => `
+                                    <tr class="border-t border-zinc-50 hover:bg-zinc-50">
+                                        <td class="p-4 font-bold text-zinc-400">#${enq.id}</td>
+                                        <td class="p-4">
+                                            <p class="font-bold">${enq.user.name}</p>
+                                            <p class="text-xs text-zinc-400">${enq.user.email}</p>
+                                            <p class="text-xs text-zinc-400">${enq.user.country}</p>
+                                        </td>
+                                        <td class="p-4">
+                                            ${enq.products.map(p => `
+                                                <div class="text-sm mb-1">
+                                                    <span class="font-semibold">${p.name}</span>
+                                                    <span class="text-zinc-400 text-xs ml-2">${p.qty || 'Qty TBD'}</span>
+                                                </div>
+                                            `).join('')}
+                                        </td>
+                                        <td class="p-4 text-zinc-600 text-sm">${enq.date}</td>
+                                        <td class="p-4">
+                                            <select onchange="updateEnquiryStatus(${enq.id}, this.value)" class="px-3 py-1.5 rounded-full text-[10px] font-bold ${statusColors[enq.status]} border-0 cursor-pointer">
+                                                <option value="pending" ${enq.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                                <option value="contacted" ${enq.status === 'contacted' ? 'selected' : ''}>Contacted</option>
+                                                <option value="completed" ${enq.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                                <option value="cancelled" ${enq.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                                            </select>
+                                        </td>
+                                        <td class="p-4">
+                                            <button onclick="viewEnquiryDetails(${enq.id})" class="px-3 py-1.5 border-2 border-zinc-200 rounded-lg text-[9px] font-black uppercase tracking-widest hover:border-black transition-colors">
+                                                View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateEnquiryStatus(id, status) {
+            const enq = allEnquiries.find(e => e.id === id);
+            if (enq) {
+                enq.status = status;
+                localStorage.setItem('arovaveAllEnquiries', JSON.stringify(allEnquiries));
+                navigate('admin'); // Refresh to show updated colors
+            }
+        }
+
+        function viewEnquiryDetails(id) {
+            const enq = allEnquiries.find(e => e.id === id);
+            if (!enq) return;
+
+            const modalHtml = `
+                <div id="enquiry-modal" class="modal-overlay active fixed inset-0">
+                    <div class="bg-white p-8 rounded-[32px] w-full max-w-lg shadow-2xl">
+                        <div class="flex justify-between items-center mb-8">
+                            <h3 class="text-2xl font-black uppercase tracking-tighter">Enquiry #${enq.id}</h3>
+                            <button onclick="document.getElementById('enquiry-modal').remove()"><i data-lucide="x"></i></button>
+                        </div>
+                        
+                        <div class="space-y-6">
+                            <div class="p-4 bg-zinc-50 rounded-xl">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">Customer</p>
+                                <p class="font-bold text-lg">${enq.user.name}</p>
+                                <p class="text-zinc-600">${enq.user.email}</p>
+                                <p class="text-zinc-400">${enq.user.country}</p>
+                            </div>
+                            
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">Products Requested</p>
+                                <div class="space-y-2">
+                                    ${enq.products.map(p => `
+                                        <div class="flex justify-between items-center p-3 border-2 border-zinc-100 rounded-xl">
+                                            <span class="font-semibold">${p.name}</span>
+                                            <span class="text-sm text-zinc-400">${p.qty || 'Qty TBD'}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-3">
+                                <a href="mailto:${enq.user.email}" class="flex-1 py-4 bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl text-center hover:bg-zinc-800 transition-colors">
+                                    <i data-lucide="mail" class="w-4 h-4 inline mr-2"></i>Email Customer
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            lucide.createIcons();
+        }
+        function openProductModal(productId = null) {
+            editingProductId = productId;
+            const p = productId ? products.find(prod => prod.id === productId) : null;
+
+            const modalHtml = `
+                <div id="product-modal" class="modal-overlay active fixed inset-0">
+                    <div class="bg-white p-8 rounded-[32px] w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+                        <div class="flex justify-between items-center mb-8">
+                            <h3 class="text-2xl font-black uppercase tracking-tighter">${p ? 'Edit Product' : 'Add New Product'}</h3>
+                            <button onclick="closeProductModal()"><i data-lucide="x"></i></button>
+                        </div>
+                        <form onsubmit="saveProduct(event)">
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Product Name*</label>
+                                    <input type="text" id="prod-name" required value="${p ? p.name : ''}" class="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Category*</label>
+                                    <select id="prod-cat" required class="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white">
+                                        <option value="food" ${p?.cat === 'food' ? 'selected' : ''}>Processed Food</option>
+                                        <option value="pharma" ${p?.cat === 'pharma' ? 'selected' : ''}>Generic Medicines</option>
+                                        <option value="glass" ${p?.cat === 'glass' ? 'selected' : ''}>Glass Bottles</option>
+                                        <option value="promo" ${p?.cat === 'promo' ? 'selected' : ''}>Promotional Items</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">HSN Code*</label>
+                                    <input type="text" id="prod-hsn" required value="${p ? p.hsn : ''}" class="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none" placeholder="1006.30">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">MOQ*</label>
+                                    <input type="text" id="prod-moq" required value="${p ? p.moq : ''}" class="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none" placeholder="20 MT">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Price Range*</label>
+                                    <input type="text" id="prod-price" required value="${p ? p.priceRange : ''}" class="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none" placeholder="$850 - $1,200 / MT">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Description*</label>
+                                    <textarea id="prod-desc" required rows="3" class="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none resize-none">${p ? p.description : ''}</textarea>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Product Images*</label>
+                                    <div class="border-2 border-dashed border-zinc-200 rounded-xl p-6 text-center hover:border-black transition-colors cursor-pointer" onclick="document.getElementById('prod-images').click()">
+                                        <input type="file" id="prod-images" accept="image/*" multiple class="hidden" onchange="previewImages(this)">
+                                        <i data-lucide="image-plus" class="w-8 h-8 mx-auto text-zinc-400 mb-2"></i>
+                                        <p class="text-sm font-semibold text-zinc-600">Click to upload images</p>
+                                        <p class="text-xs text-zinc-400 mt-1">PNG, JPG up to 10MB each</p>
+                                    </div>
+                                    <div id="image-preview" class="flex flex-wrap gap-2 mt-3">
+                                        ${p ? p.images.map((img, idx) => `
+                                            <div class="w-16 h-16 rounded-lg overflow-hidden border-2 border-zinc-200 relative group">
+                                                <img src="${img}" class="w-full h-full object-cover">
+                                                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <span class="text-white text-[8px] font-bold">Image ${idx + 1}</span>
+                                                </div>
+                                            </div>
+                                        `).join('') : ''}
+                                    </div>
+                                    <input type="hidden" id="prod-img-urls" value="${p ? p.images.join('|') : ''}">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Product Video (Optional)</label>
+                                    <div class="border-2 border-dashed border-zinc-200 rounded-xl p-6 text-center hover:border-black transition-colors cursor-pointer" onclick="document.getElementById('prod-video').click()">
+                                        <input type="file" id="prod-video" accept="video/*" class="hidden" onchange="previewVideo(this)">
+                                        <i data-lucide="video" class="w-8 h-8 mx-auto text-zinc-400 mb-2"></i>
+                                        <p class="text-sm font-semibold text-zinc-600">Click to upload short video</p>
+                                        <p class="text-xs text-zinc-400 mt-1">MP4, WebM up to 50MB</p>
+                                    </div>
+                                    <div id="video-preview" class="mt-3 ${p?.video ? '' : 'hidden'}">
+                                        ${p?.video ? `<video src="${p.video}" class="w-full max-h-32 rounded-lg object-cover" controls></video>` : ''}
+                                    </div>
+                                    <input type="hidden" id="prod-video-url" value="${p?.video || ''}">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Certifications (comma-separated)</label>
+                                    <input type="text" id="prod-certs" value="${p ? p.certifications.join(', ') : ''}" class="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none" placeholder="ISO 9001, FSSAI, WHO-GMP">
+                                </div>
+                            </div>
+                            <div class="flex gap-4 mt-8">
+                                <button type="button" onclick="closeProductModal()" class="flex-1 py-4 border-2 border-zinc-200 font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:border-black transition-colors">Cancel</button>
+                                <button type="submit" class="flex-1 py-4 bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-zinc-800 transition-colors">${p ? 'Update Product' : 'Add Product'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            lucide.createIcons();
+        }
+
+        function closeProductModal() {
+            const modal = document.getElementById('product-modal');
+            if (modal) modal.remove();
+            editingProductId = null;
+        }
+
+        function saveProduct(event) {
+            event.preventDefault();
+
+            // Get image URLs from hidden field or use placeholder if empty
+            let imageUrls = document.getElementById('prod-img-urls').value;
+            if (!imageUrls) {
+                imageUrls = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800';
+            }
+            const images = imageUrls.split('|').filter(s => s);
+
+            // Get video URL from hidden field
+            const videoUrl = document.getElementById('prod-video-url').value || null;
+
+            const productData = {
+                name: document.getElementById('prod-name').value,
+                cat: document.getElementById('prod-cat').value,
+                hsn: document.getElementById('prod-hsn').value,
+                moq: document.getElementById('prod-moq').value,
+                priceRange: document.getElementById('prod-price').value,
+                description: document.getElementById('prod-desc').value,
+                images: images,
+                certifications: document.getElementById('prod-certs').value.split(',').map(s => s.trim()).filter(s => s),
+                specs: [], // Would need more fields for full specs
+                video: videoUrl
+            };
+
+            if (editingProductId) {
+                // Update existing product
+                const idx = products.findIndex(p => p.id === editingProductId);
+                if (idx !== -1) {
+                    products[idx] = { ...products[idx], ...productData };
+                }
+            } else {
+                // Add new product
+                const newId = Math.max(...products.map(p => p.id)) + 1;
+                products.push({ id: newId, ...productData });
+            }
+
+            closeProductModal();
+            navigate('admin');
+        }
+
+        function previewImages(input) {
+            const preview = document.getElementById('image-preview');
+            const urlsField = document.getElementById('prod-img-urls');
+
+            if (input.files && input.files.length > 0) {
+                preview.innerHTML = '';
+                const urls = [];
+
+                Array.from(input.files).forEach((file, idx) => {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const dataUrl = e.target.result;
+                        urls.push(dataUrl);
+                        urlsField.value = urls.join('|');
+
+                        preview.innerHTML += `
+                            <div class="w-16 h-16 rounded-lg overflow-hidden border-2 border-zinc-200 relative group">
+                                <img src="${dataUrl}" class="w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <span class="text-white text-[8px] font-bold">Image ${idx + 1}</span>
+                                </div>
+                            </div>
+                        `;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        function previewVideo(input) {
+            const preview = document.getElementById('video-preview');
+            const urlField = document.getElementById('prod-video-url');
+
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const dataUrl = e.target.result;
+                    urlField.value = dataUrl;
+                    preview.innerHTML = `<video src="${dataUrl}" class="w-full max-h-32 rounded-lg object-cover" controls></video>`;
+                    preview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function deleteProduct(id) {
+            if (confirm('Are you sure you want to delete this product?')) {
+                const idx = products.findIndex(p => p.id === id);
+                if (idx !== -1) {
+                    products.splice(idx, 1);
+                    navigate('admin');
+                }
+            }
+        }
+
+        function renderTrustPage(c, view) {
+            const data = {
+                trust_middleman: {
+                    t: "No Middlemen - Direct Access",
+                    d: "We eliminate all intermediaries. Arovave maintains direct tie-ups with India's largest manufacturing plants. This ensures absolute transparency in quality control, direct technical support from the production team, and massive speed in order processing.",
+                    icon: "handshake"
+                },
+                trust_certificate: {
+                    t: "Verified Export Quality",
+                    d: "We trust our quality because it is verified by global standards. Our partner facilities are WHO-GMP, ISO 9001, and FSSAI certified. We provide complete documentation including COA and Factory Audits for every order.",
+                    icon: "award",
+                    showDocs: true
+                },
+                trust_rates: {
+                    t: "Best Market Rates Policy",
+                    d: "By bypassing traditional brokerage networks and optimizing the logistics pipeline, we provide the best possible rates for high-volume orders. Our focus is on high-efficiency bulk manufacturing.",
+                    icon: "trending-down"
+                },
+                trust_history: {
+                    t: "25+ Years of Excellence",
+                    d: "Arovave has over a quarter-century of experience in international trade. We have navigated every possible regulatory landscape and logistics challenge to serve thousands of buyers across 5 continents.",
+                    icon: "calendar"
+                }
+            };
+
+            const page = data[view];
+            if (!page) { navigate('home'); return; }
+
+            c.innerHTML = `
+                <div class="page-enter max-w-4xl mx-auto px-6 py-24 text-center">
+                    <div class="w-24 h-24 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-10 border border-zinc-100">
+                        <i data-lucide="${page.icon}" class="w-12 h-12 text-black"></i>
+                    </div>
+                    <h1 class="text-5xl font-black uppercase tracking-tighter mb-10 leading-none">${page.t}</h1>
+                    <p class="text-2xl text-zinc-500 font-light leading-relaxed mb-16">${page.d}</p>
+                    ${page.showDocs ? `
+                        <div class="grid md:grid-cols-2 gap-4 text-left mb-16">
+                            <div class="p-6 border-2 border-dashed border-zinc-200 rounded-3xl flex justify-between items-center group cursor-pointer hover:border-black transition-all">
+                                <span class="font-black text-xs uppercase tracking-widest">ISO 9001 CERTIFICATE.PDF</span>
+                                <i data-lucide="download" class="w-4 h-4 opacity-30 group-hover:opacity-100"></i>
+                            </div>
+                            <div class="p-6 border-2 border-dashed border-zinc-200 rounded-3xl flex justify-between items-center group cursor-pointer hover:border-black transition-all">
+                                <span class="font-black text-xs uppercase tracking-widest">WHO-GMP COMPLIANCE.PDF</span>
+                                <i data-lucide="download" class="w-4 h-4 opacity-30 group-hover:opacity-100"></i>
+                            </div>
+                        </div>
+                    ` : ''}
+                    <div class="pt-10">
+                        <button onclick="navigate('home')" class="text-xs font-black uppercase tracking-widest underline decoration-2 underline-offset-8">Return to Home</button>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // Product gallery state
+        let currentImageIndex = 0;
+
+        function renderProductDetail(c, productId) {
+            const p = products.find(prod => prod.id === productId);
+            if (!p) { navigate('catalog'); return; }
+
+            currentImageIndex = 0;
+            currentMediaType = 'image';
+            currentProductForGallery = p;
+
+            c.innerHTML = `
+                <div class="page-enter max-w-7xl mx-auto px-6 py-12">
+                    <!-- Breadcrumb -->
+                    <div class="mb-8">
+                        <button onclick="navigate('catalog')" class="text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-black transition-colors">
+                            ← Back to Catalog
+                        </button>
+                    </div>
+                    
+                    <div class="grid lg:grid-cols-2 gap-16">
+                        <!-- Left: Media Gallery (Images + Video) -->
+                        <div>
+                            <!-- Main Display (Image or Video) -->
+                            <div class="aspect-square bg-zinc-100 rounded-3xl overflow-hidden mb-4 relative" id="main-media-container">
+                                ${p.video ?
+                    `<div id="main-product-media" class="w-full h-full"></div>` :
+                    `<img id="main-product-media" src="${p.images[0]}" alt="${p.name}" class="w-full h-full object-cover">`
+                }
+                                ${(p.images.length + (p.video ? 1 : 0)) > 1 ? `
+                                    <button onclick="changeProductMedia(-1)" class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors">
+                                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                                    </button>
+                                    <button onclick="changeProductMedia(1)" class="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors">
+                                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                            
+                            <!-- Thumbnails (Images + Video) -->
+                            <div class="flex gap-3 flex-wrap">
+                                ${p.images.map((img, idx) => `
+                                    <button onclick="setProductMedia(${idx}, 'image')" class="w-20 h-20 rounded-xl overflow-hidden border-2 ${idx === 0 && !p.video ? 'border-black' : 'border-transparent'} hover:border-black transition-colors" id="thumb-${idx}">
+                                        <img src="${img}" alt="Thumbnail ${idx + 1}" class="w-full h-full object-cover">
+                                    </button>
+                                `).join('')}
+                                ${p.video ? `
+                                    <button onclick="setProductMedia(${p.images.length}, 'video')" class="w-20 h-20 rounded-xl overflow-hidden border-2 border-transparent hover:border-black transition-colors bg-zinc-900 flex items-center justify-center relative" id="thumb-video">
+                                        <i data-lucide="play-circle" class="w-8 h-8 text-white"></i>
+                                        <span class="absolute bottom-1 left-1 text-[8px] text-white font-bold uppercase">Video</span>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        <!-- Right: Product Info -->
+                        <div>
+                            <!-- Category Badge -->
+                            <span class="inline-block px-4 py-2 bg-zinc-100 text-xs font-black uppercase tracking-widest rounded-full mb-4">${p.cat}</span>
+                            
+                            <!-- Product Name -->
+                            <h1 class="text-4xl md:text-5xl font-black tracking-tighter mb-4">${p.name}</h1>
+                            
+                            <!-- HSN Code -->
+                            <p class="text-zinc-400 text-sm font-bold mb-6">HSN Code: ${p.hsn}</p>
+                            
+                            <!-- Price Range -->
+                            <div class="bg-zinc-50 rounded-2xl p-6 mb-8">
+                                <p class="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Indicative Price Range</p>
+                                <p class="text-3xl font-black text-black">${p.priceRange}</p>
+                                <p class="text-xs text-zinc-400 mt-2">Final price depends on volume and specifications</p>
+                            </div>
+                            
+                            <!-- Description -->
+                            <div class="mb-8">
+                                <h3 class="text-xs font-black uppercase tracking-widest mb-4">Description</h3>
+                                <p class="text-zinc-600 leading-relaxed">${p.description}</p>
+                            </div>
+                            
+                            <!-- MOQ -->
+                            <div class="flex items-center gap-4 mb-8 p-4 border-2 border-zinc-100 rounded-xl">
+                                <i data-lucide="package" class="w-8 h-8 text-zinc-400"></i>
+                                <div>
+                                    <p class="text-xs font-black uppercase tracking-widest text-zinc-400">Minimum Order Quantity</p>
+                                    <p class="text-xl font-black">${p.moq}</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Certifications -->
+                            <div class="mb-8">
+                                <h3 class="text-xs font-black uppercase tracking-widest mb-4">Certifications</h3>
+                                <div class="flex flex-wrap gap-2">
+                                    ${p.certifications.map(cert => `
+                                        <span class="px-4 py-2 bg-green-50 text-green-700 text-xs font-bold rounded-full flex items-center gap-2">
+                                            <i data-lucide="badge-check" class="w-4 h-4"></i>
+                                            ${cert}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="space-y-4">
+                                <button onclick="addToEnquiry(${p.id})" class="w-full py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-zinc-800 transition-colors flex items-center justify-center gap-3">
+                                    <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+                                    Add to Enquiry
+                                </button>
+                                <button onclick="toggleModal(true)" class="w-full py-5 border-2 border-black font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-black hover:text-white transition-colors flex items-center justify-center gap-3">
+                                    <i data-lucide="message-circle" class="w-5 h-5"></i>
+                                    Request Custom Quote
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Specifications Table -->
+                    <div class="mt-16 pt-16 border-t border-zinc-100">
+                        <h2 class="text-2xl font-black uppercase tracking-tighter mb-8">Technical Specifications</h2>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            ${p.specs.map(spec => `
+                                <div class="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
+                                    <span class="text-xs font-black uppercase tracking-widest text-zinc-400">${spec.label}</span>
+                                    <span class="font-bold">${spec.value}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // Current media state
+        let currentMediaType = 'image';
+        let currentProductForGallery = null;
+
+        function changeProductMedia(direction) {
+            if (!currentProductForGallery) return;
+            const p = currentProductForGallery;
+            const totalMedia = p.images.length + (p.video ? 1 : 0);
+
+            let currentIdx = currentMediaType === 'video' ? p.images.length : currentImageIndex;
+            currentIdx = (currentIdx + direction + totalMedia) % totalMedia;
+
+            if (currentIdx < p.images.length) {
+                setProductMedia(currentIdx, 'image');
+            } else {
+                setProductMedia(currentIdx, 'video');
+            }
+        }
+
+        function setProductMedia(index, type) {
+            if (!currentProductForGallery) return;
+            const p = currentProductForGallery;
+
+            const container = document.getElementById('main-media-container');
+            if (!container) return;
+
+            currentMediaType = type;
+
+            // Clear all thumbnail borders
+            p.images.forEach((_, i) => {
+                const thumb = document.getElementById(`thumb-${i}`);
+                if (thumb) thumb.className = thumb.className.replace('border-black', 'border-transparent');
+            });
+            const videoThumb = document.getElementById('thumb-video');
+            if (videoThumb) videoThumb.className = videoThumb.className.replace('border-black', 'border-transparent');
+
+            if (type === 'image') {
+                currentImageIndex = index;
+                container.innerHTML = `<img id="main-product-media" src="${p.images[index]}" alt="${p.name}" class="w-full h-full object-cover">
+                    ${(p.images.length + (p.video ? 1 : 0)) > 1 ? `
+                        <button onclick="changeProductMedia(-1)" class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors">
+                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="changeProductMedia(1)" class="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors">
+                            <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                        </button>
+                    ` : ''}`;
+                const thumb = document.getElementById(`thumb-${index}`);
+                if (thumb) thumb.className = thumb.className.replace('border-transparent', 'border-black');
+            } else if (type === 'video' && p.video) {
+                container.innerHTML = `<video src="${p.video}" class="w-full h-full object-cover" controls autoplay muted></video>
+                    ${(p.images.length + 1) > 1 ? `
+                        <button onclick="changeProductMedia(-1)" class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors z-10">
+                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="changeProductMedia(1)" class="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors z-10">
+                            <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                        </button>
+                    ` : ''}`;
+                if (videoThumb) videoThumb.className = videoThumb.className.replace('border-transparent', 'border-black');
+            }
+            lucide.createIcons();
+        }
+
+        // --- SEARCH FUNCTIONALITY ---
+        let searchTimeout;
+        function initSearch() {
+            const searchInput = document.querySelector('.search-input');
+            if (!searchInput) return;
+
+            searchInput.addEventListener('input', function (e) {
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim().toLowerCase();
+
+                if (query.length < 2) {
+                    closeSearchResults();
+                    return;
+                }
+
+                searchTimeout = setTimeout(() => {
+                    const results = products.filter(p =>
+                        p.name.toLowerCase().includes(query) ||
+                        p.cat.toLowerCase().includes(query)
+                    );
+                    showSearchResults(results, query);
+                }, 200);
+            });
+
+            searchInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeSearchResults();
+            });
+        }
+
+        function showSearchResults(results, query) {
+            closeSearchResults();
+            const searchContainer = document.querySelector('.search-input').parentElement;
+
+            const dropdown = document.createElement('div');
+            dropdown.id = 'search-results';
+            dropdown.className = 'absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-zinc-200 overflow-hidden z-50';
+
+            if (results.length === 0) {
+                dropdown.innerHTML = `<div class="p-6 text-center text-zinc-400 text-sm">${t('no_results')}</div>`;
+            } else {
+                dropdown.innerHTML = results.map(p => `
+                    <button onclick="addToEnquiry(${p.id}); closeSearchResults();" class="w-full p-4 flex items-center gap-4 hover:bg-zinc-50 transition-colors text-left border-b border-zinc-100 last:border-0">
+                        <div class="w-12 h-12 bg-zinc-100 rounded-xl shrink-0"></div>
+                        <div class="flex-1">
+                            <div class="font-bold text-sm">${p.name}</div>
+                            <div class="text-xs text-zinc-400 uppercase tracking-widest">${p.cat} • MOQ: ${p.moq}</div>
+                        </div>
+                        <span class="text-xs font-bold text-black">Enquire</span>
+                    </button>
+                `).join('');
+            }
+
+            searchContainer.appendChild(dropdown);
+        }
+
+        function closeSearchResults() {
+            const existing = document.getElementById('search-results');
+            if (existing) existing.remove();
+        }
+
+        // Close search on click outside
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.search-input') && !e.target.closest('#search-results')) {
+                closeSearchResults();
+            }
+        });
+
+        function addToEnquiry(id) {
+            // Check if user is logged in
+            if (!currentUser) {
+                pendingEnquiryId = id; // Store the product ID for after auth
+                openAuthModal('signup');
+                return;
+            }
+
+            const p = products.find(prod => prod.id === id);
+            if (!cart.find(item => item.id === id)) cart.push(p);
+            updateCartBadge();
+            navigate('enquiries');
+        }
+
+        function removeFromCart(id) {
+            cart = cart.filter(item => item.id !== id);
+            updateCartBadge();
+            navigate('enquiries');
+        }
+
+        function updateCartBadge() {
+            const dot = document.getElementById('cart-count');
+            if (cart.length > 0) {
+                dot.innerText = cart.length;
+                dot.style.opacity = 1;
+            } else {
+                dot.style.opacity = 0;
+            }
+        }
+
+        // --- AUTH FUNCTIONS ---
+        let authStep = 1;
+        let authFormData = {};
+        let emailTimerInterval, phoneTimerInterval;
+
+        function toggleAuthModal(show) {
+            const m = document.getElementById('auth-modal');
+            if (show) {
+                m.classList.add('active');
+                resetAuthModal();
+                lucide.createIcons();
+            } else {
+                m.classList.remove('active');
+                clearInterval(emailTimerInterval);
+                clearInterval(phoneTimerInterval);
+            }
+        }
+
+        function resetAuthModal() {
+            authStep = 1;
+            authFormData = {};
+            showAuthStep(1);
+            document.getElementById('auth-form-step1').reset();
+            clearOTPInputs('otp-input');
+            clearOTPInputs('phone-otp-input');
+            document.getElementById('email-otp-error').classList.add('hidden');
+            document.getElementById('phone-otp-error').classList.add('hidden');
+        }
+
+        function openAuthModal(mode) {
+            authMode = mode;
+            updateAuthModalUI();
+            toggleAuthModal(true);
+        }
+
+        function switchAuthMode() {
+            authMode = authMode === 'signup' ? 'signin' : 'signup';
+            updateAuthModalUI();
+        }
+
+        function updateAuthModalUI() {
+            const title = document.getElementById('auth-modal-title');
+            const btnText = document.getElementById('auth-step1-btn-text');
+            const switchParent = document.getElementById('auth-switch-btn').parentElement;
+            const stepIndicator = document.getElementById('auth-step-indicator');
+
+            const nameField = document.getElementById('name-field-container');
+            const countryField = document.getElementById('country-field-container');
+            const phoneField = document.getElementById('phone-field-container');
+
+            if (authMode === 'signup') {
+                title.textContent = 'Sign Up';
+                btnText.textContent = 'Continue';
+                switchParent.innerHTML = 'Already have an account? <button onclick="switchAuthMode()" class="font-bold text-black underline" id="auth-switch-btn">Sign In</button>';
+                nameField.style.display = 'block';
+                countryField.style.display = 'block';
+                phoneField.style.display = 'block';
+                stepIndicator.style.display = 'flex';
+                document.getElementById('auth-name').required = true;
+                document.getElementById('auth-country').required = true;
+                document.getElementById('auth-phone').required = true;
+            } else {
+                title.textContent = 'Sign In';
+                btnText.textContent = 'Sign In';
+                switchParent.innerHTML = "Don't have an account? <button onclick=\"switchAuthMode()\" class=\"font-bold text-black underline\" id=\"auth-switch-btn\">Sign Up</button>";
+                nameField.style.display = 'none';
+                countryField.style.display = 'none';
+                phoneField.style.display = 'none';
+                stepIndicator.style.display = 'none';
+                document.getElementById('auth-name').required = false;
+                document.getElementById('auth-country').required = false;
+                document.getElementById('auth-phone').required = false;
+            }
+        }
+
+        function showAuthStep(step) {
+            authStep = step;
+            document.getElementById('auth-step-1').classList.add('hidden');
+            document.getElementById('auth-step-2').classList.add('hidden');
+            document.getElementById('auth-step-3').classList.add('hidden');
+            document.getElementById(`auth-step-${step}`).classList.remove('hidden');
+
+            const stepIndicator = document.getElementById('auth-step-indicator');
+
+            // For sign-in, only show 2 steps (no phone OTP)
+            if (authMode === 'signin' && step > 1) {
+                stepIndicator.style.display = 'flex';
+            }
+
+            // Update step dots (with null check)
+            for (let i = 1; i <= 3; i++) {
+                const dot = document.getElementById(`step-dot-${i}`);
+                if (dot) {
+                    dot.className = i <= step ? 'w-3 h-3 rounded-full bg-black' : 'w-3 h-3 rounded-full bg-zinc-200';
+                }
+            }
+
+            // Show/hide back button
+            document.getElementById('auth-back-btn').classList.toggle('hidden', step === 1);
+
+            lucide.createIcons();
+        }
+
+        function authGoBack() {
+            if (authStep > 1) {
+                showAuthStep(authStep - 1);
+            }
+        }
+
+        function handleAuthStep1(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('auth-email').value;
+
+            if (authMode === 'signin') {
+                // For sign in, verify user exists then proceed to email OTP
+                const savedUser = localStorage.getItem('arovaveUser');
+                if (savedUser) {
+                    const user = JSON.parse(savedUser);
+                    if (user.email === email) {
+                        // Store user temporarily, will set as currentUser after OTP
+                        authFormData = { email: email, savedUser: user, isSignIn: true };
+                        document.getElementById('email-display').textContent = email;
+                        showAuthStep(2);
+                        startEmailTimer();
+                        setupOTPInputs('otp-input');
+                        console.log('Sign-in OTP sent to:', email);
+                        return;
+                    }
+                }
+                alert('No account found with this email. Please sign up first.');
+                return;
+            }
+
+            // For signup, collect data and proceed to email OTP
+            authFormData = {
+                name: document.getElementById('auth-name').value,
+                email: email,
+                country: document.getElementById('auth-country').value,
+                phone: document.getElementById('auth-phone').value
+            };
+
+            document.getElementById('email-display').textContent = authFormData.email;
+            showAuthStep(2);
+            startEmailTimer();
+            setupOTPInputs('otp-input');
+
+            // Mock: "Send" OTP (in production, call Firebase/Supabase)
+            console.log('Email OTP sent to:', authFormData.email);
+        }
+
+        function handleEmailOTP(event) {
+            event.preventDefault();
+            const otp = getOTPValue('otp-input');
+
+            if (otp.length !== 6) {
+                document.getElementById('email-otp-error').textContent = 'Please enter all 6 digits.';
+                document.getElementById('email-otp-error').classList.remove('hidden');
+                return;
+            }
+
+            // Mock verification: accept any 6-digit code
+            // In production, verify with backend
+            document.getElementById('email-otp-error').classList.add('hidden');
+
+            // If sign-in, complete auth now (no phone OTP needed)
+            if (authFormData.isSignIn) {
+                currentUser = authFormData.savedUser;
+                completeAuth();
+                return;
+            }
+
+            // For sign-up, proceed to phone OTP
+            document.getElementById('phone-display').textContent = authFormData.phone;
+            showAuthStep(3);
+            startPhoneTimer();
+            setupOTPInputs('phone-otp-input');
+
+            console.log('Phone OTP sent to:', authFormData.phone);
+        }
+
+        function handlePhoneOTP(event) {
+            event.preventDefault();
+            const otp = getOTPValue('phone-otp-input');
+
+            if (otp.length !== 6) {
+                document.getElementById('phone-otp-error').textContent = 'Please enter all 6 digits.';
+                document.getElementById('phone-otp-error').classList.remove('hidden');
+                return;
+            }
+
+            // Mock verification: accept any 6-digit code
+            document.getElementById('phone-otp-error').classList.add('hidden');
+
+            // Complete signup
+            currentUser = {
+                name: authFormData.name,
+                email: authFormData.email,
+                country: authFormData.country,
+                phone: authFormData.phone,
+                emailVerified: true,
+                phoneVerified: true,
+                createdAt: new Date().toISOString()
+            };
+
+            localStorage.setItem('arovaveUser', JSON.stringify(currentUser));
+            completeAuth();
+        }
+
+        function completeAuth() {
+            toggleAuthModal(false);
+
+            if (pendingEnquiryId) {
+                const p = products.find(prod => prod.id === pendingEnquiryId);
+                if (p && !cart.find(item => item.id === pendingEnquiryId)) {
+                    cart.push(p);
+                    updateCartBadge();
+                }
+                pendingEnquiryId = null;
+                navigate('enquiries');
+            } else {
+                navigate('profile');
+            }
+        }
+
+        // OTP Input helpers
+        function setupOTPInputs(className) {
+            const inputs = document.querySelectorAll(`.${className}`);
+            inputs.forEach((input, index) => {
+                input.value = '';
+                input.addEventListener('input', (e) => {
+                    const val = e.target.value;
+                    if (val && index < inputs.length - 1) {
+                        inputs[index + 1].focus();
+                    }
+                });
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                        inputs[index - 1].focus();
+                    }
+                });
+                input.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const paste = (e.clipboardData || window.clipboardData).getData('text');
+                    const chars = paste.replace(/\D/g, '').slice(0, 6).split('');
+                    chars.forEach((char, i) => {
+                        if (inputs[i]) inputs[i].value = char;
+                    });
+                    if (inputs[chars.length - 1]) inputs[chars.length - 1].focus();
+                });
+            });
+            if (inputs[0]) inputs[0].focus();
+        }
+
+        function getOTPValue(className) {
+            return Array.from(document.querySelectorAll(`.${className}`)).map(i => i.value).join('');
+        }
+
+        function clearOTPInputs(className) {
+            document.querySelectorAll(`.${className}`).forEach(i => i.value = '');
+        }
+
+        // Timer functions
+        function startEmailTimer() {
+            let seconds = 30;
+            document.getElementById('email-timer-count').textContent = seconds;
+            document.getElementById('email-resend-timer').classList.remove('hidden');
+            document.getElementById('email-resend-btn').classList.add('hidden');
+
+            clearInterval(emailTimerInterval);
+            emailTimerInterval = setInterval(() => {
+                seconds--;
+                document.getElementById('email-timer-count').textContent = seconds;
+                if (seconds <= 0) {
+                    clearInterval(emailTimerInterval);
+                    document.getElementById('email-resend-timer').classList.add('hidden');
+                    document.getElementById('email-resend-btn').classList.remove('hidden');
+                }
+            }, 1000);
+        }
+
+        function startPhoneTimer() {
+            let seconds = 30;
+            document.getElementById('phone-timer-count').textContent = seconds;
+            document.getElementById('phone-resend-timer').classList.remove('hidden');
+            document.getElementById('phone-resend-btn').classList.add('hidden');
+
+            clearInterval(phoneTimerInterval);
+            phoneTimerInterval = setInterval(() => {
+                seconds--;
+                document.getElementById('phone-timer-count').textContent = seconds;
+                if (seconds <= 0) {
+                    clearInterval(phoneTimerInterval);
+                    document.getElementById('phone-resend-timer').classList.add('hidden');
+                    document.getElementById('phone-resend-btn').classList.remove('hidden');
+                }
+            }, 1000);
+        }
+
+        function resendEmailOTP() {
+            console.log('Resending email OTP to:', authFormData.email);
+            startEmailTimer();
+        }
+
+        function resendPhoneOTP() {
+            console.log('Resending phone OTP to:', authFormData.phone);
+            startPhoneTimer();
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            localStorage.removeItem('arovaveUser');
+            navigate('profile');
+        }
+
+        // Load user from localStorage on init
+        function loadUserFromStorage() {
+            const savedUser = localStorage.getItem('arovaveUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+            }
+        }
+
+        window.onload = function () {
+            loadUserFromStorage();
+            init();
+        };
+    </script>
+</body>
+
+</html>

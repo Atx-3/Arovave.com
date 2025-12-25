@@ -1,0 +1,7 @@
+export { Home } from './Home';
+export { Catalog } from './Catalog';
+export { ProductDetail } from './ProductDetail';
+export { Profile } from './Profile';
+export { Admin } from './Admin';
+export { Enquiries } from './Enquiries';
+export { TrustPage } from './TrustPage';
