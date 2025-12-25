@@ -25,6 +25,8 @@ export function Admin() {
     // Quality content state
     const [qualityContent, setQualityContent] = useState<Record<string, any[]>>({});
     const [selectedQualityCategory, setSelectedQualityCategory] = useState<string>('food');
+    const [qualitySubcategory, setQualitySubcategory] = useState<string>('');
+    const [qualityContentType, setQualityContentType] = useState<string>('certificate');
 
     // Video URL state
     const [videoUrl, setVideoUrl] = useState('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
@@ -305,77 +307,145 @@ export function Admin() {
             {/* Quality Content Tab */}
             {tab === 'quality' && (
                 <div>
-                    <p className="text-zinc-500 mb-6">Manage certificates, plant photos, and product samples for each category.</p>
+                    <p className="text-zinc-500 mb-6">Upload certificates, plant photos, and product samples for each category and subcategory.</p>
 
-                    {/* Category Tabs */}
-                    <div className="flex gap-3 mb-8 overflow-x-auto">
-                        {qualityCategories.map(cat => (
-                            <button
-                                key={cat.id}
-                                onClick={() => setSelectedQualityCategory(cat.id)}
-                                className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest whitespace-nowrap transition-colors ${selectedQualityCategory === cat.id
-                                    ? 'bg-black text-white'
-                                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                                    }`}
+                    {/* Category Selection */}
+                    <div className="mb-6">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Select Category</label>
+                        <div className="flex gap-3 flex-wrap">
+                            {qualityCategories.map(cat => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setSelectedQualityCategory(cat.id)}
+                                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest whitespace-nowrap transition-colors ${selectedQualityCategory === cat.id
+                                        ? 'bg-black text-white'
+                                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                        }`}
+                                >
+                                    <cat.icon className="w-4 h-4" />
+                                    {cat.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Subcategory Selection */}
+                    {selectedQualityCategory && (
+                        <div className="mb-6">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Select Subcategory</label>
+                            <select
+                                value={qualitySubcategory}
+                                onChange={(e) => setQualitySubcategory(e.target.value)}
+                                className="px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
                             >
-                                <cat.icon className="w-4 h-4" />
-                                {cat.name}
-                            </button>
-                        ))}
-                    </div>
+                                <option value="">-- Select Subcategory --</option>
+                                <option value="all">All {qualityCategories.find(c => c.id === selectedQualityCategory)?.name}</option>
+                                {categories.find(c => c.id === selectedQualityCategory)?.subcategories?.map(sub => (
+                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
-                    {/* Add Buttons */}
-                    <div className="flex flex-wrap gap-3 mb-8">
-                        <button
-                            onClick={() => addQualityItem(selectedQualityCategory, 'certificate')}
-                            className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-green-200 transition-colors"
-                        >
-                            <Plus className="w-3 h-3" /> Add Certificate
-                        </button>
-                        <button
-                            onClick={() => addQualityItem(selectedQualityCategory, 'plant')}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-blue-200 transition-colors"
-                        >
-                            <Plus className="w-3 h-3" /> Add Plant Photo
-                        </button>
-                        <button
-                            onClick={() => addQualityItem(selectedQualityCategory, 'sample')}
-                            className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-purple-200 transition-colors"
-                        >
-                            <Plus className="w-3 h-3" /> Add Product Sample
-                        </button>
-                    </div>
-
-                    {/* Content Grid */}
-                    <div className="grid md:grid-cols-3 gap-6">
-                        {(qualityContent[selectedQualityCategory] || []).map((item: any) => (
-                            <div key={item.id} className="bg-white rounded-2xl border border-zinc-100 overflow-hidden group">
-                                <div className="aspect-[4/3] overflow-hidden relative">
-                                    <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                    {/* Content Type Selection */}
+                    {qualitySubcategory && (
+                        <div className="mb-6">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Content Type</label>
+                            <div className="flex gap-3">
+                                {['certificate', 'plant', 'sample'].map(type => (
                                     <button
-                                        onClick={() => deleteQualityItem(selectedQualityCategory, item.id)}
-                                        className="absolute top-3 right-3 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                        key={type}
+                                        onClick={() => setQualityContentType(type)}
+                                        className={`px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest ${qualityContentType === type
+                                            ? type === 'certificate' ? 'bg-green-600 text-white' : type === 'plant' ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'
+                                            : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                            }`}
                                     >
-                                        <Trash2 className="w-4 h-4" />
+                                        {type === 'certificate' ? 'Certificates' : type === 'plant' ? 'Plant Photos' : 'Product Samples'}
                                     </button>
-                                </div>
-                                <div className="p-4">
-                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${item.type === 'certificate' ? 'text-green-600' :
-                                        item.type === 'plant' ? 'text-blue-600' : 'text-purple-600'
-                                        }`}>
-                                        {item.type === 'certificate' ? 'Certificate' :
-                                            item.type === 'plant' ? 'Manufacturing Plant' : 'Product Sample'}
-                                    </span>
-                                    <h4 className="font-bold mt-1">{item.title}</h4>
-                                </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    )}
 
-                    {(!qualityContent[selectedQualityCategory] || qualityContent[selectedQualityCategory].length === 0) && (
-                        <div className="text-center py-16 bg-zinc-50 rounded-2xl">
-                            <p className="text-zinc-400 mb-4">No content added for this category yet.</p>
-                            <p className="text-sm text-zinc-400">Use the buttons above to add certificates, plant photos, or product samples.</p>
+                    {/* Add New Item */}
+                    {qualitySubcategory && qualityContentType && (
+                        <div className="bg-zinc-50 rounded-2xl p-6 mb-8">
+                            <h3 className="font-bold mb-4">Add New {qualityContentType === 'certificate' ? 'Certificate' : qualityContentType === 'plant' ? 'Plant Photo' : 'Product Sample'}</h3>
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <input
+                                    type="text"
+                                    placeholder="Title"
+                                    id="qualityItemTitle"
+                                    className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                                />
+                                <input
+                                    type="url"
+                                    placeholder="Image URL"
+                                    id="qualityItemImage"
+                                    className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                                />
+                            </div>
+                            <button
+                                onClick={() => {
+                                    const title = (document.getElementById('qualityItemTitle') as HTMLInputElement)?.value;
+                                    const image = (document.getElementById('qualityItemImage') as HTMLInputElement)?.value;
+                                    if (!title || !image) return alert('Please fill in title and image URL');
+
+                                    const key = `${selectedQualityCategory}_${qualitySubcategory}_${qualityContentType}`;
+                                    const saved = JSON.parse(localStorage.getItem('arovaveQualityUploads') || '{}');
+                                    saved[key] = saved[key] || [];
+                                    saved[key].push({ id: Date.now(), title, image });
+                                    localStorage.setItem('arovaveQualityUploads', JSON.stringify(saved));
+                                    setQualityContent(saved);
+                                    (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
+                                    (document.getElementById('qualityItemImage') as HTMLInputElement).value = '';
+                                    alert('✅ Item added!');
+                                }}
+                                className="mt-4 px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                            >
+                                Add Item
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Display Current Items */}
+                    {qualitySubcategory && qualityContentType && (
+                        <div>
+                            <h3 className="font-bold mb-4">Current Items ({selectedQualityCategory} / {qualitySubcategory} / {qualityContentType})</h3>
+                            {(() => {
+                                const key = `${selectedQualityCategory}_${qualitySubcategory}_${qualityContentType}`;
+                                const items = qualityContent[key] || [];
+                                return items.length > 0 ? (
+                                    <div className="grid md:grid-cols-3 gap-6">
+                                        {items.map((item: any) => (
+                                            <div key={item.id} className="bg-white rounded-2xl border border-zinc-100 overflow-hidden group">
+                                                <div className="aspect-video overflow-hidden relative">
+                                                    <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                                                    <button
+                                                        onClick={() => {
+                                                            const saved = JSON.parse(localStorage.getItem('arovaveQualityUploads') || '{}');
+                                                            saved[key] = (saved[key] || []).filter((i: any) => i.id !== item.id);
+                                                            localStorage.setItem('arovaveQualityUploads', JSON.stringify(saved));
+                                                            setQualityContent(saved);
+                                                        }}
+                                                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                                <div className="p-4">
+                                                    <h4 className="font-bold">{item.title}</h4>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12 bg-zinc-50 rounded-2xl">
+                                        <p className="text-zinc-400">No items added yet. Add your first item above.</p>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>

@@ -74,9 +74,9 @@ export function Catalog() {
 
     return (
         <div className="page-enter">
-            {/* Category Navigation - Hidden when trending filter */}
+            {/* Category Navigation - Hidden on mobile (in hamburger) and when trending filter */}
             {filterType !== 'trending' && (
-                <div className="sticky top-[73px] z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-100 shadow-sm">
+                <div className="hidden md:block sticky top-[73px] z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-100 shadow-sm">
                     <div className="max-w-7xl mx-auto px-6 py-4">
                         <div className="flex items-center justify-center gap-4 overflow-x-auto scrollbar-hide">
                             {!selectedCategory && (
