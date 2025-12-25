@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Utensils, Pill, FlaskConical, Gift, Handshake, Award, TrendingDown, Calendar, ArrowRight, MessageCircle, X } from 'lucide-react';
+import { Utensils, Pill, FlaskConical, Gift, Handshake, Award, TrendingUp, Calendar, ArrowRight, MessageCircle, X } from 'lucide-react';
 import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products, categories } from '../data';
 import { useState, useEffect } from 'react';
@@ -70,7 +70,7 @@ export function Home() {
     const trustCards = [
         { id: 'middleman', icon: Handshake, title: 'Direct Manufacturer Access', desc: t('trust_middleman_desc') },
         { id: 'certificate', icon: Award, title: 'Certificates and Verified Quality', desc: t('trust_certificate_desc') },
-        { id: 'rates', icon: TrendingDown, title: 'Factory Direct Pricing', desc: t('trust_rates_desc') },
+        { id: 'rates', icon: TrendingUp, title: 'Factory Direct Pricing', desc: t('trust_rates_desc') },
         { id: 'history', icon: Calendar, title: 'Decades of Industrial Experience', desc: t('trust_history_desc') }
     ];
 
@@ -251,7 +251,7 @@ export function Home() {
                         <h2 className="text-3xl font-black uppercase tracking-tighter">
                             Trending Products
                         </h2>
-                        <Link to="/catalog" className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-black transition-colors">
+                        <Link to="/catalog?filter=trending" className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-black transition-colors">
                             View All <ArrowRight className="w-4 h-4" />
                         </Link>
                     </div>

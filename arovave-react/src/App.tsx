@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, LanguageProvider, EnquiryProvider } from './context';
-import { Layout } from './components/layout';
+import { Layout, ScrollToTop } from './components/layout';
 import { Home, Catalog, ProductDetail, Profile, Admin, Enquiries, TrustPage } from './pages';
 
 export default function App() {
@@ -9,6 +9,7 @@ export default function App() {
       <LanguageProvider>
         <AuthProvider>
           <EnquiryProvider>
+            <ScrollToTop />
             <Layout>
               <Routes>
                 <Route path="/" element={<Home />} />

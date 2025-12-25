@@ -82,7 +82,7 @@ export function Footer() {
                         <div className="space-y-3 text-zinc-400 text-sm">
                             <p>Email: export@arovave.com</p>
                             <p>Phone: +91 9315728922</p>
-                            <p>Lucknow, Uttarpradesh</p>
+                            <p>Lucknow, Uttar Pradesh, INDIA</p>
                         </div>
                     </div>
                 </div>

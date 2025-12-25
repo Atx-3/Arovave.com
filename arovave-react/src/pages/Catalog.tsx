@@ -21,6 +21,7 @@ export function Catalog() {
     const selectedCategory = searchParams.get('category');
     const selectedSubcategory = searchParams.get('subcategory');
     const searchQuery = searchParams.get('search')?.toLowerCase() || '';
+    const filterType = searchParams.get('filter'); // 'trending' or null
     const [expandedCategory, setExpandedCategory] = useState<string | null>(selectedCategory);
     const [products, setProducts] = useState<Product[]>(getStoredProducts);
 
@@ -45,8 +46,14 @@ export function Catalog() {
         }
     }, [selectedCategory]);
 
-    // Filter by category, subcategory and search query
+    // Filter by trending, category, subcategory and search query
     let filteredProducts = products;
+
+    // Trending filter - only show isTrending products
+    if (filterType === 'trending') {
+        const trendingIds = JSON.parse(localStorage.getItem('arovaveTrendingProducts') || '[]');
+        filteredProducts = filteredProducts.filter(p => p.isTrending || trendingIds.includes(p.id));
+    }
 
     if (selectedCategory) {
         filteredProducts = filteredProducts.filter(p => p.cat === selectedCategory);
@@ -145,11 +152,13 @@ export function Catalog() {
             <div className="max-w-7xl mx-auto px-6 py-8">
                 <div className="flex items-center justify-between mb-8">
                     <h1 className="text-3xl font-black uppercase tracking-tighter">
-                        {selectedSubcategory
-                            ? currentCategory?.subcategories?.find(s => s.id === selectedSubcategory)?.name
-                            : selectedCategory
-                                ? categories.find(c => c.id === selectedCategory)?.name
-                                : 'All Products'}
+                        {filterType === 'trending'
+                            ? 'Trending Products'
+                            : selectedSubcategory
+                                ? currentCategory?.subcategories?.find(s => s.id === selectedSubcategory)?.name
+                                : selectedCategory
+                                    ? categories.find(c => c.id === selectedCategory)?.name
+                                    : 'All Products'}
                     </h1>
                     <span className="text-sm text-zinc-400 font-bold">
                         {filteredProducts.length} products
