@@ -15,7 +15,7 @@ const getStoredProducts = (): Product[] => {
 };
 
 export function Admin() {
-    const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality'>('users');
+    const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings'>('users');
     const { allEnquiries, updateEnquiryStatus } = useEnquiry();
     const [products, setProducts] = useState<Product[]>(getStoredProducts);
     const [showProductModal, setShowProductModal] = useState(false);
@@ -24,6 +24,9 @@ export function Admin() {
     // Quality content state
     const [qualityContent, setQualityContent] = useState<Record<string, any[]>>({});
     const [selectedQualityCategory, setSelectedQualityCategory] = useState<string>('food');
+
+    // Video URL state
+    const [videoUrl, setVideoUrl] = useState(localStorage.getItem('arovaveVideoUrl') || 'https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
 
     // Scroll to top on mount
     useEffect(() => {
@@ -138,6 +141,12 @@ export function Admin() {
                     className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'quality' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
                 >
                     <Award className="w-4 h-4" /> Quality Content
+                </button>
+                <button
+                    onClick={() => setTab('settings')}
+                    className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'settings' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                >
+                    ⚙️ Settings
                 </button>
             </div>
 
@@ -393,6 +402,41 @@ export function Admin() {
                         closeModal();
                     }}
                 />
+            )}
+
+            {/* Settings Tab */}
+            {tab === 'settings' && (
+                <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                    <div className="p-6 border-b border-zinc-100">
+                        <h3 className="font-black uppercase tracking-widest text-sm">Website Settings</h3>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                Landing Page Background Video URL
+                            </label>
+                            <input
+                                type="url"
+                                value={videoUrl}
+                                onChange={(e) => setVideoUrl(e.target.value)}
+                                placeholder="https://example.com/video.mp4"
+                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                            />
+                            <p className="text-xs text-zinc-400 mt-2">
+                                Enter a direct URL to a .mp4 video file. Recommended: short, looping video.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => {
+                                localStorage.setItem('arovaveVideoUrl', videoUrl);
+                                alert('Video URL saved! Refresh the homepage to see changes.');
+                            }}
+                            className="px-8 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                        >
+                            Save Video URL
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

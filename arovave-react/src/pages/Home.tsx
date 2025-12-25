@@ -14,6 +14,7 @@ export function Home() {
     const [pendingProduct, setPendingProduct] = useState<number | null>(null);
     const [showPopup, setShowPopup] = useState(false);
     const [trendingProducts, setTrendingProducts] = useState(products.filter(p => p.isTrending).slice(0, 4));
+    const [videoUrl, setVideoUrl] = useState(localStorage.getItem('arovaveVideoUrl') || 'https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
 
     // Scroll to top on mount
     useEffect(() => {
@@ -165,7 +166,7 @@ export function Home() {
                     muted
                     loop
                     playsInline
-                    src="https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4"
+                    src={videoUrl}
                 />
                 <div className="hero-overlay" />
 

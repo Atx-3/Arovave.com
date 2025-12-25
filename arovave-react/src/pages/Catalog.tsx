@@ -21,35 +21,26 @@ export function Catalog() {
     const selectedCategory = searchParams.get('category');
     const selectedSubcategory = searchParams.get('subcategory');
     const searchQuery = searchParams.get('search')?.toLowerCase() || '';
-    const filterType = searchParams.get('filter'); // 'trending' or null
+    const filterType = searchParams.get('filter');
     const [expandedCategory, setExpandedCategory] = useState<string | null>(selectedCategory);
     const [products, setProducts] = useState<Product[]>(getStoredProducts);
 
-    // Scroll to top when page loads
     useEffect(() => {
         window.scrollTo(0, 0);
     }, []);
 
-    // Refresh products from localStorage
     useEffect(() => {
-        const checkProducts = () => {
-            setProducts(getStoredProducts());
-        };
+        const checkProducts = () => setProducts(getStoredProducts());
         const interval = setInterval(checkProducts, 1000);
         return () => clearInterval(interval);
     }, []);
 
-    // Expand category when selected
     useEffect(() => {
-        if (selectedCategory) {
-            setExpandedCategory(selectedCategory);
-        }
+        if (selectedCategory) setExpandedCategory(selectedCategory);
     }, [selectedCategory]);
 
-    // Filter by trending, category, subcategory and search query
     let filteredProducts = products;
 
-    // Trending filter - only show isTrending products
     if (filterType === 'trending') {
         const trendingIds = JSON.parse(localStorage.getItem('arovaveTrendingProducts') || '[]');
         filteredProducts = filteredProducts.filter(p => p.isTrending || trendingIds.includes(p.id));
@@ -83,70 +74,63 @@ export function Catalog() {
 
     return (
         <div className="page-enter">
-            {/* Sticky Category Navigation */}
-            <div className="sticky top-[73px] z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-100 shadow-sm">
-                <div className="max-w-7xl mx-auto px-6 py-4">
-                    <div className="flex items-center justify-center gap-4 overflow-x-auto scrollbar-hide">
-                        {!selectedCategory && (
-                            <button
-                                onClick={() => {
-                                    setSearchParams({});
-                                    setExpandedCategory(null);
-                                }}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-colors whitespace-nowrap bg-black text-white"
-                            >
-                                All Products
-                            </button>
-                        )}
-                        {categories.map(cat => {
-                            const Icon = categoryIcons[cat.id];
-                            const hasSubcategories = cat.subcategories && cat.subcategories.length > 0;
-                            const isExpanded = expandedCategory === cat.id;
-                            return (
-                                <div key={cat.id} className="relative">
-                                    <button
-                                        onClick={() => {
-                                            setSearchParams({ category: cat.id });
-                                            if (hasSubcategories) {
-                                                setExpandedCategory(isExpanded ? null : cat.id);
-                                            }
-                                        }}
-                                        className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-colors whitespace-nowrap ${selectedCategory === cat.id ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                                            }`}
-                                    >
-                                        <Icon className="w-4 h-4" />
-                                        {cat.name}
-                                        {hasSubcategories && (
-                                            <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                                        )}
-                                    </button>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Subcategories Row - Centered */}
-                    {currentCategory && currentCategory.subcategories && currentCategory.subcategories.length > 0 && (
-                        <div className="flex items-center justify-center gap-6 mt-4 overflow-x-auto scrollbar-hide py-2">
-                            <button
-                                onClick={() => setSearchParams({ category: currentCategory.id })}
-                                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${!selectedSubcategory ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
-                            >
-                                All {currentCategory.name}
-                            </button>
-                            {currentCategory.subcategories.map(sub => (
+            {/* Category Navigation - Hidden when trending filter */}
+            {filterType !== 'trending' && (
+                <div className="sticky top-[73px] z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-100 shadow-sm">
+                    <div className="max-w-7xl mx-auto px-6 py-4">
+                        <div className="flex items-center justify-center gap-4 overflow-x-auto scrollbar-hide">
+                            {!selectedCategory && (
                                 <button
-                                    key={sub.id}
-                                    onClick={() => setSearchParams({ category: currentCategory.id, subcategory: sub.id })}
-                                    className={`px-6 py-2.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${selectedSubcategory === sub.id ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                                    onClick={() => { setSearchParams({}); setExpandedCategory(null); }}
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-colors whitespace-nowrap bg-black text-white"
                                 >
-                                    {sub.name}
+                                    All Products
                                 </button>
-                            ))}
+                            )}
+                            {categories.map(cat => {
+                                const Icon = categoryIcons[cat.id];
+                                const hasSubcategories = cat.subcategories && cat.subcategories.length > 0;
+                                const isExpanded = expandedCategory === cat.id;
+                                return (
+                                    <div key={cat.id} className="relative">
+                                        <button
+                                            onClick={() => {
+                                                setSearchParams({ category: cat.id });
+                                                if (hasSubcategories) setExpandedCategory(isExpanded ? null : cat.id);
+                                            }}
+                                            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-colors whitespace-nowrap ${selectedCategory === cat.id ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                                        >
+                                            <Icon className="w-4 h-4" />
+                                            {cat.name}
+                                            {hasSubcategories && <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />}
+                                        </button>
+                                    </div>
+                                );
+                            })}
                         </div>
-                    )}
+
+                        {currentCategory && currentCategory.subcategories && currentCategory.subcategories.length > 0 && (
+                            <div className="flex items-center justify-center gap-6 mt-4 overflow-x-auto scrollbar-hide py-2">
+                                <button
+                                    onClick={() => setSearchParams({ category: currentCategory.id })}
+                                    className={`px-6 py-2.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${!selectedSubcategory ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                                >
+                                    All {currentCategory.name}
+                                </button>
+                                {currentCategory.subcategories.map(sub => (
+                                    <button
+                                        key={sub.id}
+                                        onClick={() => setSearchParams({ category: currentCategory.id, subcategory: sub.id })}
+                                        className={`px-6 py-2.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${selectedSubcategory === sub.id ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                                    >
+                                        {sub.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-6 py-8">
@@ -165,17 +149,12 @@ export function Catalog() {
                     </span>
                 </div>
 
-                {/* Products Grid */}
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {filteredProducts.map(product => (
                         <div key={product.id} className="bg-white rounded-3xl border border-zinc-100 overflow-hidden group hover:shadow-lg transition-shadow">
                             <Link to={`/product/${product.id}`}>
                                 <div className="aspect-[4/3] overflow-hidden">
-                                    <img
-                                        src={product.images[0]}
-                                        alt={product.name}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                    />
+                                    <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                 </div>
                             </Link>
                             <div className="p-6">
@@ -189,16 +168,10 @@ export function Catalog() {
                                     <p className="text-xs text-zinc-400">MOQ: {product.moq}</p>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Link
-                                        to={`/product/${product.id}`}
-                                        className="flex-1 py-3 border-2 border-zinc-200 rounded-xl text-center text-xs font-bold uppercase tracking-widest hover:border-black transition-colors"
-                                    >
+                                    <Link to={`/product/${product.id}`} className="flex-1 py-3 border-2 border-zinc-200 rounded-xl text-center text-xs font-bold uppercase tracking-widest hover:border-black transition-colors">
                                         {t('viewDetails')}
                                     </Link>
-                                    <button
-                                        onClick={() => addToCart(product)}
-                                        className="px-5 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
-                                    >
+                                    <button onClick={() => addToCart(product)} className="px-5 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors">
                                         +
                                     </button>
                                 </div>
