@@ -233,9 +233,30 @@ export function Header() {
                         <div className="mt-4 pt-4 border-t border-zinc-100">
                             <div className="space-y-1">
                                 <Link to="/" className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50">Home</Link>
-                                <Link to="/catalog" className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50">Catalog</Link>
+                                <Link to="/catalog" className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50">All Products</Link>
                                 <Link to="/profile" className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50">Profile</Link>
                             </div>
+
+                            {/* Categories Section */}
+                            <div className="px-4 py-3 mt-2 border-t border-zinc-100">
+                                <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3">Categories</p>
+                                <div className="space-y-2">
+                                    <Link to="/catalog?category=food" className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 flex items-center gap-3">
+                                        🍯 Processed Food
+                                    </Link>
+                                    <Link to="/catalog?category=pharma" className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 flex items-center gap-3">
+                                        💊 Generic Medicines
+                                    </Link>
+                                    <Link to="/catalog?category=glass" className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 flex items-center gap-3">
+                                        🧪 Glass Bottles
+                                    </Link>
+                                    <Link to="/catalog?category=promo" className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 flex items-center gap-3">
+                                        🎁 Promotional Items
+                                    </Link>
+                                </div>
+                            </div>
+
+                            {/* Language Section */}
                             <div className="px-4 py-3 mt-2 border-t border-zinc-100">
                                 <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Language</p>
                                 <div className="flex flex-wrap gap-2">

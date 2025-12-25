@@ -413,28 +413,74 @@ export function Admin() {
                     <div className="p-6 space-y-6">
                         <div>
                             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
-                                Landing Page Background Video URL
+                                Landing Page Background Video
                             </label>
+
+                            {/* File Upload */}
                             <input
-                                type="url"
-                                value={videoUrl}
-                                onChange={(e) => setVideoUrl(e.target.value)}
-                                placeholder="https://example.com/video.mp4"
-                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                type="file"
+                                accept="video/mp4,video/webm,video/ogg"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        if (file.size > 50 * 1024 * 1024) {
+                                            alert('Video file too large! Maximum 50MB allowed.');
+                                            return;
+                                        }
+                                        const reader = new FileReader();
+                                        reader.onload = () => {
+                                            const base64 = reader.result as string;
+                                            setVideoUrl(base64);
+                                            localStorage.setItem('arovaveVideoUrl', base64);
+                                            alert('Video uploaded and saved! Refresh homepage to see changes.');
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }}
+                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white file:cursor-pointer"
                             />
                             <p className="text-xs text-zinc-400 mt-2">
-                                Enter a direct URL to a .mp4 video file. Recommended: short, looping video.
+                                Upload a .mp4, .webm or .ogg video file (max 50MB). Recommended: short, looping video.
                             </p>
+
+                            {/* Or URL Input */}
+                            <div className="mt-4 pt-4 border-t border-zinc-100">
+                                <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Or enter video URL</p>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="url"
+                                        value={videoUrl.startsWith('data:') ? '' : videoUrl}
+                                        onChange={(e) => setVideoUrl(e.target.value)}
+                                        placeholder="https://example.com/video.mp4"
+                                        className="flex-1 px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none text-sm"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            if (videoUrl && !videoUrl.startsWith('data:')) {
+                                                localStorage.setItem('arovaveVideoUrl', videoUrl);
+                                                alert('Video URL saved! Refresh homepage to see changes.');
+                                            }
+                                        }}
+                                        className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                    >
+                                        Save URL
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Preview */}
+                            {videoUrl && (
+                                <div className="mt-4 pt-4 border-t border-zinc-100">
+                                    <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Current Video Preview</p>
+                                    <video
+                                        src={videoUrl}
+                                        className="w-full max-w-md rounded-xl"
+                                        controls
+                                        muted
+                                    />
+                                </div>
+                            )}
                         </div>
-                        <button
-                            onClick={() => {
-                                localStorage.setItem('arovaveVideoUrl', videoUrl);
-                                alert('Video URL saved! Refresh the homepage to see changes.');
-                            }}
-                            className="px-8 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
-                        >
-                            Save Video URL
-                        </button>
                     </div>
                 </div>
             )}
