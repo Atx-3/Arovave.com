@@ -6,6 +6,7 @@ interface AuthContextType {
     currentUser: User | null;
     login: (user: User) => void;
     logout: () => void;
+    updateProfile: (data: Partial<User>) => void;
     isAuthenticated: boolean;
 }
 
@@ -33,11 +34,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('arovaveUser');
     };
 
+    const updateProfile = (data: Partial<User>) => {
+        if (currentUser) {
+            const updated = { ...currentUser, ...data };
+            setCurrentUser(updated);
+            localStorage.setItem('arovaveUser', JSON.stringify(updated));
+        }
+    };
+
     return (
         <AuthContext.Provider value={{
             currentUser,
             login,
             logout,
+            updateProfile,
             isAuthenticated: !!currentUser
         }}>
             {children}

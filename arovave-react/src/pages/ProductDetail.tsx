@@ -1,8 +1,15 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, BadgeCheck, Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation, useEnquiry } from '../context';
-import { products } from '../data';
+import { products as initialProducts } from '../data';
+import type { Product } from '../types';
+
+// Get products from localStorage or use initial
+const getStoredProducts = (): Product[] => {
+    const saved = localStorage.getItem('arovaveProducts');
+    return saved ? JSON.parse(saved) : initialProducts;
+};
 
 export function ProductDetail() {
     const { id } = useParams();
@@ -10,6 +17,12 @@ export function ProductDetail() {
     const { addToCart } = useEnquiry();
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isVideo, setIsVideo] = useState(false);
+    const [products, setProducts] = useState<Product[]>(getStoredProducts);
+
+    // Reload products on mount to catch any updates
+    useEffect(() => {
+        setProducts(getStoredProducts());
+    }, []);
 
     const product = products.find(p => p.id === Number(id));
 

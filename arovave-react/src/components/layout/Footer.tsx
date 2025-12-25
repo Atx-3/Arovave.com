@@ -24,97 +24,86 @@ export function Footer() {
     const t = useTranslation();
 
     return (
-        <footer className="bg-zinc-950 text-white py-20">
+        <footer className="bg-zinc-950 text-white py-16">
             <div className="max-w-7xl mx-auto px-6">
-                <div className="grid md:grid-cols-4 gap-12 mb-16">
+                <div className="grid md:grid-cols-4 gap-10 mb-12">
                     {/* Brand */}
                     <div>
-                        <div className="flex items-center gap-3 mb-6">
+                        <div className="flex items-center gap-3 mb-4">
                             <img src="/logo.png" alt="Arovave" className="h-10 w-auto invert" />
                         </div>
                         <p className="text-zinc-400 text-sm leading-relaxed">
-                            India's largest B2B export platform connecting global buyers directly with premium manufacturers.
-                            25+ years of trusted trade excellence.
+                            Your trusted partner for direct manufacturer access in India.
+                            Premium quality products at factory prices since 1998.
                         </p>
                     </div>
 
-                    {/* Trust Points */}
+                    {/* Categories */}
                     <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest mb-6">{t('whyTrust')}</h4>
-                        <div className="space-y-3">
-                            <Link to="/trust/middleman" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                {t('trust_middleman')}
+                        <h4 className="text-xs font-black uppercase tracking-widest mb-5">Categories</h4>
+                        <div className="space-y-2">
+                            <Link to="/catalog?category=food" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                                Processed Food
                             </Link>
-                            <Link to="/trust/certificate" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                {t('trust_certificate')}
+                            <Link to="/catalog?category=pharma" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                                Generic Medicines
                             </Link>
-                            <Link to="/trust/rates" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                {t('trust_rates')}
+                            <Link to="/catalog?category=glass" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                                Glass Bottles
                             </Link>
-                            <Link to="/trust/history" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                {t('trust_history')}
+                            <Link to="/catalog?category=promo" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                                Promotional Items
                             </Link>
                         </div>
                     </div>
 
-                    {/* Quick Links */}
+                    {/* Why Trust Us */}
                     <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest mb-6">Quick Links</h4>
-                        <div className="space-y-3">
-                            <Link to="/catalog" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                {t('catalog')}
+                        <h4 className="text-xs font-black uppercase tracking-widest mb-5">{t('whyTrust')}</h4>
+                        <div className="space-y-2">
+                            <Link to="/trust/middleman" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                                Direct Manufacturer Access
                             </Link>
-                            <Link to="/about" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                About Us
+                            <Link to="/trust/certificate" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                                Certificates & Verified Quality
                             </Link>
-                            <Link to="/privacy" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                Privacy Policy
+                            <Link to="/trust/rates" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                                Factory Direct Pricing
                             </Link>
-                            <Link to="/terms" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                Terms of Service
+                            <Link to="/trust/history" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                                25+ Years Experience
                             </Link>
                         </div>
                     </div>
 
                     {/* Contact */}
                     <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest mb-6">Contact</h4>
-                        <div className="space-y-3 text-zinc-400 text-sm">
-                            <p>Email: export@arovave.com</p>
-                            <p>Phone: +91 9315728922</p>
-                            <p>Lucknow, Uttar Pradesh, INDIA</p>
+                        <h4 className="text-xs font-black uppercase tracking-widest mb-5">Contact Us</h4>
+                        <div className="space-y-2 text-zinc-400 text-sm">
+                            <p>📧 export@arovave.com</p>
+                            <p>📞 +91 9315728922</p>
+                            <p>📍 Lucknow, Uttar Pradesh, India</p>
+                        </div>
+                        <div className="flex gap-3 mt-4">
+                            <a href="https://instagram.com/arovave" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                                <InstagramIcon />
+                            </a>
+                            <a href="https://x.com/arovave" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                                <XIcon />
+                            </a>
+                            <a href="https://linkedin.com/company/arovave" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                                <LinkedInIcon />
+                            </a>
                         </div>
                     </div>
                 </div>
 
                 {/* Bottom */}
-                <div className="border-t border-zinc-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-zinc-500 text-sm">© 2026 Arovave Global Exports. All rights reserved.</p>
-                    <div className="flex gap-4">
-                        <a
-                            href="https://instagram.com/arovave"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
-                        >
-                            <InstagramIcon />
-                        </a>
-                        <a
-                            href="https://x.com/arovave"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
-                        >
-                            <XIcon />
-                        </a>
-                        <a
-                            href="https://linkedin.com/company/arovave"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
-                        >
-                            <LinkedInIcon />
-                        </a>
+                <div className="border-t border-zinc-800 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <p className="text-zinc-500 text-sm">© 2025 Arovave Global Exports. All rights reserved.</p>
+                    <div className="flex gap-6 text-sm">
+                        <Link to="/catalog" className="text-zinc-400 hover:text-white transition-colors">Catalog</Link>
+                        <Link to="/profile" className="text-zinc-400 hover:text-white transition-colors">My Account</Link>
                     </div>
                 </div>
             </div>

@@ -1,14 +1,39 @@
 import { Link } from 'react-router-dom';
-import { User as UserIcon, Settings, LogOut, Trash2 } from 'lucide-react';
-import { useAuth, useEnquiry, useTranslation } from '../context';
-import { useState } from 'react';
+import { User as UserIcon, Settings, LogOut, Save, Edit2 } from 'lucide-react';
+import { useAuth, useTranslation } from '../context';
+import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 
 export function Profile() {
-    const { currentUser, isAuthenticated, logout } = useAuth();
-    const { cart, removeFromCart } = useEnquiry();
+    const { currentUser, isAuthenticated, logout, updateProfile } = useAuth();
     const t = useTranslation();
     const [showAuthModal, setShowAuthModal] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editForm, setEditForm] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        country: ''
+    });
+
+    // Load user data into form
+    useEffect(() => {
+        if (currentUser) {
+            setEditForm({
+                name: currentUser.name || '',
+                email: currentUser.email || '',
+                phone: currentUser.phone || '',
+                country: currentUser.country || ''
+            });
+        }
+    }, [currentUser]);
+
+    const handleSave = () => {
+        if (updateProfile) {
+            updateProfile(editForm);
+        }
+        setIsEditing(false);
+    };
 
     if (!isAuthenticated) {
         return (
@@ -37,24 +62,95 @@ export function Profile() {
         <div className="page-enter max-w-4xl mx-auto px-6 py-12">
             <h1 className="text-4xl font-black uppercase tracking-tighter mb-12">{t('profile')}</h1>
 
-            {/* User Info */}
+            {/* User Info / Edit Form */}
             <div className="bg-zinc-50 rounded-3xl p-8 mb-8">
-                <div className="flex items-center gap-6">
-                    <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center">
-                        <span className="text-white text-2xl font-black">
-                            {currentUser?.name?.charAt(0) || 'U'}
-                        </span>
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-6">
+                        <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center">
+                            <span className="text-white text-2xl font-black">
+                                {currentUser?.name?.charAt(0) || 'U'}
+                            </span>
+                        </div>
+                        {!isEditing && (
+                            <div>
+                                <h2 className="text-2xl font-black">{currentUser?.name}</h2>
+                                <p className="text-zinc-500">{currentUser?.email}</p>
+                                <p className="text-zinc-400 text-sm">{currentUser?.phone || 'No phone added'}</p>
+                                <p className="text-zinc-400 text-sm">{currentUser?.country}</p>
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <h2 className="text-2xl font-black">{currentUser?.name}</h2>
-                        <p className="text-zinc-500">{currentUser?.email}</p>
-                        <p className="text-zinc-400 text-sm">{currentUser?.country}</p>
-                    </div>
+                    {!isEditing && (
+                        <button
+                            onClick={() => setIsEditing(true)}
+                            className="flex items-center gap-2 px-4 py-2 border-2 border-zinc-200 rounded-xl text-sm font-bold hover:border-black transition-colors"
+                        >
+                            <Edit2 className="w-4 h-4" /> Edit Profile
+                        </button>
+                    )}
                 </div>
+
+                {isEditing && (
+                    <div className="space-y-4">
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Full Name</label>
+                                <input
+                                    type="text"
+                                    value={editForm.name}
+                                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                    className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Email</label>
+                                <input
+                                    type="email"
+                                    value={editForm.email}
+                                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                    className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Phone Number</label>
+                                <input
+                                    type="tel"
+                                    value={editForm.phone}
+                                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                    placeholder="+91 XXXXX XXXXX"
+                                    className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Country</label>
+                                <input
+                                    type="text"
+                                    value={editForm.country}
+                                    onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                                    className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-4 pt-4">
+                            <button
+                                onClick={handleSave}
+                                className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl text-sm font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                            >
+                                <Save className="w-4 h-4" /> Save Changes
+                            </button>
+                            <button
+                                onClick={() => setIsEditing(false)}
+                                className="px-6 py-3 border-2 border-zinc-200 rounded-xl text-sm font-bold hover:border-black transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Actions */}
-            <div className="grid md:grid-cols-2 gap-4 mb-12">
+            <div className="grid md:grid-cols-2 gap-4">
                 <Link
                     to="/admin"
                     className="flex items-center gap-4 p-6 bg-white border-2 border-zinc-100 rounded-2xl hover:border-black transition-colors"
@@ -75,44 +171,6 @@ export function Profile() {
                         <p className="text-sm text-red-300">Sign out of your account</p>
                     </div>
                 </button>
-            </div>
-
-            {/* My Enquiries Cart */}
-            <div>
-                <h2 className="text-2xl font-black uppercase tracking-tighter mb-6">{t('myEnquiries')}</h2>
-                {cart.length === 0 ? (
-                    <div className="bg-zinc-50 rounded-2xl p-12 text-center">
-                        <p className="text-zinc-400 mb-4">No products in your enquiry list yet.</p>
-                        <Link
-                            to="/catalog"
-                            className="text-xs font-bold uppercase tracking-widest underline decoration-2 underline-offset-8"
-                        >
-                            Browse Catalog
-                        </Link>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {cart.map(product => (
-                            <div key={product.id} className="flex items-center gap-6 p-4 bg-white border-2 border-zinc-100 rounded-2xl">
-                                <img
-                                    src={product.images[0]}
-                                    alt={product.name}
-                                    className="w-20 h-20 rounded-xl object-cover"
-                                />
-                                <div className="flex-1">
-                                    <h3 className="font-bold">{product.name}</h3>
-                                    <p className="text-sm text-zinc-400">{product.priceRange}</p>
-                                </div>
-                                <button
-                                    onClick={() => removeFromCart(product.id)}
-                                    className="p-2 text-red-400 hover:text-red-600 transition-colors"
-                                >
-                                    <Trash2 className="w-5 h-5" />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
             </div>
         </div>
     );

@@ -96,7 +96,12 @@ export const categories = [
         subcategories: [
             { id: 'coffee', name: 'Coffee' },
             { id: 'honey', name: 'Honey' },
-            { id: 'spices', name: 'Spices' }
+            { id: 'spices', name: 'Spices' },
+            { id: 'rice', name: 'Rice & Grains' },
+            { id: 'tea', name: 'Tea' },
+            { id: 'oil', name: 'Edible Oils' },
+            { id: 'snacks', name: 'Snacks & Namkeen' },
+            { id: 'pickles', name: 'Pickles & Chutneys' }
         ]
     },
     {
@@ -115,12 +120,24 @@ export const categories = [
         id: 'glass',
         name: 'Glass Bottles',
         icon: 'flask-conical',
-        subcategories: []
+        subcategories: [
+            { id: 'amber', name: 'Amber Bottles' },
+            { id: 'clear', name: 'Clear Bottles' },
+            { id: 'dropper', name: 'Dropper Bottles' },
+            { id: 'vials', name: 'Vials' },
+            { id: 'jars', name: 'Glass Jars' }
+        ]
     },
     {
         id: 'promo',
         name: 'Promotional Items',
         icon: 'gift',
-        subcategories: []
+        subcategories: [
+            { id: 'bags', name: 'Bags & Pouches' },
+            { id: 'apparel', name: 'Apparel & Caps' },
+            { id: 'stationery', name: 'Stationery' },
+            { id: 'drinkware', name: 'Drinkware' },
+            { id: 'tech', name: 'Tech Accessories' }
+        ]
     }
 ];

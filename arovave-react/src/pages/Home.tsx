@@ -156,8 +156,8 @@ export function Home() {
                 </div>
             )}
 
-            {/* Category Navigation Bar */}
-            <div className="border-b border-zinc-100 bg-white">
+            {/* Category Navigation Bar - Hidden on mobile */}
+            <div className="hidden md:block border-b border-zinc-100 bg-white">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="flex justify-center gap-8 py-4 overflow-x-auto">
                         {categoryNav.map(cat => (

@@ -59,10 +59,11 @@ export function Admin() {
         { name: 'Ahmed Hassan', email: 'ahmed@gulftrading.ae', country: 'UAE', phone: '+971 50 123 4567', joined: '2024-12-15' }
     ];
 
-    const statusColors: Record<Enquiry['status'], string> = {
+    const statusColors: Record<string, string> = {
         pending: 'bg-yellow-50 text-yellow-700',
         contacted: 'bg-blue-50 text-blue-700',
-        completed: 'bg-green-50 text-green-700',
+        'completed-win': 'bg-green-50 text-green-700',
+        'completed-loss': 'bg-orange-50 text-orange-700',
         cancelled: 'bg-red-50 text-red-700'
     };
 
@@ -269,6 +270,7 @@ export function Admin() {
                                         <td className="p-4">
                                             <p className="font-bold">{enq.user.name}</p>
                                             <p className="text-xs text-zinc-400">{enq.user.email}</p>
+                                            <p className="text-xs text-zinc-500">{enq.user.phone || 'No phone'}</p>
                                         </td>
                                         <td className="p-4">
                                             {enq.products.map(p => (
@@ -284,7 +286,8 @@ export function Admin() {
                                             >
                                                 <option value="pending">Pending</option>
                                                 <option value="contacted">Contacted</option>
-                                                <option value="completed">Completed</option>
+                                                <option value="completed-win">Complete - WIN</option>
+                                                <option value="completed-loss">Complete - LOSS</option>
                                                 <option value="cancelled">Cancelled</option>
                                             </select>
                                         </td>
@@ -372,7 +375,7 @@ export function Admin() {
                     {qualitySubcategory && qualityContentType && (
                         <div className="bg-zinc-50 rounded-2xl p-6 mb-8">
                             <h3 className="font-bold mb-4">Add New {qualityContentType === 'certificate' ? 'Certificate' : qualityContentType === 'plant' ? 'Plant Photo' : 'Product Sample'}</h3>
-                            <div className="grid md:grid-cols-2 gap-4">
+                            <div className="grid md:grid-cols-2 gap-4 mb-4">
                                 <input
                                     type="text"
                                     placeholder="Title"
@@ -380,29 +383,48 @@ export function Admin() {
                                     className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
                                 />
                                 <input
-                                    type="url"
-                                    placeholder="Image URL"
+                                    type="file"
+                                    accept="image/*"
                                     id="qualityItemImage"
-                                    className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                                    className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white"
                                 />
                             </div>
+                            <textarea
+                                placeholder="Description (optional - write about this image)"
+                                id="qualityItemDesc"
+                                rows={3}
+                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none resize-none mb-4"
+                            />
+                            <p className="text-xs text-zinc-400 mb-4">Max 5MB image file. Supports JPG, PNG, WebP.</p>
                             <button
-                                onClick={() => {
+                                onClick={async () => {
                                     const title = (document.getElementById('qualityItemTitle') as HTMLInputElement)?.value;
-                                    const image = (document.getElementById('qualityItemImage') as HTMLInputElement)?.value;
-                                    if (!title || !image) return alert('Please fill in title and image URL');
+                                    const fileInput = document.getElementById('qualityItemImage') as HTMLInputElement;
+                                    const description = (document.getElementById('qualityItemDesc') as HTMLTextAreaElement)?.value;
+                                    const file = fileInput?.files?.[0];
 
-                                    const key = `${selectedQualityCategory}_${qualitySubcategory}_${qualityContentType}`;
-                                    const saved = JSON.parse(localStorage.getItem('arovaveQualityUploads') || '{}');
-                                    saved[key] = saved[key] || [];
-                                    saved[key].push({ id: Date.now(), title, image });
-                                    localStorage.setItem('arovaveQualityUploads', JSON.stringify(saved));
-                                    setQualityContent(saved);
-                                    (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
-                                    (document.getElementById('qualityItemImage') as HTMLInputElement).value = '';
-                                    alert('✅ Item added!');
+                                    if (!title) return alert('Please enter a title');
+                                    if (!file) return alert('Please select an image file');
+                                    if (file.size > 5 * 1024 * 1024) return alert('Image too large! Max 5MB.');
+
+                                    // Convert to base64
+                                    const reader = new FileReader();
+                                    reader.onload = () => {
+                                        const image = reader.result as string;
+                                        const key = `${selectedQualityCategory}_${qualitySubcategory}_${qualityContentType}`;
+                                        const saved = JSON.parse(localStorage.getItem('arovaveQualityUploads') || '{}');
+                                        saved[key] = saved[key] || [];
+                                        saved[key].push({ id: Date.now(), title, image, description });
+                                        localStorage.setItem('arovaveQualityUploads', JSON.stringify(saved));
+                                        setQualityContent(saved);
+                                        (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
+                                        (document.getElementById('qualityItemDesc') as HTMLTextAreaElement).value = '';
+                                        fileInput.value = '';
+                                        alert('✅ Item added!');
+                                    };
+                                    reader.readAsDataURL(file);
                                 }}
-                                className="mt-4 px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
                             >
                                 Add Item
                             </button>
@@ -587,7 +609,8 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
         certifications: product?.certifications.join(', ') || '',
         images: product?.images || [],
         video: product?.video || '',
-        isTrending: product?.isTrending || false
+        isTrending: product?.isTrending || false,
+        specs: product?.specs?.map(s => `${s.label}: ${s.value}`).join('\n') || ''
     });
     const [imagePreviews, setImagePreviews] = useState<string[]>(product?.images || []);
 
@@ -637,7 +660,10 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
             certifications: formData.certifications.split(',').map(s => s.trim()).filter(Boolean),
             images: formData.images.length ? formData.images : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800'],
             video: formData.video || undefined,
-            specs: product?.specs || [],
+            specs: formData.specs.split('\n').filter(Boolean).map(line => {
+                const [label, ...rest] = line.split(':');
+                return { label: label?.trim() || '', value: rest.join(':')?.trim() || '' };
+            }).filter(s => s.label && s.value),
             isTrending: formData.isTrending
         };
 
@@ -682,8 +708,9 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
                         </div>
                         {subcategories.length > 0 && (
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Subcategory</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Subcategory*</label>
                                 <select
+                                    required
                                     value={formData.subcategory}
                                     onChange={e => setFormData({ ...formData, subcategory: e.target.value })}
                                     className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
@@ -781,6 +808,16 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
                                     <video src={formData.video} className="w-full max-h-32 rounded-lg object-cover" controls />
                                 </div>
                             )}
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Specifications (one per line, e.g. "Weight: 500g")</label>
+                            <textarea
+                                rows={4}
+                                value={formData.specs}
+                                onChange={e => setFormData({ ...formData, specs: e.target.value })}
+                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none resize-none"
+                                placeholder="Weight: 500g&#10;Material: Glass&#10;Color: Amber&#10;Capacity: 100ml"
+                            />
                         </div>
                         <div className="md:col-span-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Certifications (comma-separated)</label>
