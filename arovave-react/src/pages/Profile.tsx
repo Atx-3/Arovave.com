@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { User as UserIcon, Settings, LogOut, Save, Edit2, X, Mail, Phone, MapPin, Calendar, HelpCircle, MessageSquare, FileText, Shield, ChevronRight } from 'lucide-react';
 import { useAuth, useTranslation } from '../context';
 import { useState, useEffect } from 'react';
@@ -8,6 +8,7 @@ import { countries } from '../data';
 export function Profile() {
     const { currentUser, supabaseUser, isAuthenticated, isAdmin, logout, updateProfile } = useAuth();
     const t = useTranslation();
+    const navigate = useNavigate();
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -316,7 +317,10 @@ export function Profile() {
 
             {/* Logout */}
             <button
-                onClick={logout}
+                onClick={async () => {
+                    await logout();
+                    navigate('/');
+                }}
                 className="w-full flex items-center justify-center gap-3 p-5 bg-red-50 border-2 border-red-100 rounded-2xl text-red-600 hover:bg-red-100 hover:border-red-200 transition-colors font-bold"
             >
                 <LogOut className="w-5 h-5" />
