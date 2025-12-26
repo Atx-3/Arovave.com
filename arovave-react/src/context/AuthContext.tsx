@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { supabase, type Profile } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 // Admin panel tabs
@@ -42,10 +42,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+    // Start with isLoading FALSE - page loads immediately
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
     const [session, setSession] = useState<Session | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false); // Start with false!
     const [authError, setAuthError] = useState<AuthError | null>(null);
 
     const clearAuthError = () => setAuthError(null);
@@ -54,179 +55,105 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fetchProfile = async (userId: string, userEmail?: string): Promise<User | null> => {
         console.log('📝 Fetching profile for user:', userId);
 
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
 
-        if (error) {
-            console.error('❌ Error fetching profile:', error);
-            if (userEmail) {
-                return {
-                    id: userId,
-                    name: '',
-                    email: userEmail,
-                    phone: '',
-                    country: '',
-                    role: 'user',
-                    permissions: [],
-                    joined: new Date().toISOString().split('T')[0]
-                };
+            if (error) {
+                console.error('❌ Error fetching profile:', error);
+                if (userEmail) {
+                    return {
+                        id: userId,
+                        name: '',
+                        email: userEmail,
+                        phone: '',
+                        country: '',
+                        role: 'user',
+                        permissions: [],
+                        joined: new Date().toISOString().split('T')[0]
+                    };
+                }
+                return null;
             }
+
+            console.log('✅ Profile data:', data);
+
+            return {
+                id: data.id,
+                name: data.name || '',
+                email: data.email || '',
+                phone: data.phone || '',
+                country: data.country || '',
+                role: data.role || 'user',
+                permissions: data.permissions || [],
+                joined: data.created_at?.split('T')[0]
+            };
+        } catch (err) {
+            console.error('Profile fetch error:', err);
             return null;
         }
-
-        console.log('✅ Profile data:', data);
-
-        return {
-            id: data.id,
-            name: data.name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            country: data.country || '',
-            role: data.role || 'user',
-            permissions: data.permissions || [],
-            joined: data.created_at?.split('T')[0]
-        };
     };
 
-    // Validate user after OAuth - check if signin/signup mode is correct
-    // Returns user existence status but does NOT sign out (that was too aggressive)
-    const validateUserAfterOAuth = async (userId: string, userEmail: string): Promise<boolean> => {
-        const authMode = localStorage.getItem('authMode') as 'signin' | 'signup' | null;
-        localStorage.removeItem('authMode'); // Clear it immediately
+    // Handle user session
+    const handleSession = async (newSession: Session | null) => {
+        setSession(newSession);
+        setSupabaseUser(newSession?.user ?? null);
 
-        if (!authMode) return true; // No validation needed
+        if (newSession?.user) {
+            // Handle pending profile from signup
+            const pendingProfile = localStorage.getItem('pendingProfile');
+            if (pendingProfile) {
+                try {
+                    const profileData = JSON.parse(pendingProfile);
+                    console.log('📝 Updating profile with signup data:', profileData);
+                    await supabase
+                        .from('profiles')
+                        .update({
+                            name: profileData.name,
+                            phone: profileData.phone,
+                            country: profileData.country
+                        })
+                        .eq('id', newSession.user.id);
+                    localStorage.removeItem('pendingProfile');
+                } catch (err) {
+                    console.error('Error updating profile with signup data:', err);
+                }
+            }
 
-        console.log('🔍 Validating user, mode:', authMode);
-
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('name')
-            .eq('id', userId)
-            .single();
-
-        const isExistingUser = profile && profile.name && profile.name.trim() !== '';
-
-        if (authMode === 'signin' && !isExistingUser) {
-            console.log('⚠️ New user tried to sign in - prompting to complete profile');
-            // Don't sign out - let them complete their profile
+            const profile = await fetchProfile(newSession.user.id, newSession.user.email);
+            setCurrentUser(profile);
+        } else {
+            setCurrentUser(null);
         }
 
-        if (authMode === 'signup' && isExistingUser) {
-            console.log('✅ User already exists - that is fine for OAuth');
-            // OAuth is idempotent - existing user signing up again is OK
-        }
-
-        // Always allow through - just log for debugging
-        return true;
+        // Clear auth mode
+        localStorage.removeItem('authMode');
     };
 
-    // Initialize auth state
+    // Initialize auth state - DON'T wait for getSession, use listener only
     useEffect(() => {
         console.log('🔐 AuthContext initializing...');
 
-        // Failsafe: Stop loading after 3 seconds no matter what
-        // If getSession hangs, user can still sign in
-        const failsafeTimeout = setTimeout(() => {
-            console.log('⚠️ Failsafe triggered - stopping loading');
-            setIsLoading(false);
-        }, 3000);
-
-        const initAuth = async () => {
-            try {
-                console.log('📡 Calling getSession...');
-                const { data: { session } } = await supabase.auth.getSession();
-                console.log('✅ getSession completed!');
-
-                console.log('📦 Initial session:', session ? session.user?.email : 'none');
-                setSession(session);
-                setSupabaseUser(session?.user ?? null);
-
-                if (session?.user) {
-                    // Validate user if coming from OAuth
-                    await validateUserAfterOAuth(session.user.id, session.user.email || '');
-
-                    // Handle pending profile from signup
-                    const pendingProfile = localStorage.getItem('pendingProfile');
-                    if (pendingProfile) {
-                        try {
-                            const profileData = JSON.parse(pendingProfile);
-                            console.log('📝 Updating profile with signup data:', profileData);
-                            await supabase
-                                .from('profiles')
-                                .update({
-                                    name: profileData.name,
-                                    phone: profileData.phone,
-                                    country: profileData.country
-                                })
-                                .eq('id', session.user.id);
-                            localStorage.removeItem('pendingProfile');
-                        } catch (err) {
-                            console.error('Error updating profile with signup data:', err);
-                        }
-                    }
-
-                    const profile = await fetchProfile(session.user.id, session.user.email);
-                    console.log('👤 Profile loaded:', profile);
-                    setCurrentUser(profile);
-                }
-            } catch (err) {
-                console.error('❌ Error getting session:', err);
-            } finally {
-                clearTimeout(failsafeTimeout);
-                setIsLoading(false);
-            }
-        };
-
-        initAuth();
-
-        // Listen for auth changes
+        // Listen for auth changes - this is the ONLY way we handle auth
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                console.log('🔔 Auth state changed:', event, session?.user?.email);
-                setSession(session);
-                setSupabaseUser(session?.user ?? null);
-
-                if (session?.user && event === 'SIGNED_IN') {
-                    // Validate user
-                    const isValid = await validateUserAfterOAuth(session.user.id, session.user.email || '');
-                    if (!isValid) {
-                        setIsLoading(false);
-                        return;
-                    }
-
-                    // Handle pending profile from signup
-                    const pendingProfile = localStorage.getItem('pendingProfile');
-                    if (pendingProfile) {
-                        try {
-                            const profileData = JSON.parse(pendingProfile);
-                            console.log('📝 Updating profile with signup data:', profileData);
-                            await supabase
-                                .from('profiles')
-                                .update({
-                                    name: profileData.name,
-                                    phone: profileData.phone,
-                                    country: profileData.country
-                                })
-                                .eq('id', session.user.id);
-                            localStorage.removeItem('pendingProfile');
-                        } catch (err) {
-                            console.error('Error updating profile with signup data:', err);
-                        }
-                    }
-
-                    const profile = await fetchProfile(session.user.id, session.user.email);
-                    console.log('👤 Profile from auth change:', profile);
-                    setCurrentUser(profile);
-                } else if (!session) {
-                    setCurrentUser(null);
-                }
-
-                setIsLoading(false);
+            async (event, newSession) => {
+                console.log('🔔 Auth state changed:', event, newSession?.user?.email);
+                await handleSession(newSession);
             }
         );
+
+        // Check for existing session in background (non-blocking)
+        supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+            console.log('� Existing session:', existingSession ? existingSession.user?.email : 'none');
+            if (existingSession) {
+                handleSession(existingSession);
+            }
+        }).catch(err => {
+            console.error('getSession error (ignored):', err);
+        });
 
         return () => subscription.unsubscribe();
     }, []);
@@ -273,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check if user has specific admin permission
     const hasPermission = (permission: AdminPermission): boolean => {
         if (!currentUser) return false;
-        if (currentUser.role === 'superadmin') return true; // Super admin has all permissions
+        if (currentUser.role === 'superadmin') return true;
         if (currentUser.role === 'admin') {
             return currentUser.permissions.includes(permission);
         }
