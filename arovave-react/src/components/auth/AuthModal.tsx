@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Loader2, AlertCircle, User, Phone, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { countries } from '../../data';
@@ -18,43 +19,91 @@ const GoogleIcon = () => (
 );
 
 export function AuthModal({ onClose }: AuthModalProps) {
+    const navigate = useNavigate();
     const [mode, setMode] = useState<'signin' | 'signup'>('signin');
     const [isLoading, setIsLoading] = useState(false);
+    const [isChecking, setIsChecking] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [authError, setAuthError] = useState<{ type: 'user_exists' | 'user_not_found', email: string } | null>(null);
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
-        country: 'United States'
+        country: 'India'
     });
 
-    // Check if we're returning from Google OAuth with pending profile data
+    // Check if we're returning from Google OAuth and validate user
     useEffect(() => {
-        const pendingProfile = localStorage.getItem('pendingProfile');
-        if (pendingProfile) {
-            // User just returned from Google OAuth, update their profile
-            const profileData = JSON.parse(pendingProfile);
-            updateProfileAfterOAuth(profileData);
-            localStorage.removeItem('pendingProfile');
-        }
-    }, []);
+        const checkAuthStatus = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const savedMode = localStorage.getItem('authMode') as 'signin' | 'signup' | null;
 
-    const updateProfileAfterOAuth = async (profileData: { name: string; phone: string; country: string }) => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                await supabase
-                    .from('profiles')
-                    .update({
-                        name: profileData.name,
-                        phone: profileData.phone,
-                        country: profileData.country
-                    })
-                    .eq('id', user.id);
+                if (session?.user && savedMode) {
+                    console.log('🔍 Checking user after OAuth return, mode:', savedMode);
+
+                    // Check if profile exists and has name/phone (indicating existing user)
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('name, phone, email')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    const isExistingUser = profile && profile.name && profile.name.trim() !== '';
+                    const userEmail = session.user.email || '';
+
+                    console.log('👤 Profile check:', { isExistingUser, profile, savedMode });
+
+                    if (savedMode === 'signin' && !isExistingUser) {
+                        // User tried to sign in but doesn't exist
+                        console.log('❌ User not found - tried to sign in but no profile');
+                        await supabase.auth.signOut();
+                        setAuthError({ type: 'user_not_found', email: userEmail });
+                        localStorage.removeItem('authMode');
+                        localStorage.removeItem('pendingProfile');
+                    } else if (savedMode === 'signup' && isExistingUser) {
+                        // User tried to sign up but already exists
+                        console.log('❌ User already exists - tried to sign up');
+                        await supabase.auth.signOut();
+                        setAuthError({ type: 'user_exists', email: userEmail });
+                        localStorage.removeItem('authMode');
+                        localStorage.removeItem('pendingProfile');
+                    } else if (savedMode === 'signup' && !isExistingUser) {
+                        // New user signing up - update profile with pending data
+                        const pendingProfile = localStorage.getItem('pendingProfile');
+                        if (pendingProfile) {
+                            const profileData = JSON.parse(pendingProfile);
+                            console.log('📝 Updating new user profile:', profileData);
+                            await supabase
+                                .from('profiles')
+                                .update({
+                                    name: profileData.name,
+                                    phone: profileData.phone,
+                                    country: profileData.country
+                                })
+                                .eq('id', session.user.id);
+                        }
+                        localStorage.removeItem('authMode');
+                        localStorage.removeItem('pendingProfile');
+                        onClose();
+                        navigate('/profile');
+                    } else {
+                        // Existing user signing in - success
+                        console.log('✅ Existing user signed in successfully');
+                        localStorage.removeItem('authMode');
+                        localStorage.removeItem('pendingProfile');
+                        onClose();
+                        navigate('/profile');
+                    }
+                }
+            } catch (err) {
+                console.error('Error checking auth status:', err);
+            } finally {
+                setIsChecking(false);
             }
-        } catch (err) {
-            console.error('Error updating profile:', err);
-        }
-    };
+        };
+
+        checkAuthStatus();
+    }, []);
 
     const handleGoogleSignIn = async () => {
         // For sign up, validate form first
@@ -72,8 +121,12 @@ export function AuthModal({ onClose }: AuthModalProps) {
             localStorage.setItem('pendingProfile', JSON.stringify(formData));
         }
 
+        // Store auth mode to check after OAuth return
+        localStorage.setItem('authMode', mode);
+
         setIsLoading(true);
         setError(null);
+        setAuthError(null);
 
         try {
             const { error } = await supabase.auth.signInWithOAuth({
@@ -82,7 +135,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
                     redirectTo: `${window.location.origin}/profile`,
                     queryParams: {
                         access_type: 'offline',
-                        prompt: 'select_account' // Always show account selector
+                        prompt: 'select_account'
                     }
                 }
             });
@@ -91,14 +144,25 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 console.error('Google sign-in error:', error);
                 setError(error.message);
                 setIsLoading(false);
+                localStorage.removeItem('authMode');
             }
-            // If no error, the user will be redirected to Google
         } catch (err) {
             console.error('Auth error:', err);
             setError('Something went wrong. Please try again.');
             setIsLoading(false);
+            localStorage.removeItem('authMode');
         }
     };
+
+    if (isChecking) {
+        return (
+            <div className="modal-overlay fixed inset-0">
+                <div className="bg-white p-10 rounded-[40px] w-full max-w-md shadow-2xl flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="modal-overlay fixed inset-0" onClick={onClose}>
@@ -113,120 +177,145 @@ export function AuthModal({ onClose }: AuthModalProps) {
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="text-center mb-6">
-                    <p className="text-zinc-500 text-sm">
-                        {mode === 'signin'
-                            ? 'Sign in to manage your enquiries and get personalized quotes.'
-                            : 'Fill in your details below, then verify with Google to create your account.'}
-                    </p>
-                </div>
-
-                {/* Sign In Info Box */}
-                {mode === 'signin' && (
-                    <div className="p-4 bg-blue-50 rounded-xl text-sm flex items-start gap-3 mb-6">
-                        <Info className="w-5 h-5 shrink-0 mt-0.5 text-blue-600" />
-                        <p className="text-blue-700">
-                            Already signed up? Just click the button below to sign in with your Google account.
-                        </p>
+                {/* Auth Error Messages */}
+                {authError?.type === 'user_not_found' && (
+                    <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm mb-6">
+                        <p className="font-bold mb-2">User Not Found</p>
+                        <p>No account exists for <span className="font-bold">{authError.email}</span>.</p>
+                        <p className="mt-2">Please create an account first.</p>
+                        <button
+                            onClick={() => { setMode('signup'); setAuthError(null); }}
+                            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-xs uppercase"
+                        >
+                            Create Account
+                        </button>
                     </div>
                 )}
 
-                {/* Sign Up Form - Name and Phone */}
-                {mode === 'signup' && (
-                    <div className="space-y-4 mb-6">
-                        <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
-                                <User className="w-3 h-3 inline mr-1" />
-                                Full Name *
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                                placeholder="John Smith"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
-                                <Phone className="w-3 h-3 inline mr-1" />
-                                Phone Number *
-                            </label>
-                            <input
-                                type="tel"
-                                value={formData.phone}
-                                onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                                placeholder="+91 98765 43210"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
-                                Country *
-                            </label>
-                            <select
-                                value={formData.country}
-                                onChange={e => setFormData({ ...formData, country: e.target.value })}
-                                className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
-                            >
-                                {countries.map(c => (
-                                    <option key={c} value={c}>{c}</option>
-                                ))}
-                            </select>
-                        </div>
+                {authError?.type === 'user_exists' && (
+                    <div className="p-4 bg-amber-50 text-amber-700 rounded-xl text-sm mb-6">
+                        <p className="font-bold mb-2">Account Already Exists</p>
+                        <p>An account already exists for <span className="font-bold">{authError.email}</span>.</p>
+                        <p className="mt-2">Please sign in instead.</p>
+                        <button
+                            onClick={() => { setMode('signin'); setAuthError(null); }}
+                            className="mt-3 px-4 py-2 bg-amber-600 text-white rounded-lg font-bold text-xs uppercase"
+                        >
+                            Sign In
+                        </button>
+                    </div>
+                )}
 
-                        {/* Info about existing users */}
-                        <div className="p-4 bg-amber-50 rounded-xl text-sm flex items-start gap-3">
-                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
-                            <p className="text-amber-700">
-                                If you've already signed up, please use <button onClick={() => { setMode('signin'); setError(null); }} className="font-bold underline">Sign In</button> instead.
+                {/* Content */}
+                {!authError && (
+                    <>
+                        <div className="text-center mb-6">
+                            <p className="text-zinc-500 text-sm">
+                                {mode === 'signin'
+                                    ? 'Sign in to manage your enquiries and get personalized quotes.'
+                                    : 'Fill in your details below, then verify with Google to create your account.'}
                             </p>
                         </div>
-                    </div>
+
+                        {/* Sign In Info Box */}
+                        {mode === 'signin' && (
+                            <div className="p-4 bg-blue-50 rounded-xl text-sm flex items-start gap-3 mb-6">
+                                <Info className="w-5 h-5 shrink-0 mt-0.5 text-blue-600" />
+                                <p className="text-blue-700">
+                                    Sign in with your existing Google account. If you're new, please create an account first.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Sign Up Form - Name and Phone */}
+                        {mode === 'signup' && (
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                        <User className="w-3 h-3 inline mr-1" />
+                                        Full Name *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.name}
+                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                        className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                        placeholder="John Smith"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                        <Phone className="w-3 h-3 inline mr-1" />
+                                        Phone Number *
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        value={formData.phone}
+                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                        className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                        placeholder="+91 98765 43210"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                        Country *
+                                    </label>
+                                    <select
+                                        value={formData.country}
+                                        onChange={e => setFormData({ ...formData, country: e.target.value })}
+                                        className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
+                                    >
+                                        {countries.map(c => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+
+                        {error && (
+                            <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm flex items-start gap-3 mb-6">
+                                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                                <p className="font-bold">{error}</p>
+                            </div>
+                        )}
+
+                        {/* Google Sign In Button */}
+                        <button
+                            onClick={handleGoogleSignIn}
+                            disabled={isLoading}
+                            className="w-full py-4 px-6 bg-black text-white rounded-xl font-bold text-sm flex items-center justify-center gap-3 hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                        >
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    Redirecting to Google...
+                                </>
+                            ) : (
+                                <>
+                                    <GoogleIcon />
+                                    {mode === 'signup' ? 'Verify with Google & Create Account' : 'Continue with Google'}
+                                </>
+                            )}
+                        </button>
+
+                        {/* Toggle Sign In / Sign Up */}
+                        <p className="text-center text-sm text-zinc-500 mt-6">
+                            {mode === 'signin' ? "First time here? " : "Already have an account? "}
+                            <button
+                                type="button"
+                                onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); setAuthError(null); }}
+                                className="font-bold text-black"
+                            >
+                                {mode === 'signin' ? 'Create Account' : 'Sign In'}
+                            </button>
+                        </p>
+
+                        <p className="text-center text-xs text-zinc-400 mt-6">
+                            By signing in, you agree to our Terms of Service and Privacy Policy.
+                        </p>
+                    </>
                 )}
-
-                {error && (
-                    <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm flex items-start gap-3 mb-6">
-                        <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                        <p className="font-bold">{error}</p>
-                    </div>
-                )}
-
-                {/* Google Sign In Button */}
-                <button
-                    onClick={handleGoogleSignIn}
-                    disabled={isLoading}
-                    className="w-full py-4 px-6 bg-black text-white rounded-xl font-bold text-sm flex items-center justify-center gap-3 hover:bg-zinc-800 transition-colors disabled:opacity-50"
-                >
-                    {isLoading ? (
-                        <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            Redirecting to Google...
-                        </>
-                    ) : (
-                        <>
-                            <GoogleIcon />
-                            {mode === 'signup' ? 'Verify with Google & Create Account' : 'Continue with Google'}
-                        </>
-                    )}
-                </button>
-
-                {/* Toggle Sign In / Sign Up */}
-                <p className="text-center text-sm text-zinc-500 mt-6">
-                    {mode === 'signin' ? "First time here? " : "Already have an account? "}
-                    <button
-                        type="button"
-                        onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); }}
-                        className="font-bold text-black"
-                    >
-                        {mode === 'signin' ? 'Create Account' : 'Sign In'}
-                    </button>
-                </p>
-
-                <p className="text-center text-xs text-zinc-400 mt-6">
-                    By signing in, you agree to our Terms of Service and Privacy Policy.
-                </p>
             </div>
         </div>
     );
