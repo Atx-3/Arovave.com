@@ -1,12 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { User as UserIcon, Settings, LogOut, Save, Edit2, X, Mail, Phone, MapPin, Calendar, HelpCircle, MessageSquare, FileText, Shield, ChevronRight } from 'lucide-react';
+import { User as UserIcon, Settings, LogOut, Save, Edit2, X, Mail, Phone, MapPin, Calendar, HelpCircle, MessageSquare, FileText, Shield, ChevronRight, Loader2 } from 'lucide-react';
 import { useAuth, useTranslation } from '../context';
 import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 import { countries } from '../data';
 
 export function Profile() {
-    const { currentUser, supabaseUser, isAuthenticated, isAdmin, logout, updateProfile } = useAuth();
+    const { currentUser, supabaseUser, isAuthenticated, isLoading, isAdmin, logout, updateProfile } = useAuth();
     const t = useTranslation();
     const navigate = useNavigate();
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -19,6 +19,11 @@ export function Profile() {
         phone: '',
         country: ''
     });
+
+    // Debug log
+    useEffect(() => {
+        console.log('🖼️ Profile render - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
+    }, [isLoading, isAuthenticated]);
 
     // Get display values with fallbacks
     const displayName = currentUser?.name || supabaseUser?.user_metadata?.full_name || supabaseUser?.user_metadata?.name || 'User';
@@ -50,6 +55,16 @@ export function Profile() {
         setTimeout(() => setSaveSuccess(false), 2000);
         setIsEditing(false);
     };
+
+    // Show loading while auth is initializing
+    if (isLoading) {
+        return (
+            <div className="page-enter max-w-2xl mx-auto px-6 py-20 text-center">
+                <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-zinc-400" />
+                <p className="text-zinc-500">Loading...</p>
+            </div>
+        );
+    }
 
     if (!isAuthenticated) {
         return (
