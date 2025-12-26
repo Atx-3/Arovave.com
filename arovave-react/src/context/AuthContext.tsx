@@ -55,6 +55,19 @@ function getHashParams(): Record<string, string> {
     return params;
 }
 
+// Decode JWT token (without verification - just for reading payload)
+function decodeJwt(token: string): any {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        const payload = parts[1];
+        const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+        return JSON.parse(decoded);
+    } catch (e) {
+        return null;
+    }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
@@ -115,46 +128,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, [session]);
 
-    // Process session and load profile
-    const processSession = async (newSession: Session | null) => {
-        console.log('📦 Processing session:', newSession?.user?.email || 'none');
+    // Process user from token
+    const processUserFromToken = async (accessToken: string, refreshToken: string) => {
+        console.log('🔓 Decoding token...');
 
-        setSession(newSession);
-        setSupabaseUser(newSession?.user ?? null);
-
-        if (newSession?.user) {
-            // Handle pending profile from signup
-            const pendingProfile = localStorage.getItem('pendingProfile');
-            if (pendingProfile) {
-                try {
-                    const profileData = JSON.parse(pendingProfile);
-                    console.log('📝 Applying pending profile:', profileData.name);
-                    await supabase
-                        .from('profiles')
-                        .update({
-                            name: profileData.name,
-                            phone: profileData.phone,
-                            country: profileData.country
-                        })
-                        .eq('id', newSession.user.id);
-                    localStorage.removeItem('pendingProfile');
-                } catch (err) {
-                    console.error('Error applying pending profile:', err);
-                }
-            }
-
-            // Fetch profile
-            const profile = await fetchProfile(newSession.user.id, newSession.user.email);
-            setCurrentUser(profile);
-
-            // Clear URL hash after successful auth
-            if (window.location.hash.includes('access_token')) {
-                console.log('🧹 Clearing URL hash');
-                window.history.replaceState(null, '', window.location.pathname);
-            }
-        } else {
-            setCurrentUser(null);
+        const payload = decodeJwt(accessToken);
+        if (!payload) {
+            console.error('❌ Failed to decode token');
+            return;
         }
+
+        console.log('✅ Token decoded:', payload.email);
+
+        // Create a minimal session object
+        const minimalSession: Session = {
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            expires_at: payload.exp,
+            expires_in: payload.exp - Math.floor(Date.now() / 1000),
+            token_type: 'bearer',
+            user: {
+                id: payload.sub,
+                email: payload.email,
+                app_metadata: payload.app_metadata || {},
+                user_metadata: payload.user_metadata || {},
+                aud: payload.aud,
+                created_at: '',
+            } as SupabaseUser
+        };
+
+        setSession(minimalSession);
+        setSupabaseUser(minimalSession.user);
+
+        // Store tokens in localStorage for Supabase to use later
+        const storageKey = `sb-${import.meta.env.VITE_SUPABASE_URL?.replace('https://', '').split('.')[0]}-auth-token`;
+        localStorage.setItem(storageKey, JSON.stringify({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            expires_at: payload.exp,
+            token_type: 'bearer',
+            user: minimalSession.user
+        }));
+
+        // Handle pending profile from signup
+        const pendingProfile = localStorage.getItem('pendingProfile');
+        if (pendingProfile) {
+            try {
+                const profileData = JSON.parse(pendingProfile);
+                console.log('📝 Applying pending profile:', profileData.name);
+                await supabase
+                    .from('profiles')
+                    .update({
+                        name: profileData.name,
+                        phone: profileData.phone,
+                        country: profileData.country
+                    })
+                    .eq('id', payload.sub);
+                localStorage.removeItem('pendingProfile');
+            } catch (err) {
+                console.error('Error applying pending profile:', err);
+            }
+        }
+
+        // Fetch profile
+        const profile = await fetchProfile(payload.sub, payload.email);
+        setCurrentUser(profile);
+
+        // Clear URL hash
+        console.log('🧹 Clearing URL hash');
+        window.history.replaceState(null, '', window.location.pathname);
 
         localStorage.removeItem('authMode');
     };
@@ -162,88 +204,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Initialize auth
     useEffect(() => {
         console.log('🔐 AuthContext starting...');
-        let isMounted = true;
 
         // Check if URL contains auth tokens
         const hashParams = getHashParams();
         const hasAuthTokens = !!hashParams.access_token;
 
         if (hasAuthTokens) {
-            console.log('🔑 Found access_token in URL hash');
+            console.log('🔑 Found access_token in URL, processing directly...');
+            processUserFromToken(hashParams.access_token, hashParams.refresh_token || '');
+            return;
         }
 
-        // Set up auth state listener
+        // Check for stored session in localStorage
+        const storageKey = `sb-${import.meta.env.VITE_SUPABASE_URL?.replace('https://', '').split('.')[0]}-auth-token`;
+        const storedSession = localStorage.getItem(storageKey);
+
+        if (storedSession) {
+            try {
+                const sessionData = JSON.parse(storedSession);
+                if (sessionData.access_token && sessionData.expires_at > Math.floor(Date.now() / 1000)) {
+                    console.log('📦 Found valid stored session');
+                    processUserFromToken(sessionData.access_token, sessionData.refresh_token || '');
+                    return;
+                } else {
+                    console.log('ℹ️ Stored session expired');
+                    localStorage.removeItem(storageKey);
+                }
+            } catch (err) {
+                console.error('Error parsing stored session:', err);
+            }
+        }
+
+        console.log('ℹ️ No session found');
+
+        // Set up auth state listener for future sign-ins
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, newSession) => {
                 console.log('🔔 Auth event:', event, newSession?.user?.email || 'no user');
 
-                if (!isMounted) return;
-
-                if (newSession) {
-                    await processSession(newSession);
-                } else if (event === 'SIGNED_OUT') {
+                if (event === 'SIGNED_OUT') {
                     setSession(null);
                     setSupabaseUser(null);
                     setCurrentUser(null);
                     setAuthError(null);
+                    localStorage.removeItem(storageKey);
                 }
             }
         );
 
-        // Try to get session with timeout
-        const getSessionWithTimeout = async () => {
-            console.log('📡 Calling getSession...');
-
-            try {
-                // Create a race between getSession and a timeout
-                const timeoutPromise = new Promise<null>((resolve) => {
-                    setTimeout(() => {
-                        console.log('⏱️ getSession timed out after 3 seconds');
-                        resolve(null);
-                    }, 3000);
-                });
-
-                const sessionPromise = supabase.auth.getSession().then(
-                    ({ data: { session }, error }) => {
-                        if (error) {
-                            console.error('❌ getSession error:', error);
-                            return null;
-                        }
-                        return session;
-                    }
-                );
-
-                const result = await Promise.race([sessionPromise, timeoutPromise]);
-
-                if (result && isMounted) {
-                    console.log('✅ Session found:', result.user?.email);
-                    await processSession(result);
-                } else if (hasAuthTokens && isMounted) {
-                    // If we have tokens but getSession failed, try setSession manually
-                    console.log('🔄 Trying manual session recovery...');
-                    const { data, error } = await supabase.auth.setSession({
-                        access_token: hashParams.access_token,
-                        refresh_token: hashParams.refresh_token || ''
-                    });
-
-                    if (data.session && isMounted) {
-                        console.log('✅ Manual session set:', data.session.user?.email);
-                        await processSession(data.session);
-                    } else if (error) {
-                        console.error('❌ Manual session failed:', error);
-                    }
-                } else {
-                    console.log('ℹ️ No session found');
-                }
-            } catch (err) {
-                console.error('❌ Session error:', err);
-            }
-        };
-
-        getSessionWithTimeout();
-
         return () => {
-            isMounted = false;
             subscription.unsubscribe();
         };
     }, []);
@@ -251,11 +260,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Logout
     const logout = async () => {
         console.log('🚪 Logging out...');
-        await supabase.auth.signOut();
+
+        // Clear local state
         setCurrentUser(null);
         setSupabaseUser(null);
         setSession(null);
         setAuthError(null);
+
+        // Clear stored session
+        const storageKey = `sb-${import.meta.env.VITE_SUPABASE_URL?.replace('https://', '').split('.')[0]}-auth-token`;
+        localStorage.removeItem(storageKey);
+
+        // Try to sign out from Supabase (don't wait for it)
+        supabase.auth.signOut().catch(() => { });
+
         console.log('✅ Logged out');
     };
 
