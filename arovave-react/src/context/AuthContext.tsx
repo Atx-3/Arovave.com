@@ -22,8 +22,6 @@ interface AuthContextType {
     isLoading: boolean;
     isAdmin: boolean;
     isSuperAdmin: boolean;
-    signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-    signUp: (email: string, password: string, name: string, country: string, phone?: string) => Promise<{ error: Error | null }>;
     logout: () => Promise<void>;
     updateProfile: (data: Partial<User>) => Promise<{ error: Error | null }>;
 }
@@ -37,17 +35,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     // Fetch user profile from Supabase
-    const fetchProfile = async (userId: string): Promise<User | null> => {
+    const fetchProfile = async (userId: string, userEmail?: string): Promise<User | null> => {
+        console.log('📝 Fetching profile for user:', userId);
+
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', userId)
             .single();
 
-        if (error || !data) {
-            console.error('Error fetching profile:', error);
+        if (error) {
+            console.error('❌ Error fetching profile:', error);
+            // If profile doesn't exist, return a basic user object from session
+            if (userEmail) {
+                return {
+                    id: userId,
+                    name: '',
+                    email: userEmail,
+                    phone: '',
+                    country: '',
+                    role: 'user',
+                    joined: new Date().toISOString().split('T')[0]
+                };
+            }
             return null;
         }
+
+        console.log('✅ Profile data:', data);
 
         return {
             id: data.id,
@@ -60,89 +74,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
     };
 
-    // Initialize auth state
+    // Initialize auth state - let Supabase handle everything
     useEffect(() => {
         console.log('🔐 AuthContext initializing...');
-        console.log('📍 Current URL:', window.location.href);
-        console.log('📍 Hash:', window.location.hash);
-        console.log('📍 Search:', window.location.search);
 
-        // Check for tokens in URL hash (implicit flow)
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
+        // Get initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            console.log('📦 Initial session:', session ? session.user?.email : 'none');
+            setSession(session);
+            setSupabaseUser(session?.user ?? null);
 
-        // Check for code in URL query params (PKCE flow)
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const errorParam = urlParams.get('error');
-        const errorDescription = urlParams.get('error_description');
-
-        if (errorParam) {
-            console.error('❌ Auth Error:', errorParam, errorDescription);
-            setIsLoading(false);
-            return;
-        }
-
-        if (accessToken) {
-            console.log('🔑 Found access_token in hash, setting session...');
-            // Implicit flow - tokens in hash
-            supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: hashParams.get('refresh_token') || ''
-            }).then(({ data: { session }, error }) => {
-                if (error) {
-                    console.error('❌ Error setting session:', error);
-                } else if (session?.user) {
-                    console.log('✅ Session set successfully!', session.user.email);
-                    setSession(session);
-                    setSupabaseUser(session.user);
-                    fetchProfile(session.user.id).then(profile => {
-                        console.log('👤 Profile fetched:', profile);
-                        setCurrentUser(profile);
-                    });
-                    window.history.replaceState({}, '', window.location.pathname);
-                }
+            if (session?.user) {
+                fetchProfile(session.user.id, session.user.email).then(profile => {
+                    console.log('👤 Profile loaded:', profile);
+                    setCurrentUser(profile);
+                    setIsLoading(false);
+                });
+            } else {
                 setIsLoading(false);
-            });
-        } else if (code) {
-            console.log('🔑 Found code in query params (PKCE flow), exchanging...');
-            // PKCE flow - exchange code for session
-            supabase.auth.exchangeCodeForSession(code).then(({ data: { session }, error }) => {
-                if (error) {
-                    console.error('❌ Error exchanging code:', error);
-                } else if (session?.user) {
-                    console.log('✅ Session obtained from code!', session.user.email);
-                    setSession(session);
-                    setSupabaseUser(session.user);
-                    fetchProfile(session.user.id).then(profile => {
-                        console.log('👤 Profile fetched:', profile);
-                        setCurrentUser(profile);
-                    });
-                    window.history.replaceState({}, '', window.location.pathname);
-                }
-                setIsLoading(false);
-            });
-        } else {
-            console.log('📦 No tokens in URL, checking for existing session...');
-            // Get existing session
-            supabase.auth.getSession().then(({ data: { session } }) => {
-                console.log('📦 Existing session:', session ? session.user?.email : 'none');
-                setSession(session);
-                setSupabaseUser(session?.user ?? null);
-                if (session?.user) {
-                    fetchProfile(session.user.id).then(profile => {
-                        console.log('👤 Profile fetched:', profile);
-                        setCurrentUser(profile);
-                    });
-                }
-                setIsLoading(false);
-            });
-        }
+            }
+        });
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
-                console.log('🔔 Auth event:', event, session?.user?.email);
+                console.log('🔔 Auth state changed:', event, session?.user?.email);
                 setSession(session);
                 setSupabaseUser(session?.user ?? null);
 
@@ -170,47 +126,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         }
                     }
 
-                    const profile = await fetchProfile(session.user.id);
+                    const profile = await fetchProfile(session.user.id, session.user.email);
                     console.log('👤 Profile from auth change:', profile);
                     setCurrentUser(profile);
                 } else {
                     setCurrentUser(null);
                 }
+
+                setIsLoading(false);
             }
         );
 
         return () => subscription.unsubscribe();
     }, []);
-
-    // Sign in with email and password
-    const signIn = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password
-        });
-        return { error: error as Error | null };
-    };
-
-    // Sign up new user with email and password
-    const signUp = async (email: string, password: string, name: string, country: string, phone?: string) => {
-        const { error: authError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    name,
-                    country,
-                    phone
-                }
-            }
-        });
-
-        if (authError) {
-            return { error: authError as Error };
-        }
-
-        return { error: null };
-    };
 
     // Logout
     const logout = async () => {
@@ -222,9 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Update profile
     const updateProfile = async (data: Partial<User>) => {
-        if (!currentUser?.id) {
+        const userId = currentUser?.id || supabaseUser?.id;
+        if (!userId) {
             return { error: new Error('No user logged in') };
         }
+
+        console.log('📝 Updating profile for:', userId, data);
 
         const { error } = await supabase
             .from('profiles')
@@ -233,9 +164,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 phone: data.phone,
                 country: data.country
             })
-            .eq('id', currentUser.id);
+            .eq('id', userId);
 
-        if (!error) {
+        if (error) {
+            console.error('❌ Error updating profile:', error);
+        } else {
+            console.log('✅ Profile updated!');
             setCurrentUser(prev => prev ? { ...prev, ...data } : null);
         }
 
@@ -250,12 +184,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             currentUser,
             supabaseUser,
             session,
-            isAuthenticated: !!session?.user,  // Use session, not currentUser!
+            isAuthenticated: !!session?.user,
             isLoading,
             isAdmin,
             isSuperAdmin,
-            signIn,
-            signUp,
             logout,
             updateProfile
         }}>
