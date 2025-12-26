@@ -42,17 +42,30 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Parse hash params from URL
+function getHashParams(): Record<string, string> {
+    const hash = window.location.hash.substring(1);
+    const params: Record<string, string> = {};
+    hash.split('&').forEach(pair => {
+        const [key, value] = pair.split('=');
+        if (key && value) {
+            params[key] = decodeURIComponent(value);
+        }
+    });
+    return params;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
     const [session, setSession] = useState<Session | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [authError, setAuthError] = useState<AuthError | null>(null);
 
     const clearAuthError = () => setAuthError(null);
 
     // Fetch user profile from Supabase
-    const fetchProfile = useCallback(async (userId: string, userEmail?: string): Promise<User | null> => {
+    const fetchProfile = async (userId: string, userEmail?: string): Promise<User | null> => {
         console.log('📝 Fetching profile for user:', userId);
 
         try {
@@ -63,8 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .single();
 
             if (error) {
-                console.log('ℹ️ Profile not found or error:', error.message);
-                // Return minimal user data if profile doesn't exist yet
+                console.log('ℹ️ Profile not found, using defaults');
                 return {
                     id: userId,
                     name: '',
@@ -93,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.error('❌ Profile fetch error:', err);
             return null;
         }
-    }, []);
+    };
 
     // Refresh user data
     const refreshUser = useCallback(async () => {
@@ -101,122 +113,140 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const profile = await fetchProfile(session.user.id, session.user.email);
             setCurrentUser(profile);
         }
-    }, [session, fetchProfile]);
+    }, [session]);
 
-    // Initialize auth state
+    // Process session and load profile
+    const processSession = async (newSession: Session | null) => {
+        console.log('📦 Processing session:', newSession?.user?.email || 'none');
+
+        setSession(newSession);
+        setSupabaseUser(newSession?.user ?? null);
+
+        if (newSession?.user) {
+            // Handle pending profile from signup
+            const pendingProfile = localStorage.getItem('pendingProfile');
+            if (pendingProfile) {
+                try {
+                    const profileData = JSON.parse(pendingProfile);
+                    console.log('📝 Applying pending profile:', profileData.name);
+                    await supabase
+                        .from('profiles')
+                        .update({
+                            name: profileData.name,
+                            phone: profileData.phone,
+                            country: profileData.country
+                        })
+                        .eq('id', newSession.user.id);
+                    localStorage.removeItem('pendingProfile');
+                } catch (err) {
+                    console.error('Error applying pending profile:', err);
+                }
+            }
+
+            // Fetch profile
+            const profile = await fetchProfile(newSession.user.id, newSession.user.email);
+            setCurrentUser(profile);
+
+            // Clear URL hash after successful auth
+            if (window.location.hash.includes('access_token')) {
+                console.log('🧹 Clearing URL hash');
+                window.history.replaceState(null, '', window.location.pathname);
+            }
+        } else {
+            setCurrentUser(null);
+        }
+
+        localStorage.removeItem('authMode');
+    };
+
+    // Initialize auth
     useEffect(() => {
-        console.log('🔐 AuthContext initializing...');
+        console.log('🔐 AuthContext starting...');
         let isMounted = true;
 
-        const initializeAuth = async () => {
-            try {
-                // Get existing session
-                const { data: { session: existingSession }, error } = await supabase.auth.getSession();
+        // Check if URL contains auth tokens
+        const hashParams = getHashParams();
+        const hasAuthTokens = !!hashParams.access_token;
 
-                if (error) {
-                    console.error('❌ getSession error:', error);
-                    if (isMounted) setIsLoading(false);
-                    return;
-                }
+        if (hasAuthTokens) {
+            console.log('🔑 Found access_token in URL hash');
+        }
 
-                console.log('📦 Session found:', existingSession?.user?.email || 'none');
-
-                if (existingSession && isMounted) {
-                    setSession(existingSession);
-                    setSupabaseUser(existingSession.user);
-
-                    // Apply pending profile data if exists
-                    const pendingProfile = localStorage.getItem('pendingProfile');
-                    if (pendingProfile) {
-                        try {
-                            const profileData = JSON.parse(pendingProfile);
-                            console.log('📝 Applying pending profile:', profileData.name);
-                            await supabase
-                                .from('profiles')
-                                .update({
-                                    name: profileData.name,
-                                    phone: profileData.phone,
-                                    country: profileData.country
-                                })
-                                .eq('id', existingSession.user.id);
-                            localStorage.removeItem('pendingProfile');
-                        } catch (err) {
-                            console.error('Error applying pending profile:', err);
-                        }
-                    }
-
-                    // Fetch full profile
-                    const profile = await fetchProfile(existingSession.user.id, existingSession.user.email);
-                    if (isMounted) setCurrentUser(profile);
-                }
-
-                // Clear auth mode on page load
-                localStorage.removeItem('authMode');
-            } catch (err) {
-                console.error('❌ Auth init error:', err);
-            } finally {
-                if (isMounted) setIsLoading(false);
-            }
-        };
-
-        initializeAuth();
-
-        // Listen for auth state changes
+        // Set up auth state listener
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, newSession) => {
                 console.log('🔔 Auth event:', event, newSession?.user?.email || 'no user');
 
                 if (!isMounted) return;
 
-                if (event === 'SIGNED_IN' && newSession) {
-                    setSession(newSession);
-                    setSupabaseUser(newSession.user);
-
-                    // Apply pending profile if exists
-                    const pendingProfile = localStorage.getItem('pendingProfile');
-                    if (pendingProfile) {
-                        try {
-                            const profileData = JSON.parse(pendingProfile);
-                            console.log('📝 Applying pending profile after sign in:', profileData.name);
-                            await supabase
-                                .from('profiles')
-                                .update({
-                                    name: profileData.name,
-                                    phone: profileData.phone,
-                                    country: profileData.country
-                                })
-                                .eq('id', newSession.user.id);
-                            localStorage.removeItem('pendingProfile');
-                        } catch (err) {
-                            console.error('Error applying pending profile:', err);
-                        }
-                    }
-
-                    // Fetch profile
-                    const profile = await fetchProfile(newSession.user.id, newSession.user.email);
-                    if (isMounted) {
-                        setCurrentUser(profile);
-                        setIsLoading(false);
-                    }
-
-                    localStorage.removeItem('authMode');
+                if (newSession) {
+                    await processSession(newSession);
                 } else if (event === 'SIGNED_OUT') {
                     setSession(null);
                     setSupabaseUser(null);
                     setCurrentUser(null);
                     setAuthError(null);
-                    setIsLoading(false);
-                } else if (event === 'TOKEN_REFRESHED' && newSession) {
-                    setSession(newSession);
                 }
             }
         );
+
+        // Try to get session with timeout
+        const getSessionWithTimeout = async () => {
+            console.log('📡 Calling getSession...');
+
+            try {
+                // Create a race between getSession and a timeout
+                const timeoutPromise = new Promise<null>((resolve) => {
+                    setTimeout(() => {
+                        console.log('⏱️ getSession timed out after 3 seconds');
+                        resolve(null);
+                    }, 3000);
+                });
+
+                const sessionPromise = supabase.auth.getSession().then(
+                    ({ data: { session }, error }) => {
+                        if (error) {
+                            console.error('❌ getSession error:', error);
+                            return null;
+                        }
+                        return session;
+                    }
+                );
+
+                const result = await Promise.race([sessionPromise, timeoutPromise]);
+
+                if (result && isMounted) {
+                    console.log('✅ Session found:', result.user?.email);
+                    await processSession(result);
+                } else if (hasAuthTokens && isMounted) {
+                    // If we have tokens but getSession failed, try setSession manually
+                    console.log('🔄 Trying manual session recovery...');
+                    const { data, error } = await supabase.auth.setSession({
+                        access_token: hashParams.access_token,
+                        refresh_token: hashParams.refresh_token || ''
+                    });
+
+                    if (data.session && isMounted) {
+                        console.log('✅ Manual session set:', data.session.user?.email);
+                        await processSession(data.session);
+                    } else if (error) {
+                        console.error('❌ Manual session failed:', error);
+                    }
+                } else {
+                    console.log('ℹ️ No session found');
+                }
+            } catch (err) {
+                console.error('❌ Session error:', err);
+            }
+        };
+
+        getSessionWithTimeout();
 
         return () => {
             isMounted = false;
             subscription.unsubscribe();
         };
-    }, [fetchProfile]);
+    }, []);
 
     // Logout
     const logout = async () => {

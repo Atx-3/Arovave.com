@@ -56,15 +56,7 @@ export function Profile() {
         setIsEditing(false);
     };
 
-    // Show loading while auth is initializing
-    if (isLoading) {
-        return (
-            <div className="page-enter max-w-2xl mx-auto px-6 py-20 text-center">
-                <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-zinc-400" />
-                <p className="text-zinc-500">Loading...</p>
-            </div>
-        );
-    }
+    // No loading check needed - isLoading is always false now
 
     if (!isAuthenticated) {
         return (
