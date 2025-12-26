@@ -40,33 +40,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
         }
     }, [authError]);
 
-    // Clear pending data on mount if no auth error
-    useEffect(() => {
-        const pendingProfile = localStorage.getItem('pendingProfile');
-        if (pendingProfile && !authError) {
-            const updateProfile = async () => {
-                try {
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user) {
-                        const profileData = JSON.parse(pendingProfile);
-                        await supabase
-                            .from('profiles')
-                            .update({
-                                name: profileData.name,
-                                phone: profileData.phone,
-                                country: profileData.country
-                            })
-                            .eq('id', user.id);
-                        localStorage.removeItem('pendingProfile');
-                        onClose();
-                    }
-                } catch (err) {
-                    console.error('Error updating profile:', err);
-                }
-            };
-            updateProfile();
-        }
-    }, [onClose, authError]);
+    // Note: Profile update from pendingProfile is handled in AuthContext
 
     const handleGoogleSignIn = async () => {
         // For sign up, validate form first

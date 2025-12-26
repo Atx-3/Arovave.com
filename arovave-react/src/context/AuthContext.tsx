@@ -127,10 +127,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         console.log('🔐 AuthContext initializing...');
 
+        // Failsafe: Stop loading after 3 seconds no matter what
+        // If getSession hangs, user can still sign in
+        const failsafeTimeout = setTimeout(() => {
+            console.log('⚠️ Failsafe triggered - stopping loading');
+            setIsLoading(false);
+        }, 3000);
+
         const initAuth = async () => {
             try {
-                // Just use getSession directly - no artificial timeout
+                console.log('📡 Calling getSession...');
                 const { data: { session } } = await supabase.auth.getSession();
+                console.log('✅ getSession completed!');
 
                 console.log('📦 Initial session:', session ? session.user?.email : 'none');
                 setSession(session);
@@ -166,9 +174,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             } catch (err) {
                 console.error('❌ Error getting session:', err);
-                // Still allow page to render even on error
             } finally {
-                // ALWAYS set loading to false so page renders
+                clearTimeout(failsafeTimeout);
                 setIsLoading(false);
             }
         };
