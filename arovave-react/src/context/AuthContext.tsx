@@ -3,7 +3,10 @@ import type { ReactNode } from 'react';
 import { supabase, type Profile } from '../lib/supabase';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
-// Extended User type with role
+// Admin panel tabs
+export type AdminPermission = 'enquiries' | 'products' | 'users' | 'settings';
+
+// Extended User type with role and permissions
 export interface User {
     id: string;
     name: string;
@@ -11,7 +14,14 @@ export interface User {
     phone?: string;
     country: string;
     role: 'user' | 'admin' | 'superadmin';
+    permissions: AdminPermission[];
     joined?: string;
+}
+
+// Auth error types
+export interface AuthError {
+    type: 'user_exists' | 'user_not_found';
+    email: string;
 }
 
 interface AuthContextType {
@@ -22,8 +32,11 @@ interface AuthContextType {
     isLoading: boolean;
     isAdmin: boolean;
     isSuperAdmin: boolean;
+    authError: AuthError | null;
+    clearAuthError: () => void;
     logout: () => Promise<void>;
     updateProfile: (data: Partial<User>) => Promise<{ error: Error | null }>;
+    hasPermission: (permission: AdminPermission) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [authError, setAuthError] = useState<AuthError | null>(null);
+
+    const clearAuthError = () => setAuthError(null);
 
     // Fetch user profile from Supabase
     const fetchProfile = async (userId: string, userEmail?: string): Promise<User | null> => {
@@ -46,7 +62,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (error) {
             console.error('❌ Error fetching profile:', error);
-            // If profile doesn't exist, return a basic user object from session
             if (userEmail) {
                 return {
                     id: userId,
@@ -55,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     phone: '',
                     country: '',
                     role: 'user',
+                    permissions: [],
                     joined: new Date().toISOString().split('T')[0]
                 };
             }
@@ -70,47 +86,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             phone: data.phone || '',
             country: data.country || '',
             role: data.role || 'user',
+            permissions: data.permissions || [],
             joined: data.created_at?.split('T')[0]
         };
     };
 
-    // Initialize auth state - let Supabase handle everything
+    // Validate user after OAuth - check if signin/signup mode is correct
+    // Returns user existence status but does NOT sign out (that was too aggressive)
+    const validateUserAfterOAuth = async (userId: string, userEmail: string): Promise<boolean> => {
+        const authMode = localStorage.getItem('authMode') as 'signin' | 'signup' | null;
+        localStorage.removeItem('authMode'); // Clear it immediately
+
+        if (!authMode) return true; // No validation needed
+
+        console.log('🔍 Validating user, mode:', authMode);
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', userId)
+            .single();
+
+        const isExistingUser = profile && profile.name && profile.name.trim() !== '';
+
+        if (authMode === 'signin' && !isExistingUser) {
+            console.log('⚠️ New user tried to sign in - prompting to complete profile');
+            // Don't sign out - let them complete their profile
+        }
+
+        if (authMode === 'signup' && isExistingUser) {
+            console.log('✅ User already exists - that is fine for OAuth');
+            // OAuth is idempotent - existing user signing up again is OK
+        }
+
+        // Always allow through - just log for debugging
+        return true;
+    };
+
+    // Initialize auth state
     useEffect(() => {
         console.log('🔐 AuthContext initializing...');
 
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            console.log('📦 Initial session:', session ? session.user?.email : 'none');
-            setSession(session);
-            setSupabaseUser(session?.user ?? null);
+        const initAuth = async () => {
+            try {
+                // Just use getSession directly - no artificial timeout
+                const { data: { session } } = await supabase.auth.getSession();
 
-            if (session?.user) {
-                fetchProfile(session.user.id, session.user.email).then(profile => {
-                    console.log('👤 Profile loaded:', profile);
-                    setCurrentUser(profile);
-                    setIsLoading(false);
-                });
-            } else {
-                setIsLoading(false);
-            }
-        });
-
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                console.log('🔔 Auth state changed:', event, session?.user?.email);
+                console.log('📦 Initial session:', session ? session.user?.email : 'none');
                 setSession(session);
                 setSupabaseUser(session?.user ?? null);
 
                 if (session?.user) {
-                    // Check if we have pending profile data from signup
+                    // Validate user if coming from OAuth
+                    await validateUserAfterOAuth(session.user.id, session.user.email || '');
+
+                    // Handle pending profile from signup
                     const pendingProfile = localStorage.getItem('pendingProfile');
-                    if (pendingProfile && event === 'SIGNED_IN') {
+                    if (pendingProfile) {
                         try {
                             const profileData = JSON.parse(pendingProfile);
                             console.log('📝 Updating profile with signup data:', profileData);
-
-                            // Update the profile with signup data
                             await supabase
                                 .from('profiles')
                                 .update({
@@ -119,7 +154,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                                     country: profileData.country
                                 })
                                 .eq('id', session.user.id);
+                            localStorage.removeItem('pendingProfile');
+                        } catch (err) {
+                            console.error('Error updating profile with signup data:', err);
+                        }
+                    }
 
+                    const profile = await fetchProfile(session.user.id, session.user.email);
+                    console.log('👤 Profile loaded:', profile);
+                    setCurrentUser(profile);
+                }
+            } catch (err) {
+                console.error('❌ Error getting session:', err);
+                // Still allow page to render even on error
+            } finally {
+                // ALWAYS set loading to false so page renders
+                setIsLoading(false);
+            }
+        };
+
+        initAuth();
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+                console.log('🔔 Auth state changed:', event, session?.user?.email);
+                setSession(session);
+                setSupabaseUser(session?.user ?? null);
+
+                if (session?.user && event === 'SIGNED_IN') {
+                    // Validate user
+                    const isValid = await validateUserAfterOAuth(session.user.id, session.user.email || '');
+                    if (!isValid) {
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    // Handle pending profile from signup
+                    const pendingProfile = localStorage.getItem('pendingProfile');
+                    if (pendingProfile) {
+                        try {
+                            const profileData = JSON.parse(pendingProfile);
+                            console.log('📝 Updating profile with signup data:', profileData);
+                            await supabase
+                                .from('profiles')
+                                .update({
+                                    name: profileData.name,
+                                    phone: profileData.phone,
+                                    country: profileData.country
+                                })
+                                .eq('id', session.user.id);
                             localStorage.removeItem('pendingProfile');
                         } catch (err) {
                             console.error('Error updating profile with signup data:', err);
@@ -129,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     const profile = await fetchProfile(session.user.id, session.user.email);
                     console.log('👤 Profile from auth change:', profile);
                     setCurrentUser(profile);
-                } else {
+                } else if (!session) {
                     setCurrentUser(null);
                 }
 
@@ -147,6 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCurrentUser(null);
         setSupabaseUser(null);
         setSession(null);
+        setAuthError(null);
         console.log('✅ Logged out successfully');
     };
 
@@ -178,6 +263,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: error as Error | null };
     };
 
+    // Check if user has specific admin permission
+    const hasPermission = (permission: AdminPermission): boolean => {
+        if (!currentUser) return false;
+        if (currentUser.role === 'superadmin') return true; // Super admin has all permissions
+        if (currentUser.role === 'admin') {
+            return currentUser.permissions.includes(permission);
+        }
+        return false;
+    };
+
     const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
     const isSuperAdmin = currentUser?.role === 'superadmin';
 
@@ -190,8 +285,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             isLoading,
             isAdmin,
             isSuperAdmin,
+            authError,
+            clearAuthError,
             logout,
-            updateProfile
+            updateProfile,
+            hasPermission
         }}>
             {children}
         </AuthContext.Provider>

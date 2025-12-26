@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Loader2, AlertCircle, User, Phone, Info } from 'lucide-react';
+import { X, Loader2, AlertCircle, User, Phone, Info, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { countries } from '../../data';
+import { useAuth } from '../../context';
 
 interface AuthModalProps {
     onClose: () => void;
@@ -18,6 +19,7 @@ const GoogleIcon = () => (
 );
 
 export function AuthModal({ onClose }: AuthModalProps) {
+    const { authError, clearAuthError } = useAuth();
     const [mode, setMode] = useState<'signin' | 'signup'>('signin');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -27,16 +29,26 @@ export function AuthModal({ onClose }: AuthModalProps) {
         country: 'India'
     });
 
-    // Check for pending profile data after OAuth return
+    // Handle auth errors from context
+    useEffect(() => {
+        if (authError) {
+            if (authError.type === 'user_not_found') {
+                setMode('signup');
+            } else if (authError.type === 'user_exists') {
+                setMode('signin');
+            }
+        }
+    }, [authError]);
+
+    // Clear pending data on mount if no auth error
     useEffect(() => {
         const pendingProfile = localStorage.getItem('pendingProfile');
-        if (pendingProfile) {
+        if (pendingProfile && !authError) {
             const updateProfile = async () => {
                 try {
                     const { data: { user } } = await supabase.auth.getUser();
                     if (user) {
                         const profileData = JSON.parse(pendingProfile);
-                        console.log('📝 Updating profile with signup data:', profileData);
                         await supabase
                             .from('profiles')
                             .update({
@@ -54,7 +66,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
             };
             updateProfile();
         }
-    }, [onClose]);
+    }, [onClose, authError]);
 
     const handleGoogleSignIn = async () => {
         // For sign up, validate form first
@@ -67,10 +79,12 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 setError('Please enter your phone number.');
                 return;
             }
-
-            // Store profile data in localStorage to use after OAuth redirect
             localStorage.setItem('pendingProfile', JSON.stringify(formData));
         }
+
+        // Store auth mode for validation after OAuth return
+        localStorage.setItem('authMode', mode);
+        clearAuthError();
 
         setIsLoading(true);
         setError(null);
@@ -91,13 +105,20 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 console.error('Google sign-in error:', error);
                 setError(error.message);
                 setIsLoading(false);
+                localStorage.removeItem('authMode');
             }
-            // If no error, the user will be redirected to Google
         } catch (err) {
             console.error('Auth error:', err);
             setError('Something went wrong. Please try again.');
             setIsLoading(false);
+            localStorage.removeItem('authMode');
         }
+    };
+
+    const handleModeSwitch = () => {
+        setMode(mode === 'signin' ? 'signup' : 'signin');
+        setError(null);
+        clearAuthError();
     };
 
     return (
@@ -113,17 +134,48 @@ export function AuthModal({ onClose }: AuthModalProps) {
                     </button>
                 </div>
 
+                {/* Auth Error from Context */}
+                {authError?.type === 'user_not_found' && (
+                    <div className="p-4 bg-red-50 border-2 border-red-200 text-red-700 rounded-2xl text-sm mb-6">
+                        <p className="font-bold mb-1">User Not Found</p>
+                        <p>No account exists for <span className="font-bold">{authError.email}</span>.</p>
+                        <p className="mt-2">Please create an account first.</p>
+                        <button
+                            onClick={() => { setMode('signup'); clearAuthError(); }}
+                            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-xs uppercase flex items-center gap-2"
+                        >
+                            Create Account <ArrowRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                )}
+
+                {authError?.type === 'user_exists' && (
+                    <div className="p-4 bg-amber-50 border-2 border-amber-200 text-amber-700 rounded-2xl text-sm mb-6">
+                        <p className="font-bold mb-1">Account Already Exists</p>
+                        <p>An account already exists for <span className="font-bold">{authError.email}</span>.</p>
+                        <p className="mt-2">Please sign in instead.</p>
+                        <button
+                            onClick={() => { setMode('signin'); clearAuthError(); }}
+                            className="mt-3 px-4 py-2 bg-amber-600 text-white rounded-lg font-bold text-xs uppercase flex items-center gap-2"
+                        >
+                            Sign In <ArrowRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                )}
+
                 {/* Content */}
-                <div className="text-center mb-6">
-                    <p className="text-zinc-500 text-sm">
-                        {mode === 'signin'
-                            ? 'Sign in to manage your enquiries and get personalized quotes.'
-                            : 'Fill in your details below, then verify with Google to create your account.'}
-                    </p>
-                </div>
+                {!authError && (
+                    <div className="text-center mb-6">
+                        <p className="text-zinc-500 text-sm">
+                            {mode === 'signin'
+                                ? 'Sign in to manage your enquiries and get personalized quotes.'
+                                : 'Fill in your details below, then verify with Google to create your account.'}
+                        </p>
+                    </div>
+                )}
 
                 {/* Sign In Info Box */}
-                {mode === 'signin' && (
+                {mode === 'signin' && !authError && (
                     <div className="p-4 bg-blue-50 rounded-xl text-sm flex items-start gap-3 mb-6">
                         <Info className="w-5 h-5 shrink-0 mt-0.5 text-blue-600" />
                         <p className="text-blue-700">
@@ -133,7 +185,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 )}
 
                 {/* Sign Up Form - Name and Phone */}
-                {mode === 'signup' && (
+                {mode === 'signup' && !authError && (
                     <div className="space-y-4 mb-6">
                         <div>
                             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
@@ -175,14 +227,6 @@ export function AuthModal({ onClose }: AuthModalProps) {
                                 ))}
                             </select>
                         </div>
-
-                        {/* Info about existing users */}
-                        <div className="p-4 bg-amber-50 rounded-xl text-sm flex items-start gap-3">
-                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
-                            <p className="text-amber-700">
-                                If you've already signed up, please use <button onClick={() => { setMode('signin'); setError(null); }} className="font-bold underline">Sign In</button> instead.
-                            </p>
-                        </div>
                     </div>
                 )}
 
@@ -217,7 +261,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
                     {mode === 'signin' ? "First time here? " : "Already have an account? "}
                     <button
                         type="button"
-                        onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); }}
+                        onClick={handleModeSwitch}
                         className="font-bold text-black"
                     >
                         {mode === 'signin' ? 'Create Account' : 'Sign In'}

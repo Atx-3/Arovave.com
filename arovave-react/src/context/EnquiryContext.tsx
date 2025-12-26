@@ -2,17 +2,20 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { Product, Enquiry } from '../types';
 import { useAuth } from './AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface EnquiryContextType {
     cart: Product[];
     allEnquiries: Enquiry[];
+    isLoadingEnquiries: boolean;
     addToCart: (product: Product) => boolean;
     removeFromCart: (productId: number) => void;
     clearCart: () => void;
-    submitEnquiry: () => void;
-    submitGeneralEnquiry: () => void;
-    submitProductEnquiry: (product: Product) => void;
-    updateEnquiryStatus: (id: number, status: Enquiry['status']) => void;
+    submitEnquiry: () => Promise<void>;
+    submitGeneralEnquiry: () => Promise<void>;
+    submitProductEnquiry: (product: Product) => Promise<void>;
+    updateEnquiryStatus: (id: number, status: Enquiry['status']) => Promise<void>;
+    refreshEnquiries: () => Promise<void>;
 }
 
 const EnquiryContext = createContext<EnquiryContextType | undefined>(undefined);
@@ -20,45 +23,82 @@ const EnquiryContext = createContext<EnquiryContextType | undefined>(undefined);
 export function EnquiryProvider({ children }: { children: ReactNode }) {
     const [cart, setCart] = useState<Product[]>([]);
     const [allEnquiries, setAllEnquiries] = useState<Enquiry[]>([]);
-    const { currentUser } = useAuth();
+    const [isLoadingEnquiries, setIsLoadingEnquiries] = useState(false);
+    const { currentUser, isAdmin, isSuperAdmin, isAuthenticated } = useAuth();
 
-    // Load enquiries from localStorage
-    useEffect(() => {
-        const saved = localStorage.getItem('arovaveAllEnquiries');
-        if (saved) {
-            setAllEnquiries(JSON.parse(saved));
-        } else {
-            // Mock data for demo
-            const mockEnquiries: Enquiry[] = [
-                {
-                    id: 1,
-                    user: { id: 'mock-1', name: 'John Smith', email: 'john@acmecorp.com', country: 'USA', role: 'user' },
-                    products: [{ id: 1, name: 'Premium Basmati Rice', qty: '50 MT' }],
-                    date: '2024-12-20',
-                    status: 'pending'
+    // Fetch enquiries from Supabase when user logs in
+    const fetchEnquiries = async () => {
+        if (!currentUser) return;
+
+        setIsLoadingEnquiries(true);
+        try {
+            let query = supabase
+                .from('enquiries')
+                .select(`
+                    *,
+                    profiles:user_id (id, name, email, country)
+                `)
+                .order('created_at', { ascending: false });
+
+            // Regular users only see their own enquiries
+            if (!isAdmin && !isSuperAdmin) {
+                query = query.eq('user_id', currentUser.id);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('❌ Error fetching enquiries:', error);
+                return;
+            }
+
+            console.log('📦 Enquiries loaded:', data?.length || 0);
+
+            // Transform database format to app format
+            const enquiries: Enquiry[] = (data || []).map((e: any) => ({
+                id: e.id,
+                user: e.profiles ? {
+                    id: e.profiles.id,
+                    name: e.profiles.name || '',
+                    email: e.profiles.email || '',
+                    country: e.profiles.country || '',
+                    role: 'user' as const
+                } : {
+                    id: e.user_id,
+                    name: 'Unknown',
+                    email: '',
+                    country: '',
+                    role: 'user' as const
                 },
-                {
-                    id: 2,
-                    user: { id: 'mock-2', name: 'Maria Garcia', email: 'maria@eurofoods.es', country: 'Spain', role: 'user' },
-                    products: [{ id: 2, name: 'Paracetamol 500mg', qty: '100,000 units' }],
-                    date: '2024-12-18',
-                    status: 'contacted'
-                },
-                {
-                    id: 3,
-                    user: { id: 'mock-3', name: 'Ahmed Hassan', email: 'ahmed@gulftrading.ae', country: 'UAE', role: 'user' },
-                    products: [{ id: 4, name: 'Custom Promotional Items', qty: '10,000 pcs' }],
-                    date: '2024-12-15',
-                    status: 'completed'
-                }
-            ];
-            setAllEnquiries(mockEnquiries);
+                products: e.products || [],
+                date: e.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+                status: e.status || 'pending'
+            }));
+
+            setAllEnquiries(enquiries);
+        } catch (err) {
+            console.error('❌ Error in fetchEnquiries:', err);
+        } finally {
+            setIsLoadingEnquiries(false);
         }
-    }, []);
+    };
+
+    // Fetch enquiries when user changes
+    useEffect(() => {
+        if (isAuthenticated && currentUser) {
+            fetchEnquiries();
+        } else {
+            setAllEnquiries([]);
+        }
+    }, [isAuthenticated, currentUser?.id, isAdmin]);
+
+    const refreshEnquiries = async () => {
+        await fetchEnquiries();
+    };
 
     const addToCart = (product: Product): boolean => {
         if (cart.find(p => p.id === product.id)) {
-            return false; // Already in cart
+            return false;
         }
         setCart(prev => [...prev, product]);
         return true;
@@ -72,74 +112,101 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
         setCart([]);
     };
 
-    const submitEnquiry = () => {
+    const submitEnquiry = async () => {
         if (!currentUser || cart.length === 0) return;
 
-        const newEnquiry: Enquiry = {
-            id: allEnquiries.length + 1,
-            user: currentUser,
-            products: cart.map(p => ({ id: p.id, name: p.name })),
-            date: new Date().toISOString().split('T')[0],
-            status: 'pending'
-        };
+        const products = cart.map(p => ({ id: p.id, name: p.name, qty: p.moq }));
 
-        const updated = [...allEnquiries, newEnquiry];
-        setAllEnquiries(updated);
-        localStorage.setItem('arovaveAllEnquiries', JSON.stringify(updated));
+        const { error } = await supabase
+            .from('enquiries')
+            .insert({
+                user_id: currentUser.id,
+                products: products,
+                status: 'pending'
+            });
+
+        if (error) {
+            console.error('❌ Error submitting enquiry:', error);
+            return;
+        }
+
+        console.log('✅ Enquiry submitted to database');
         clearCart();
+        await fetchEnquiries();
     };
 
-    const updateEnquiryStatus = (id: number, status: Enquiry['status']) => {
-        const updated = allEnquiries.map(e =>
-            e.id === id ? { ...e, status } : e
-        );
-        setAllEnquiries(updated);
-        localStorage.setItem('arovaveAllEnquiries', JSON.stringify(updated));
-    };
-
-    const submitGeneralEnquiry = () => {
+    const submitGeneralEnquiry = async () => {
         if (!currentUser) return;
 
-        const newEnquiry: Enquiry = {
-            id: allEnquiries.length + 1,
-            user: currentUser,
-            products: [{ id: 0, name: 'General Enquiry', qty: 'Consultation request' }],
-            date: new Date().toISOString().split('T')[0],
-            status: 'pending'
-        };
+        const products = [{ id: 0, name: 'General Enquiry', qty: 'Consultation request' }];
 
-        const updated = [...allEnquiries, newEnquiry];
-        setAllEnquiries(updated);
-        localStorage.setItem('arovaveAllEnquiries', JSON.stringify(updated));
+        const { error } = await supabase
+            .from('enquiries')
+            .insert({
+                user_id: currentUser.id,
+                products: products,
+                status: 'pending'
+            });
+
+        if (error) {
+            console.error('❌ Error submitting general enquiry:', error);
+            return;
+        }
+
+        console.log('✅ General enquiry submitted');
+        await fetchEnquiries();
     };
 
-    const submitProductEnquiry = (product: Product) => {
+    const submitProductEnquiry = async (product: Product) => {
         if (!currentUser) return;
 
-        const newEnquiry: Enquiry = {
-            id: allEnquiries.length + 1,
-            user: currentUser,
-            products: [{ id: product.id, name: product.name, qty: product.moq }],
-            date: new Date().toISOString().split('T')[0],
-            status: 'pending'
-        };
+        const products = [{ id: product.id, name: product.name, qty: product.moq }];
 
-        const updated = [...allEnquiries, newEnquiry];
-        setAllEnquiries(updated);
-        localStorage.setItem('arovaveAllEnquiries', JSON.stringify(updated));
+        const { error } = await supabase
+            .from('enquiries')
+            .insert({
+                user_id: currentUser.id,
+                products: products,
+                status: 'pending'
+            });
+
+        if (error) {
+            console.error('❌ Error submitting product enquiry:', error);
+            return;
+        }
+
+        console.log('✅ Product enquiry submitted:', product.name);
+        await fetchEnquiries();
+    };
+
+    const updateEnquiryStatus = async (id: number, status: Enquiry['status']) => {
+        const { error } = await supabase
+            .from('enquiries')
+            .update({ status, updated_at: new Date().toISOString() })
+            .eq('id', id);
+
+        if (error) {
+            console.error('❌ Error updating enquiry status:', error);
+            return;
+        }
+
+        console.log('✅ Enquiry status updated:', id, status);
+        await fetchEnquiries();
     };
 
     return (
         <EnquiryContext.Provider value={{
             cart,
             allEnquiries,
+            isLoadingEnquiries,
             addToCart,
             removeFromCart,
             clearCart,
             submitEnquiry,
             submitGeneralEnquiry,
             submitProductEnquiry,
-            updateEnquiryStatus
+            updateEnquiryStatus,
+            refreshEnquiries
         }}>
             {children}
         </EnquiryContext.Provider>

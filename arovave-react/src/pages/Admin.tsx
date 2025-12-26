@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift } from 'lucide-react';
-import { useEnquiry } from '../context';
+import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2 } from 'lucide-react';
+import { useEnquiry, useAuth } from '../context';
+import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
 import type { Product, Enquiry } from '../types';
 import { saveVideoToDB, getVideoFromDB } from '../utils/storage';
+import type { AdminPermission } from '../context/AuthContext';
 
 // Get products from localStorage or use initial
 const getStoredProducts = (): Product[] => {
@@ -16,11 +18,17 @@ const getStoredProducts = (): Product[] => {
 };
 
 export function Admin() {
-    const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings'>('users');
-    const { allEnquiries, updateEnquiryStatus } = useEnquiry();
+    const { hasPermission, isSuperAdmin, currentUser } = useAuth();
+    const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins'>('enquiries');
+    const { allEnquiries, updateEnquiryStatus, isLoadingEnquiries } = useEnquiry();
     const [products, setProducts] = useState<Product[]>(getStoredProducts);
     const [showProductModal, setShowProductModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+    // Admin management state (for superadmins)
+    const [allUsers, setAllUsers] = useState<any[]>([]);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+    const [savingPermissions, setSavingPermissions] = useState<string | null>(null);
 
     // Quality content state
     const [qualityContent, setQualityContent] = useState<Record<string, any[]>>({});
@@ -31,32 +39,98 @@ export function Admin() {
     // Video URL state
     const [videoUrl, setVideoUrl] = useState('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
 
+    // Available admin permissions
+    const availablePermissions: { key: AdminPermission; label: string; icon: any }[] = [
+        { key: 'enquiries', label: 'Enquiries', icon: Inbox },
+        { key: 'products', label: 'Products', icon: Package },
+        { key: 'users', label: 'View Users', icon: Users },
+        { key: 'settings', label: 'Settings', icon: Award }
+    ];
+
+    // Fetch all users (for superadmin)
+    const fetchAllUsers = async () => {
+        if (!isSuperAdmin) return;
+
+        setIsLoadingUsers(true);
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setAllUsers(data || []);
+        } catch (err) {
+            console.error('Error fetching users:', err);
+        } finally {
+            setIsLoadingUsers(false);
+        }
+    };
+
+    // Update user role and permissions
+    const updateUserRole = async (userId: string, newRole: 'user' | 'admin' | 'superadmin', permissions: AdminPermission[]) => {
+        setSavingPermissions(userId);
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ role: newRole, permissions: permissions })
+                .eq('id', userId);
+
+            if (error) throw error;
+            await fetchAllUsers();
+        } catch (err) {
+            console.error('Error updating user role:', err);
+            alert('Failed to update user role');
+        } finally {
+            setSavingPermissions(null);
+        }
+    };
+
+    // Toggle permission for a user
+    const togglePermission = async (userId: string, permission: AdminPermission, currentPermissions: AdminPermission[]) => {
+        const newPermissions = currentPermissions.includes(permission)
+            ? currentPermissions.filter(p => p !== permission)
+            : [...currentPermissions, permission];
+        await updateUserRole(userId, 'admin', newPermissions);
+    };
+
     // Scroll to top on mount and load data
     useEffect(() => {
         window.scrollTo(0, 0);
-        // Load quality content
         const saved = localStorage.getItem('arovaveQualityContent');
         if (saved) {
             setQualityContent(JSON.parse(saved));
         }
-        // Load video from IndexedDB
         getVideoFromDB().then(video => {
             if (video) setVideoUrl(video);
         });
-    }, []);
+
+        // Load users for superadmin
+        if (isSuperAdmin) {
+            fetchAllUsers();
+        }
+    }, [isSuperAdmin]);
+
+    // Set initial tab based on permissions
+    useEffect(() => {
+        if (isSuperAdmin) {
+            setTab('enquiries');
+        } else if (hasPermission('enquiries')) {
+            setTab('enquiries');
+        } else if (hasPermission('products')) {
+            setTab('products');
+        } else if (hasPermission('users')) {
+            setTab('users');
+        } else if (hasPermission('settings')) {
+            setTab('settings');
+        }
+    }, [isSuperAdmin, currentUser]);
 
     const qualityCategories = [
         { id: 'food', name: 'Processed Food', icon: Utensils },
         { id: 'pharma', name: 'Generic Medicines', icon: Pill },
         { id: 'glass', name: 'Glass Bottles', icon: FlaskConical },
         { id: 'promo', name: 'Promotional Items', icon: Gift }
-    ];
-
-    // Mock users data
-    const users = [
-        { name: 'John Smith', email: 'john@acmecorp.com', country: 'USA', phone: '+1 234 567 8900', joined: '2024-12-20' },
-        { name: 'Maria Garcia', email: 'maria@eurofoods.es', country: 'Spain', phone: '+34 612 345 678', joined: '2024-12-18' },
-        { name: 'Ahmed Hassan', email: 'ahmed@gulftrading.ae', country: 'UAE', phone: '+971 50 123 4567', joined: '2024-12-15' }
     ];
 
     const statusColors: Record<string, string> = {
@@ -124,75 +198,190 @@ export function Admin() {
             <h1 className="text-4xl font-black uppercase tracking-tighter mb-4">Admin Panel</h1>
             <p className="text-zinc-500 mb-8">Manage users, products, enquiries, and quality content</p>
 
-            {/* Tabs */}
+            {/* Tabs - Only show tabs user has permission for */}
             <div className="flex gap-4 mb-8 border-b border-zinc-100 flex-wrap">
-                <button
-                    onClick={() => setTab('users')}
-                    className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'users' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                >
-                    <Users className="w-4 h-4" /> Users
-                </button>
-                <button
-                    onClick={() => setTab('products')}
-                    className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'products' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                >
-                    <Package className="w-4 h-4" /> Products
-                </button>
-                <button
-                    onClick={() => setTab('enquiries')}
-                    className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'enquiries' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                >
-                    <Inbox className="w-4 h-4" /> Enquiries
-                </button>
-                <button
-                    onClick={() => setTab('quality')}
-                    className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'quality' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                >
-                    <Award className="w-4 h-4" /> Quality Content
-                </button>
-                <button
-                    onClick={() => setTab('settings')}
-                    className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'settings' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                >
-                    ⚙️ Settings
-                </button>
+                {(isSuperAdmin || hasPermission('enquiries')) && (
+                    <button
+                        onClick={() => setTab('enquiries')}
+                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'enquiries' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                    >
+                        <Inbox className="w-4 h-4" /> Enquiries
+                    </button>
+                )}
+                {(isSuperAdmin || hasPermission('products')) && (
+                    <button
+                        onClick={() => setTab('products')}
+                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'products' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                    >
+                        <Package className="w-4 h-4" /> Products
+                    </button>
+                )}
+                {(isSuperAdmin || hasPermission('users')) && (
+                    <button
+                        onClick={() => setTab('users')}
+                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'users' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                    >
+                        <Users className="w-4 h-4" /> Users
+                    </button>
+                )}
+                {isSuperAdmin && (
+                    <button
+                        onClick={() => setTab('quality')}
+                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'quality' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                    >
+                        <Award className="w-4 h-4" /> Quality Content
+                    </button>
+                )}
+                {(isSuperAdmin || hasPermission('settings')) && (
+                    <button
+                        onClick={() => setTab('settings')}
+                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'settings' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                    >
+                        ⚙️ Settings
+                    </button>
+                )}
+                {isSuperAdmin && (
+                    <button
+                        onClick={() => setTab('admins')}
+                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'admins' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                    >
+                        <Shield className="w-4 h-4" /> Manage Admins
+                    </button>
+                )}
             </div>
 
-            {/* Users Tab */}
-            {tab === 'users' && (
+            {/* Manage Admins Tab (Super Admin Only) */}
+            {tab === 'admins' && isSuperAdmin && (
                 <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
                     <div className="p-6 border-b border-zinc-100">
-                        <h3 className="font-black uppercase tracking-widest text-sm">All Registered Users ({users.length})</h3>
+                        <h3 className="font-black uppercase tracking-widest text-sm">Manage Admin Permissions</h3>
+                        <p className="text-zinc-500 text-sm mt-2">Promote users to admin and select which tabs they can access.</p>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-zinc-50">
-                                <tr>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Name</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Email</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Country</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Phone</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Joined</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {users.map((user, i) => (
-                                    <tr key={i} className="border-t border-zinc-50">
-                                        <td className="p-4 font-semibold">{user.name}</td>
-                                        <td className="p-4 text-zinc-600">{user.email}</td>
-                                        <td className="p-4 text-zinc-600">{user.country}</td>
-                                        <td className="p-4 text-zinc-600">{user.phone}</td>
-                                        <td className="p-4 text-zinc-400 text-sm">{user.joined}</td>
+                    {isLoadingUsers ? (
+                        <div className="p-12 text-center">
+                            <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-zinc-100">
+                            {allUsers.filter(u => u.id !== currentUser?.id).map(user => (
+                                <div key={user.id} className="p-6">
+                                    <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                                        <div>
+                                            <p className="font-bold text-lg">{user.name || 'No name'}</p>
+                                            <p className="text-zinc-500 text-sm">{user.email}</p>
+                                            <span className={`inline-block mt-2 px-3 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
+                                                user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
+                                                    'bg-zinc-100 text-zinc-600'
+                                                }`}>
+                                                {user.role === 'superadmin' ? 'Super Admin' : user.role === 'admin' ? 'Admin' : 'User'}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {user.role === 'user' && (
+                                                <button
+                                                    onClick={() => updateUserRole(user.id, 'admin', ['enquiries'])}
+                                                    disabled={savingPermissions === user.id}
+                                                    className="px-4 py-2 bg-blue-600 text-white text-xs font-bold uppercase rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                                >
+                                                    {savingPermissions === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Make Admin'}
+                                                </button>
+                                            )}
+                                            {user.role === 'admin' && (
+                                                <button
+                                                    onClick={() => updateUserRole(user.id, 'user', [])}
+                                                    disabled={savingPermissions === user.id}
+                                                    className="px-4 py-2 bg-red-100 text-red-600 text-xs font-bold uppercase rounded-lg hover:bg-red-200 disabled:opacity-50"
+                                                >
+                                                    {savingPermissions === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Remove Admin'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Permissions checkboxes for admins */}
+                                    {user.role === 'admin' && (
+                                        <div className="bg-zinc-50 rounded-xl p-4">
+                                            <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3">Admin Tab Access:</p>
+                                            <div className="flex flex-wrap gap-3">
+                                                {availablePermissions.map(perm => {
+                                                    const userPerms: AdminPermission[] = user.permissions || [];
+                                                    const hasThisPerm = userPerms.includes(perm.key);
+                                                    return (
+                                                        <button
+                                                            key={perm.key}
+                                                            onClick={() => togglePermission(user.id, perm.key, userPerms)}
+                                                            disabled={savingPermissions === user.id}
+                                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors ${hasThisPerm
+                                                                ? 'bg-green-600 text-white'
+                                                                : 'bg-white border-2 border-zinc-200 text-zinc-500 hover:border-black'
+                                                                }`}
+                                                        >
+                                                            {hasThisPerm && <Check className="w-3 h-3" />}
+                                                            <perm.icon className="w-3 h-3" />
+                                                            {perm.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Users Tab */}
+            {tab === 'users' && (isSuperAdmin || hasPermission('users')) && (
+                <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                    <div className="p-6 border-b border-zinc-100">
+                        <h3 className="font-black uppercase tracking-widest text-sm">All Registered Users ({allUsers.length})</h3>
+                    </div>
+                    {isLoadingUsers ? (
+                        <div className="p-12 text-center">
+                            <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-zinc-50">
+                                    <tr>
+                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Name</th>
+                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Email</th>
+                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Country</th>
+                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Phone</th>
+                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Role</th>
+                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Joined</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {allUsers.map((user) => (
+                                        <tr key={user.id} className="border-t border-zinc-50">
+                                            <td className="p-4 font-semibold">{user.name || '-'}</td>
+                                            <td className="p-4 text-zinc-600">{user.email}</td>
+                                            <td className="p-4 text-zinc-600">{user.country || '-'}</td>
+                                            <td className="p-4 text-zinc-600">{user.phone || '-'}</td>
+                                            <td className="p-4">
+                                                <span className={`px-2 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
+                                                    user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-zinc-100 text-zinc-600'
+                                                    }`}>
+                                                    {user.role}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-zinc-400 text-sm">{user.created_at?.split('T')[0] || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* Products Tab */}
-            {tab === 'products' && (
+            {tab === 'products' && (isSuperAdmin || hasPermission('products')) && (
                 <div>
                     <div className="flex justify-end mb-6">
                         <button
@@ -235,7 +424,7 @@ export function Admin() {
             )}
 
             {/* Enquiries Tab */}
-            {tab === 'enquiries' && (
+            {tab === 'enquiries' && (isSuperAdmin || hasPermission('enquiries')) && (
                 <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
                     <div className="p-6 border-b border-zinc-100 flex justify-between items-center flex-wrap gap-4">
                         <h3 className="font-black uppercase tracking-widest text-sm">All Enquiries ({allEnquiries.length})</h3>
