@@ -142,10 +142,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Logout
     const logout = async () => {
+        console.log('🚪 Logging out...');
         await supabase.auth.signOut();
         setCurrentUser(null);
         setSupabaseUser(null);
         setSession(null);
+        console.log('✅ Logged out successfully');
     };
 
     // Update profile

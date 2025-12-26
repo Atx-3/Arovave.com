@@ -1,8 +1,9 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Package, BadgeCheck, Play, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useTranslation, useEnquiry } from '../context';
+import { Package, BadgeCheck, Play, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products as initialProducts } from '../data';
+import { AuthModal } from '../components/auth/AuthModal';
 import type { Product } from '../types';
 
 // Get products from localStorage or use initial
@@ -14,17 +15,54 @@ const getStoredProducts = (): Product[] => {
 export function ProductDetail() {
     const { id } = useParams();
     const t = useTranslation();
-    const { addToCart } = useEnquiry();
+    const navigate = useNavigate();
+    const { submitProductEnquiry } = useEnquiry();
+    const { isAuthenticated } = useAuth();
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isVideo, setIsVideo] = useState(false);
     const [products, setProducts] = useState<Product[]>(getStoredProducts);
+    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [showPopup, setShowPopup] = useState(false);
 
     // Reload products on mount to catch any updates
     useEffect(() => {
         setProducts(getStoredProducts());
     }, []);
 
+    // Auto-close popup after 3 seconds
+    useEffect(() => {
+        if (showPopup) {
+            const timer = setTimeout(() => setShowPopup(false), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [showPopup]);
+
+    // After login, submit pending enquiry
+    useEffect(() => {
+        if (isAuthenticated && showAuthModal) {
+            setShowAuthModal(false);
+            // User just logged in, submit the enquiry
+            if (product) {
+                submitProductEnquiry(product);
+                setShowPopup(true);
+                setTimeout(() => navigate('/enquiries'), 2000);
+            }
+        }
+    }, [isAuthenticated]);
+
     const product = products.find(p => p.id === Number(id));
+
+    const handleEnquire = () => {
+        if (!product) return;
+
+        if (!isAuthenticated) {
+            setShowAuthModal(true);
+            return;
+        }
+        submitProductEnquiry(product);
+        setShowPopup(true);
+        setTimeout(() => navigate('/enquiries'), 2000);
+    };
 
     if (!product) {
         return (
@@ -56,6 +94,30 @@ export function ProductDetail() {
 
     return (
         <div className="page-enter max-w-7xl mx-auto px-6 py-12">
+            {/* Success Popup */}
+            {showPopup && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="bg-white rounded-3xl p-8 max-w-sm mx-4 text-center shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Check className="w-8 h-8 text-green-600" />
+                        </div>
+                        <h3 className="text-xl font-black mb-2">Enquiry Submitted!</h3>
+                        <p className="text-zinc-500 mb-6">Our team will contact you shortly.</p>
+                        <button
+                            onClick={() => {
+                                setShowPopup(false);
+                                navigate('/enquiries');
+                            }}
+                            className="px-8 py-3 bg-black text-white font-bold text-sm uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-colors"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+
             {/* Breadcrumb */}
             <Link to="/catalog" className="text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-black transition-colors mb-8 inline-block">
                 ← Back to Catalog
@@ -164,7 +226,7 @@ export function ProductDetail() {
 
                     <div className="space-y-4">
                         <button
-                            onClick={() => addToCart(product)}
+                            onClick={handleEnquire}
                             className="w-full py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-zinc-800 transition-colors"
                         >
                             {t('addToEnquiry')}

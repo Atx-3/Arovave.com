@@ -1,8 +1,9 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Utensils, Pill, FlaskConical, Gift, ChevronDown } from 'lucide-react';
-import { useTranslation, useEnquiry } from '../context';
+import { Utensils, Pill, FlaskConical, Gift, ChevronDown, Check } from 'lucide-react';
+import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products as initialProducts, categories } from '../data';
+import { AuthModal } from '../components/auth/AuthModal';
 import type { Product } from '../types';
 
 // Get products from localStorage or use initial
@@ -16,7 +17,9 @@ const getStoredProducts = (): Product[] => {
 
 export function Catalog() {
     const t = useTranslation();
-    const { addToCart } = useEnquiry();
+    const { submitProductEnquiry } = useEnquiry();
+    const { isAuthenticated } = useAuth();
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const selectedCategory = searchParams.get('category');
     const selectedSubcategory = searchParams.get('subcategory');
@@ -24,6 +27,9 @@ export function Catalog() {
     const filterType = searchParams.get('filter');
     const [expandedCategory, setExpandedCategory] = useState<string | null>(selectedCategory);
     const [products, setProducts] = useState<Product[]>(getStoredProducts);
+    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
+    const [showPopup, setShowPopup] = useState(false);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -38,6 +44,35 @@ export function Catalog() {
     useEffect(() => {
         if (selectedCategory) setExpandedCategory(selectedCategory);
     }, [selectedCategory]);
+
+    // Auto-close popup after 3 seconds
+    useEffect(() => {
+        if (showPopup) {
+            const timer = setTimeout(() => setShowPopup(false), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [showPopup]);
+
+    // After login, submit pending enquiry
+    useEffect(() => {
+        if (isAuthenticated && pendingProduct) {
+            submitProductEnquiry(pendingProduct);
+            setShowPopup(true);
+            setPendingProduct(null);
+            setTimeout(() => navigate('/enquiries'), 2000);
+        }
+    }, [isAuthenticated, pendingProduct]);
+
+    const handleEnquire = (product: Product) => {
+        if (!isAuthenticated) {
+            setPendingProduct(product);
+            setShowAuthModal(true);
+            return;
+        }
+        submitProductEnquiry(product);
+        setShowPopup(true);
+        setTimeout(() => navigate('/enquiries'), 2000);
+    };
 
     let filteredProducts = products;
 
@@ -74,6 +109,30 @@ export function Catalog() {
 
     return (
         <div className="page-enter">
+            {/* Success Popup */}
+            {showPopup && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="bg-white rounded-3xl p-8 max-w-sm mx-4 text-center shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Check className="w-8 h-8 text-green-600" />
+                        </div>
+                        <h3 className="text-xl font-black mb-2">Enquiry Submitted!</h3>
+                        <p className="text-zinc-500 mb-6">Our team will contact you shortly.</p>
+                        <button
+                            onClick={() => {
+                                setShowPopup(false);
+                                navigate('/enquiries');
+                            }}
+                            className="px-8 py-3 bg-black text-white font-bold text-sm uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-colors"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+
             {/* Category Navigation - Hidden on mobile (in hamburger) and when trending filter */}
             {filterType !== 'trending' && (
                 <div className="hidden md:block sticky top-[73px] z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-100 shadow-sm">
@@ -171,8 +230,11 @@ export function Catalog() {
                                     <Link to={`/product/${product.id}`} className="flex-1 py-3 border-2 border-zinc-200 rounded-xl text-center text-xs font-bold uppercase tracking-widest hover:border-black transition-colors">
                                         {t('viewDetails')}
                                     </Link>
-                                    <button onClick={() => addToCart(product)} className="px-5 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors">
-                                        +
+                                    <button
+                                        onClick={() => handleEnquire(product)}
+                                        className="px-5 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                    >
+                                        Enquire
                                     </button>
                                 </div>
                             </div>
