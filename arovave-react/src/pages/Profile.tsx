@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 
 export function Profile() {
-    const { currentUser, isAuthenticated, logout, updateProfile } = useAuth();
+    const { currentUser, isAuthenticated, isAdmin, logout, updateProfile } = useAuth();
     const t = useTranslation();
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -28,9 +28,9 @@ export function Profile() {
         }
     }, [currentUser]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (updateProfile) {
-            updateProfile(editForm);
+            await updateProfile(editForm);
         }
         setIsEditing(false);
     };
@@ -151,16 +151,18 @@ export function Profile() {
 
             {/* Actions */}
             <div className="grid md:grid-cols-2 gap-4">
-                <Link
-                    to="/admin"
-                    className="flex items-center gap-4 p-6 bg-white border-2 border-zinc-100 rounded-2xl hover:border-black transition-colors"
-                >
-                    <Settings className="w-6 h-6" />
-                    <div>
-                        <h3 className="font-bold">{t('admin')}</h3>
-                        <p className="text-sm text-zinc-400">Manage products & enquiries</p>
-                    </div>
-                </Link>
+                {isAdmin && (
+                    <Link
+                        to="/admin/dashboard"
+                        className="flex items-center gap-4 p-6 bg-white border-2 border-zinc-100 rounded-2xl hover:border-black transition-colors"
+                    >
+                        <Settings className="w-6 h-6" />
+                        <div>
+                            <h3 className="font-bold">{t('admin')}</h3>
+                            <p className="text-sm text-zinc-400">Manage products & enquiries</p>
+                        </div>
+                    </Link>
+                )}
                 <button
                     onClick={logout}
                     className="flex items-center gap-4 p-6 bg-white border-2 border-red-100 rounded-2xl text-red-500 hover:border-red-300 transition-colors text-left"

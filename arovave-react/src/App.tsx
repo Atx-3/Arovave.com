@@ -1,7 +1,8 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, LanguageProvider, EnquiryProvider } from './context';
 import { Layout, ScrollToTop } from './components/layout';
 import { Home, Catalog, ProductDetail, Profile, Admin, Enquiries, TrustPage } from './pages';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 export default function App() {
   return (
@@ -12,13 +13,27 @@ export default function App() {
             <ScrollToTop />
             <Layout>
               <Routes>
+                {/* Public Routes */}
                 <Route path="/" element={<Home />} />
                 <Route path="/catalog" element={<Catalog />} />
                 <Route path="/product/:id" element={<ProductDetail />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/admin" element={<Admin />} />
                 <Route path="/enquiries" element={<Enquiries />} />
                 <Route path="/trust/:section" element={<TrustPage />} />
+
+                {/* Protected Routes */}
+                <Route path="/profile" element={<Profile />} />
+
+                {/* Admin Routes - Protected with role check */}
+                <Route
+                  path="/admin/dashboard"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <Admin />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Redirect old /admin to new path */}
+                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               </Routes>
             </Layout>
           </EnquiryProvider>

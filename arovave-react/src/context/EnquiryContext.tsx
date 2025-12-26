@@ -32,21 +32,21 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
             const mockEnquiries: Enquiry[] = [
                 {
                     id: 1,
-                    user: { name: 'John Smith', email: 'john@acmecorp.com', country: 'USA' },
+                    user: { id: 'mock-1', name: 'John Smith', email: 'john@acmecorp.com', country: 'USA', role: 'user' },
                     products: [{ id: 1, name: 'Premium Basmati Rice', qty: '50 MT' }],
                     date: '2024-12-20',
                     status: 'pending'
                 },
                 {
                     id: 2,
-                    user: { name: 'Maria Garcia', email: 'maria@eurofoods.es', country: 'Spain' },
+                    user: { id: 'mock-2', name: 'Maria Garcia', email: 'maria@eurofoods.es', country: 'Spain', role: 'user' },
                     products: [{ id: 2, name: 'Paracetamol 500mg', qty: '100,000 units' }],
                     date: '2024-12-18',
                     status: 'contacted'
                 },
                 {
                     id: 3,
-                    user: { name: 'Ahmed Hassan', email: 'ahmed@gulftrading.ae', country: 'UAE' },
+                    user: { id: 'mock-3', name: 'Ahmed Hassan', email: 'ahmed@gulftrading.ae', country: 'UAE', role: 'user' },
                     products: [{ id: 4, name: 'Custom Promotional Items', qty: '10,000 pcs' }],
                     date: '2024-12-15',
                     status: 'completed'

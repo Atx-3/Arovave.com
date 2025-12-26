@@ -1,246 +1,214 @@
-import { useState, useRef, useEffect } from 'react';
-import { X, ArrowLeft } from 'lucide-react';
-import { useAuth } from '../../context';
+import { useState, useEffect } from 'react';
+import { X, Loader2, AlertCircle, User, Phone } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import { countries } from '../../data';
 
 interface AuthModalProps {
     onClose: () => void;
 }
 
+// Google icon component
+const GoogleIcon = () => (
+    <svg className="w-5 h-5" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    </svg>
+);
+
 export function AuthModal({ onClose }: AuthModalProps) {
-    const { login } = useAuth();
     const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-    const [step, setStep] = useState(1);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '',
-        email: '',
-        country: 'United States',
-        phone: ''
+        phone: '',
+        country: 'United States'
     });
-    const [otp, setOtp] = useState(['', '', '', '', '', '']);
-    const [timer, setTimer] = useState(30);
-    const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+    // Check if we're returning from Google OAuth with pending profile data
     useEffect(() => {
-        if (step > 1 && timer > 0) {
-            const interval = setInterval(() => setTimer(t => t - 1), 1000);
-            return () => clearInterval(interval);
+        const pendingProfile = localStorage.getItem('pendingProfile');
+        if (pendingProfile) {
+            // User just returned from Google OAuth, update their profile
+            const profileData = JSON.parse(pendingProfile);
+            updateProfileAfterOAuth(profileData);
+            localStorage.removeItem('pendingProfile');
         }
-    }, [step, timer]);
+    }, []);
 
-    const handleOtpChange = (index: number, value: string) => {
-        if (!/^\d*$/.test(value)) return;
-        const newOtp = [...otp];
-        newOtp[index] = value.slice(-1);
-        setOtp(newOtp);
-        if (value && index < 5) {
-            otpRefs.current[index + 1]?.focus();
-        }
-    };
-
-    const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-        if (e.key === 'Backspace' && !otp[index] && index > 0) {
-            otpRefs.current[index - 1]?.focus();
-        }
-    };
-
-    const handleStep1 = (e: React.FormEvent) => {
-        e.preventDefault();
-        setStep(2);
-        setTimer(30);
-    };
-
-    const handleEmailOtp = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (otp.join('').length !== 6) return;
-
-        if (mode === 'signin') {
-            // Sign in complete after email OTP
-            login(formData);
-            onClose();
-        } else {
-            // Sign up needs phone OTP too
-            setStep(3);
-            setOtp(['', '', '', '', '', '']);
-            setTimer(30);
+    const updateProfileAfterOAuth = async (profileData: { name: string; phone: string; country: string }) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase
+                    .from('profiles')
+                    .update({
+                        name: profileData.name,
+                        phone: profileData.phone,
+                        country: profileData.country
+                    })
+                    .eq('id', user.id);
+            }
+        } catch (err) {
+            console.error('Error updating profile:', err);
         }
     };
 
-    const handlePhoneOtp = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (otp.join('').length !== 6) return;
-        login(formData);
-        onClose();
+    const handleGoogleSignIn = async () => {
+        // For sign up, validate form first
+        if (mode === 'signup') {
+            if (!formData.name.trim()) {
+                setError('Please enter your name.');
+                return;
+            }
+            if (!formData.phone.trim()) {
+                setError('Please enter your phone number.');
+                return;
+            }
+
+            // Store profile data in localStorage to use after OAuth redirect
+            localStorage.setItem('pendingProfile', JSON.stringify(formData));
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${window.location.origin}/`,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent'
+                    }
+                }
+            });
+
+            if (error) {
+                console.error('Google sign-in error:', error);
+                setError(error.message);
+                setIsLoading(false);
+            }
+            // If no error, the user will be redirected to Google
+        } catch (err) {
+            console.error('Auth error:', err);
+            setError('Something went wrong. Please try again.');
+            setIsLoading(false);
+        }
     };
 
     return (
         <div className="modal-overlay fixed inset-0" onClick={onClose}>
             <div className="bg-white p-10 rounded-[40px] w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
                 {/* Header */}
-                <div className="flex justify-between items-center mb-10">
-                    <div className="flex items-center gap-3">
-                        {step > 1 && (
-                            <button onClick={() => setStep(step - 1)} className="p-2 hover:bg-zinc-100 rounded-lg">
-                                <ArrowLeft className="w-5 h-5" />
-                            </button>
-                        )}
-                        <h2 className="text-2xl font-black uppercase tracking-tighter">
-                            {mode === 'signin' ? 'Sign In' : 'Sign Up'}
-                        </h2>
-                    </div>
+                <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-2xl font-black uppercase tracking-tighter">
+                        {mode === 'signin' ? 'Sign In' : 'Sign Up'}
+                    </h2>
                     <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-full">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                {/* Step Indicator (signup only) */}
+                {/* Content */}
+                <div className="text-center mb-6">
+                    <p className="text-zinc-500 text-sm">
+                        {mode === 'signin'
+                            ? 'Sign in to manage your enquiries and get personalized quotes.'
+                            : 'Create an account to start requesting quotes.'}
+                    </p>
+                </div>
+
+                {/* Sign Up Form - Name and Phone */}
                 {mode === 'signup' && (
-                    <div className="flex items-center justify-center gap-2 mb-8">
-                        {[1, 2, 3].map(s => (
-                            <div key={s} className="flex items-center gap-2">
-                                <div className={`w-3 h-3 rounded-full ${s <= step ? 'bg-black' : 'bg-zinc-200'}`} />
-                                {s < 3 && <div className="w-8 h-0.5 bg-zinc-200" />}
-                            </div>
-                        ))}
+                    <div className="space-y-4 mb-6">
+                        <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                <User className="w-3 h-3 inline mr-1" />
+                                Full Name *
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                placeholder="John Smith"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                <Phone className="w-3 h-3 inline mr-1" />
+                                Phone Number *
+                            </label>
+                            <input
+                                type="tel"
+                                value={formData.phone}
+                                onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                placeholder="+1 234 567 8900"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                Country *
+                            </label>
+                            <select
+                                value={formData.country}
+                                onChange={e => setFormData({ ...formData, country: e.target.value })}
+                                className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
+                            >
+                                {countries.map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 )}
 
-                {/* Step 1: User Details */}
-                {step === 1 && (
-                    <form onSubmit={handleStep1} className="space-y-5">
-                        {mode === 'signup' && (
-                            <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Full Name</label>
-                                <input
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    required
-                                    className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                                    placeholder="John Smith"
-                                />
-                            </div>
-                        )}
-                        <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Email Address</label>
-                            <input
-                                type="email"
-                                value={formData.email}
-                                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                required
-                                className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                                placeholder="john@company.com"
-                            />
-                        </div>
-                        {mode === 'signup' && (
-                            <>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Country</label>
-                                    <select
-                                        value={formData.country}
-                                        onChange={e => setFormData({ ...formData, country: e.target.value })}
-                                        className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
-                                    >
-                                        {countries.map(c => (
-                                            <option key={c} value={c}>{c}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Phone Number</label>
-                                    <input
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                        required
-                                        className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                                        placeholder="+1 234 567 8900"
-                                    />
-                                </div>
-                            </>
-                        )}
-                        <button
-                            type="submit"
-                            className="w-full py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-zinc-800 transition-colors"
-                        >
-                            Continue
-                        </button>
-                        <p className="text-center text-sm text-zinc-500">
-                            {mode === 'signin' ? "Don't have an account? " : "Already have an account? "}
-                            <button type="button" onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')} className="font-bold text-black">
-                                {mode === 'signin' ? 'Sign Up' : 'Sign In'}
-                            </button>
-                        </p>
-                    </form>
+                {error && (
+                    <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm flex items-start gap-3 mb-6">
+                        <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                        <p className="font-bold">{error}</p>
+                    </div>
                 )}
 
-                {/* Step 2: Email OTP */}
-                {step === 2 && (
-                    <form onSubmit={handleEmailOtp} className="space-y-6">
-                        <div className="text-center mb-6">
-                            <h3 className="font-bold mb-2">Verify your email</h3>
-                            <p className="text-sm text-zinc-500">We sent a 6-digit code to {formData.email}</p>
-                        </div>
-                        <div className="flex justify-center gap-2">
-                            {otp.map((digit, i) => (
-                                <input
-                                    key={i}
-                                    ref={el => { otpRefs.current[i] = el; }}
-                                    type="text"
-                                    value={digit}
-                                    onChange={e => handleOtpChange(i, e.target.value)}
-                                    onKeyDown={e => handleKeyDown(i, e)}
-                                    maxLength={1}
-                                    className="otp-input"
-                                />
-                            ))}
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={otp.join('').length !== 6}
-                            className="w-full py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-zinc-800 transition-colors disabled:bg-zinc-300"
-                        >
-                            Verify
-                        </button>
-                        <p className="text-center text-sm text-zinc-400">
-                            {timer > 0 ? `Resend in ${timer}s` : <button type="button" onClick={() => setTimer(30)} className="text-black font-bold">Resend Code</button>}
-                        </p>
-                    </form>
-                )}
+                {/* Google Sign In Button */}
+                <button
+                    onClick={handleGoogleSignIn}
+                    disabled={isLoading}
+                    className="w-full py-4 px-6 bg-black text-white rounded-xl font-bold text-sm flex items-center justify-center gap-3 hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                >
+                    {isLoading ? (
+                        <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            Redirecting to Google...
+                        </>
+                    ) : (
+                        <>
+                            <GoogleIcon />
+                            {mode === 'signup' ? 'Verify with Google & Create Account' : 'Continue with Google'}
+                        </>
+                    )}
+                </button>
 
-                {/* Step 3: Phone OTP (signup only) */}
-                {step === 3 && mode === 'signup' && (
-                    <form onSubmit={handlePhoneOtp} className="space-y-6">
-                        <div className="text-center mb-6">
-                            <h3 className="font-bold mb-2">Verify your phone</h3>
-                            <p className="text-sm text-zinc-500">We sent a 6-digit code to {formData.phone}</p>
-                        </div>
-                        <div className="flex justify-center gap-2">
-                            {otp.map((digit, i) => (
-                                <input
-                                    key={i}
-                                    ref={el => { otpRefs.current[i] = el; }}
-                                    type="text"
-                                    value={digit}
-                                    onChange={e => handleOtpChange(i, e.target.value)}
-                                    onKeyDown={e => handleKeyDown(i, e)}
-                                    maxLength={1}
-                                    className="otp-input"
-                                />
-                            ))}
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={otp.join('').length !== 6}
-                            className="w-full py-5 bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-zinc-800 transition-colors disabled:bg-zinc-300"
-                        >
-                            Complete Sign Up
-                        </button>
-                        <p className="text-center text-sm text-zinc-400">
-                            {timer > 0 ? `Resend in ${timer}s` : <button type="button" onClick={() => setTimer(30)} className="text-black font-bold">Resend Code</button>}
-                        </p>
-                    </form>
-                )}
+                {/* Toggle Sign In / Sign Up */}
+                <p className="text-center text-sm text-zinc-500 mt-6">
+                    {mode === 'signin' ? "Don't have an account? " : "Already have an account? "}
+                    <button
+                        type="button"
+                        onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); }}
+                        className="font-bold text-black"
+                    >
+                        {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+                    </button>
+                </p>
+
+                <p className="text-center text-xs text-zinc-400 mt-6">
+                    By signing in, you agree to our Terms of Service and Privacy Policy.
+                </p>
             </div>
         </div>
     );
