@@ -250,7 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             currentUser,
             supabaseUser,
             session,
-            isAuthenticated: !!currentUser,
+            isAuthenticated: !!session?.user,  // Use session, not currentUser!
             isLoading,
             isAdmin,
             isSuperAdmin,

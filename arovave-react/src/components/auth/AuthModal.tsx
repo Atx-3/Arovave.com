@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Loader2, AlertCircle, User, Phone } from 'lucide-react';
+import { X, Loader2, AlertCircle, User, Phone, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { countries } from '../../data';
 
@@ -79,10 +79,10 @@ export function AuthModal({ onClose }: AuthModalProps) {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/`,
+                    redirectTo: `${window.location.origin}/profile`,
                     queryParams: {
                         access_type: 'offline',
-                        prompt: 'consent'
+                        prompt: 'select_account' // Always show account selector
                     }
                 }
             });
@@ -106,7 +106,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 {/* Header */}
                 <div className="flex justify-between items-center mb-8">
                     <h2 className="text-2xl font-black uppercase tracking-tighter">
-                        {mode === 'signin' ? 'Sign In' : 'Sign Up'}
+                        {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
                     </h2>
                     <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-full">
                         <X className="w-5 h-5" />
@@ -118,9 +118,19 @@ export function AuthModal({ onClose }: AuthModalProps) {
                     <p className="text-zinc-500 text-sm">
                         {mode === 'signin'
                             ? 'Sign in to manage your enquiries and get personalized quotes.'
-                            : 'Create an account to start requesting quotes.'}
+                            : 'Fill in your details below, then verify with Google to create your account.'}
                     </p>
                 </div>
+
+                {/* Sign In Info Box */}
+                {mode === 'signin' && (
+                    <div className="p-4 bg-blue-50 rounded-xl text-sm flex items-start gap-3 mb-6">
+                        <Info className="w-5 h-5 shrink-0 mt-0.5 text-blue-600" />
+                        <p className="text-blue-700">
+                            Already signed up? Just click the button below to sign in with your Google account.
+                        </p>
+                    </div>
+                )}
 
                 {/* Sign Up Form - Name and Phone */}
                 {mode === 'signup' && (
@@ -148,7 +158,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
                                 value={formData.phone}
                                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
                                 className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                                placeholder="+1 234 567 8900"
+                                placeholder="+91 98765 43210"
                             />
                         </div>
                         <div>
@@ -164,6 +174,14 @@ export function AuthModal({ onClose }: AuthModalProps) {
                                     <option key={c} value={c}>{c}</option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Info about existing users */}
+                        <div className="p-4 bg-amber-50 rounded-xl text-sm flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+                            <p className="text-amber-700">
+                                If you've already signed up, please use <button onClick={() => { setMode('signin'); setError(null); }} className="font-bold underline">Sign In</button> instead.
+                            </p>
                         </div>
                     </div>
                 )}
@@ -196,13 +214,13 @@ export function AuthModal({ onClose }: AuthModalProps) {
 
                 {/* Toggle Sign In / Sign Up */}
                 <p className="text-center text-sm text-zinc-500 mt-6">
-                    {mode === 'signin' ? "Don't have an account? " : "Already have an account? "}
+                    {mode === 'signin' ? "First time here? " : "Already have an account? "}
                     <button
                         type="button"
                         onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); }}
                         className="font-bold text-black"
                     >
-                        {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+                        {mode === 'signin' ? 'Create Account' : 'Sign In'}
                     </button>
                 </p>
 
