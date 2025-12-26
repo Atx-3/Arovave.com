@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Loader2, AlertCircle, User, Phone, Info, ArrowRight } from 'lucide-react';
+import { X, Loader2, AlertCircle, User, Phone, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { countries } from '../../data';
 import { useAuth } from '../../context';
@@ -19,7 +19,7 @@ const GoogleIcon = () => (
 );
 
 export function AuthModal({ onClose }: AuthModalProps) {
-    const { authError, clearAuthError } = useAuth();
+    const { isAuthenticated, clearAuthError } = useAuth();
     const [mode, setMode] = useState<'signin' | 'signup'>('signin');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -29,20 +29,17 @@ export function AuthModal({ onClose }: AuthModalProps) {
         country: 'India'
     });
 
-    // Handle auth errors from context
+    // Close modal if user becomes authenticated
     useEffect(() => {
-        if (authError) {
-            if (authError.type === 'user_not_found') {
-                setMode('signup');
-            } else if (authError.type === 'user_exists') {
-                setMode('signin');
-            }
+        if (isAuthenticated) {
+            console.log('✅ User authenticated, closing modal');
+            onClose();
         }
-    }, [authError]);
-
-    // Note: Profile update from pendingProfile is handled in AuthContext
+    }, [isAuthenticated, onClose]);
 
     const handleGoogleSignIn = async () => {
+        console.log('🔐 Starting Google sign in, mode:', mode);
+
         // For sign up, validate form first
         if (mode === 'signup') {
             if (!formData.name.trim()) {
@@ -53,10 +50,12 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 setError('Please enter your phone number.');
                 return;
             }
+            // Store profile data for after OAuth callback
             localStorage.setItem('pendingProfile', JSON.stringify(formData));
+            console.log('📝 Stored pending profile:', formData.name);
         }
 
-        // Store auth mode for validation after OAuth return
+        // Store auth mode
         localStorage.setItem('authMode', mode);
         clearAuthError();
 
@@ -64,7 +63,8 @@ export function AuthModal({ onClose }: AuthModalProps) {
         setError(null);
 
         try {
-            const { error } = await supabase.auth.signInWithOAuth({
+            console.log('🚀 Calling supabase.auth.signInWithOAuth...');
+            const { error: authError } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
                     redirectTo: `${window.location.origin}/profile`,
@@ -75,17 +75,22 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 }
             });
 
-            if (error) {
-                console.error('Google sign-in error:', error);
-                setError(error.message);
+            if (authError) {
+                console.error('❌ OAuth error:', authError);
+                setError(authError.message);
                 setIsLoading(false);
                 localStorage.removeItem('authMode');
+                localStorage.removeItem('pendingProfile');
+            } else {
+                console.log('✅ OAuth redirect initiated');
+                // Don't stop loading - user will be redirected
             }
-        } catch (err) {
-            console.error('Auth error:', err);
-            setError('Something went wrong. Please try again.');
+        } catch (err: any) {
+            console.error('❌ Auth error:', err);
+            setError(err.message || 'Something went wrong. Please try again.');
             setIsLoading(false);
             localStorage.removeItem('authMode');
+            localStorage.removeItem('pendingProfile');
         }
     };
 
@@ -108,58 +113,17 @@ export function AuthModal({ onClose }: AuthModalProps) {
                     </button>
                 </div>
 
-                {/* Auth Error from Context */}
-                {authError?.type === 'user_not_found' && (
-                    <div className="p-4 bg-red-50 border-2 border-red-200 text-red-700 rounded-2xl text-sm mb-6">
-                        <p className="font-bold mb-1">User Not Found</p>
-                        <p>No account exists for <span className="font-bold">{authError.email}</span>.</p>
-                        <p className="mt-2">Please create an account first.</p>
-                        <button
-                            onClick={() => { setMode('signup'); clearAuthError(); }}
-                            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-xs uppercase flex items-center gap-2"
-                        >
-                            Create Account <ArrowRight className="w-4 h-4" />
-                        </button>
-                    </div>
-                )}
-
-                {authError?.type === 'user_exists' && (
-                    <div className="p-4 bg-amber-50 border-2 border-amber-200 text-amber-700 rounded-2xl text-sm mb-6">
-                        <p className="font-bold mb-1">Account Already Exists</p>
-                        <p>An account already exists for <span className="font-bold">{authError.email}</span>.</p>
-                        <p className="mt-2">Please sign in instead.</p>
-                        <button
-                            onClick={() => { setMode('signin'); clearAuthError(); }}
-                            className="mt-3 px-4 py-2 bg-amber-600 text-white rounded-lg font-bold text-xs uppercase flex items-center gap-2"
-                        >
-                            Sign In <ArrowRight className="w-4 h-4" />
-                        </button>
-                    </div>
-                )}
-
                 {/* Content */}
-                {!authError && (
-                    <div className="text-center mb-6">
-                        <p className="text-zinc-500 text-sm">
-                            {mode === 'signin'
-                                ? 'Sign in to manage your enquiries and get personalized quotes.'
-                                : 'Fill in your details below, then verify with Google to create your account.'}
-                        </p>
-                    </div>
-                )}
-
-                {/* Sign In Info Box */}
-                {mode === 'signin' && !authError && (
-                    <div className="p-4 bg-blue-50 rounded-xl text-sm flex items-start gap-3 mb-6">
-                        <Info className="w-5 h-5 shrink-0 mt-0.5 text-blue-600" />
-                        <p className="text-blue-700">
-                            Sign in with your existing Google account. If you're new, please create an account first.
-                        </p>
-                    </div>
-                )}
+                <div className="text-center mb-6">
+                    <p className="text-zinc-500 text-sm">
+                        {mode === 'signin'
+                            ? 'Sign in to manage your enquiries and get personalized quotes.'
+                            : 'Fill in your details below, then verify with Google to create your account.'}
+                    </p>
+                </div>
 
                 {/* Sign Up Form - Name and Phone */}
-                {mode === 'signup' && !authError && (
+                {mode === 'signup' && (
                     <div className="space-y-4 mb-6">
                         <div>
                             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">

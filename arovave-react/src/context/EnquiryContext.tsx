@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { Product, Enquiry } from '../types';
 import { useAuth } from './AuthContext';
@@ -24,11 +24,20 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
     const [cart, setCart] = useState<Product[]>([]);
     const [allEnquiries, setAllEnquiries] = useState<Enquiry[]>([]);
     const [isLoadingEnquiries, setIsLoadingEnquiries] = useState(false);
-    const { currentUser, isAdmin, isSuperAdmin, isAuthenticated } = useAuth();
+    const { currentUser, supabaseUser, isAdmin, isSuperAdmin, isAuthenticated } = useAuth();
 
-    // Fetch enquiries from Supabase when user logs in
-    const fetchEnquiries = async () => {
-        if (!currentUser) return;
+    // Get user ID - use supabaseUser.id for immediate access
+    const getUserId = useCallback(() => {
+        return currentUser?.id || supabaseUser?.id;
+    }, [currentUser?.id, supabaseUser?.id]);
+
+    // Fetch enquiries from Supabase
+    const fetchEnquiries = useCallback(async () => {
+        const userId = getUserId();
+        if (!userId) {
+            console.log('ℹ️ No user ID available for fetching enquiries');
+            return;
+        }
 
         setIsLoadingEnquiries(true);
         try {
@@ -42,7 +51,7 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
 
             // Regular users only see their own enquiries
             if (!isAdmin && !isSuperAdmin) {
-                query = query.eq('user_id', currentUser.id);
+                query = query.eq('user_id', userId);
             }
 
             const { data, error } = await query;
@@ -81,20 +90,21 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
         } finally {
             setIsLoadingEnquiries(false);
         }
-    };
+    }, [getUserId, isAdmin, isSuperAdmin]);
 
     // Fetch enquiries when user changes
     useEffect(() => {
-        if (isAuthenticated && currentUser) {
+        if (isAuthenticated && (currentUser?.id || supabaseUser?.id)) {
+            console.log('👤 User available, fetching enquiries...');
             fetchEnquiries();
         } else {
             setAllEnquiries([]);
         }
-    }, [isAuthenticated, currentUser?.id, isAdmin]);
+    }, [isAuthenticated, currentUser?.id, supabaseUser?.id, isAdmin, fetchEnquiries]);
 
-    const refreshEnquiries = async () => {
+    const refreshEnquiries = useCallback(async () => {
         await fetchEnquiries();
-    };
+    }, [fetchEnquiries]);
 
     const addToCart = (product: Product): boolean => {
         if (cart.find(p => p.id === product.id)) {
@@ -113,14 +123,23 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
     };
 
     const submitEnquiry = async () => {
-        if (!currentUser || cart.length === 0) return;
+        const userId = getUserId();
+        if (!userId) {
+            console.error('❌ Cannot submit enquiry: No user logged in');
+            return;
+        }
+        if (cart.length === 0) {
+            console.error('❌ Cannot submit enquiry: Cart is empty');
+            return;
+        }
 
+        console.log('📤 Submitting cart enquiry for user:', userId);
         const products = cart.map(p => ({ id: p.id, name: p.name, qty: p.moq }));
 
         const { error } = await supabase
             .from('enquiries')
             .insert({
-                user_id: currentUser.id,
+                user_id: userId,
                 products: products,
                 status: 'pending'
             });
@@ -136,14 +155,19 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
     };
 
     const submitGeneralEnquiry = async () => {
-        if (!currentUser) return;
+        const userId = getUserId();
+        if (!userId) {
+            console.error('❌ Cannot submit enquiry: No user logged in');
+            return;
+        }
 
+        console.log('📤 Submitting general enquiry for user:', userId);
         const products = [{ id: 0, name: 'General Enquiry', qty: 'Consultation request' }];
 
         const { error } = await supabase
             .from('enquiries')
             .insert({
-                user_id: currentUser.id,
+                user_id: userId,
                 products: products,
                 status: 'pending'
             });
@@ -158,14 +182,19 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
     };
 
     const submitProductEnquiry = async (product: Product) => {
-        if (!currentUser) return;
+        const userId = getUserId();
+        if (!userId) {
+            console.error('❌ Cannot submit enquiry: No user logged in');
+            return;
+        }
 
+        console.log('📤 Submitting product enquiry for user:', userId, 'Product:', product.name);
         const products = [{ id: product.id, name: product.name, qty: product.moq }];
 
         const { error } = await supabase
             .from('enquiries')
             .insert({
-                user_id: currentUser.id,
+                user_id: userId,
                 products: products,
                 status: 'pending'
             });
