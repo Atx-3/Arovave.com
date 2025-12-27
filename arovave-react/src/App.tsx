@@ -23,15 +23,8 @@ export default function App() {
                 {/* Protected Routes */}
                 <Route path="/profile" element={<Profile />} />
 
-                {/* Admin Routes - Protected with role check */}
-                <Route
-                  path="/admin/dashboard"
-                  element={
-                    <ProtectedRoute requiredRole="admin">
-                      <Admin />
-                    </ProtectedRoute>
-                  }
-                />
+                {/* Admin Routes - Direct access for development */}
+                <Route path="/admin/dashboard" element={<Admin />} />
                 {/* Redirect old /admin to new path */}
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               </Routes>

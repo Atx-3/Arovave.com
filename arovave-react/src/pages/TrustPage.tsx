@@ -1,82 +1,110 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Handshake, Award, TrendingUp, Calendar, Utensils, Pill, FlaskConical, Gift, FileCheck, Factory, Package, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Handshake, Award, TrendingUp, Calendar, Utensils, Pill, FlaskConical, Gift, FileCheck, Factory, Package, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { categories } from '../data';
 
-// Trust section content with updated headings
+// Trust section content with comprehensive professional copy
 const trustContent = {
     middleman: {
         icon: Handshake,
         title: 'Direct Manufacturer Access',
-        subtitle: 'Connect Directly with Certified Indian Manufacturers',
+        subtitle: 'What Happens When You Work with Arovave',
+        intro: 'When you raise an enquiry on Arovave, your requirement does not circulate through traders or agents. It is evaluated, mapped, and sent directly to factories that already match your product category, volume, compliance needs, and export requirements.',
+        secondaryIntro: 'You communicate through one professional interface, but the production decisions come from the factory floor itself. This eliminates confusion and keeps responsibility clear.',
         content: [
             {
-                heading: 'Direct Factory Partnerships',
-                text: 'We connect you directly with India\'s largest and most reputable manufacturers. No brokers, no middlemen - just direct access to production facilities.'
+                heading: 'Clarity from Day One',
+                text: 'You know who is manufacturing your product before production begins. There is no ambiguity about the source. Factories are selected after verifying their production capacity, quality consistency, certifications, export readiness, and ethical practices. Only manufacturers that pass this process are onboarded.'
             },
             {
-                heading: 'Real-Time Communication',
-                text: 'Speak directly with factory owners and production managers. Get instant updates on orders, customizations, and delivery schedules.'
+                heading: 'Control Without Complexity',
+                text: 'Direct factory access allows you to control important variables such as product specifications, formulation or material selection, packaging and branding, lead times, and batch wise quality checks. Everything is discussed, approved, and documented before execution. No assumptions. No shortcuts.'
             },
             {
-                heading: 'Factory Visits Welcome',
-                text: 'We arrange factory tours for serious buyers. See production processes firsthand and build lasting relationships with manufacturers.'
+                heading: 'Faster, Cleaner Decisions',
+                text: 'Without intermediaries, pricing approvals, sampling, revisions, and confirmations move faster and with fewer misunderstandings. This helps you plan launches, shipments, and market entry with confidence.'
             },
             {
                 heading: 'Dedicated Account Manager',
-                text: 'Your personal Arovave representative coordinates all communications between you and multiple manufacturers seamlessly.'
+                text: 'Your personal Arovave representative coordinates all communications between you and multiple manufacturers seamlessly, ensuring nothing falls through the cracks.'
             }
         ]
     },
     certificate: {
         icon: Award,
         title: 'Certificates & Verified Quality',
-        subtitle: 'Browse Quality Documentation by Category',
-        hasCategories: true
+        subtitle: 'Quality Is a Process, Not a Promise',
+        intro: 'At Arovave, quality is not communicated through claims. It is demonstrated through process, documentation, and inspection.',
+        secondaryIntro: 'Every manufacturing partner operates under recognized national and international quality frameworks such as WHO GMP, ISO standards, FSSAI where applicable, and destination specific export certifications. Only certified and audit ready units are part of the Arovave ecosystem.',
+        hasCategories: true,
+        qualityStages: [
+            {
+                title: 'Before Production',
+                desc: 'Raw materials, formulations, specifications, and packaging standards are verified and approved before production begins. This ensures alignment between buyer expectations and factory execution.'
+            },
+            {
+                title: 'During Production',
+                desc: 'Manufacturing is monitored to ensure batch consistency, adherence to approved samples, and compliance with technical specifications. This reduces variability and production risk.'
+            },
+            {
+                title: 'Before Dispatch',
+                desc: 'Finished goods are inspected to confirm quantity accuracy, labeling correctness, packaging integrity, and export readiness. Only approved batches move forward for shipment.'
+            }
+        ],
+        documentation: [
+            'Certificates of Analysis',
+            'Test Reports (where applicable)',
+            'Compliance Declarations',
+            'Batch and Lot Traceability'
+        ]
     },
     rates: {
         icon: TrendingUp,
         title: 'Factory Direct Pricing',
-        subtitle: 'Best Prices with Complete Transparency',
+        subtitle: 'Pricing Built on Visibility',
+        intro: 'Arovave pricing is designed to be clear, structured, and predictable. There are no brokers, trading chains, or commission based markups involved.',
+        secondaryIntro: 'Prices are shared directly from factory quotations, allowing buyers to understand the real cost of manufacturing.',
         content: [
             {
-                heading: 'No Middleman Markup',
-                text: 'By eliminating intermediaries, you save 15-40% compared to traditional import channels. Our pricing comes directly from factory quotes.'
+                heading: 'How Pricing Works for Buyers',
+                text: 'Bulk orders benefit from manufacturing efficiency and competitive rates. Repeat sourcing allows for structured pricing and long term cost planning. Each quotation clearly outlines manufacturing, packaging, compliance requirements, and export coordination. There are no hidden charges or unexpected additions.'
             },
             {
-                heading: 'Volume-Based Discounts',
-                text: 'The more you order, the better your price. We negotiate bulk discounts on your behalf and pass the savings directly to you.'
+                heading: 'Transparent Cost Structure',
+                text: 'See complete cost breakdowns including manufacturing, packaging, testing, and shipping. No hidden fees or surprise charges at any stage of the process.'
             },
             {
-                heading: 'Transparent Costing',
-                text: 'See complete cost breakdowns including manufacturing, packaging, testing, and shipping. No hidden fees or surprise charges.'
+                heading: 'Volume Based Advantages',
+                text: 'The more you order, the better your price. We negotiate bulk discounts on your behalf and pass the savings directly to you, maintaining complete transparency throughout.'
             },
             {
-                heading: 'Flexible Payment Terms',
-                text: 'Multiple payment options including L/C, T/T, and trade credit for established partners. We work within your cash flow needs.'
+                heading: 'Trade Friendly Payment Terms',
+                text: 'Arovave supports practical trade needs through payment options such as T/T, L/C, advance payments, and trade credit for approved partners. Payment planning is aligned with buyer cash cycles to support repeat and scalable sourcing.'
             }
         ]
     },
     history: {
         icon: Calendar,
         title: 'Decades of Industrial Experience',
-        subtitle: '25+ Years Building Trust Across Continents',
+        subtitle: 'Built on Real Industry Exposure',
+        intro: 'Arovave is backed by more than 25 years of hands on experience within Indian manufacturing, especially across pharmaceuticals, packaging, printing, glass, and promotional industries.',
+        secondaryIntro: 'This experience allows us to evaluate factories realistically, not theoretically. We understand where quality usually fails, where delays occur, and how production behaves under scale.',
         content: [
             {
-                heading: '25+ Years in Export Business',
-                text: 'Since 1998, we have been connecting international buyers with Indian manufacturers. Our experience spans four industries and 50+ countries.'
+                heading: 'Responsible Growth in Exports',
+                text: 'Exports at Arovave are approached carefully and step by step. We work with factories that already understand export requirements and global quality expectations. Growth is built on execution and compliance, not aggressive promises.'
+            },
+            {
+                heading: 'Long Term Factory Relationships',
+                text: 'Arovave works with a select group of manufacturers with whom relationships have been built over years. Factories are evaluated on performance, not potential. The focus is always on long term partnerships rather than short term transactions.'
             },
             {
                 heading: 'Proven Track Record',
-                text: 'Over 10,000 successful shipments delivered worldwide. Our repeat customer rate exceeds 85%, a testament to our reliability.'
+                text: 'Over 10,000 successful shipments delivered worldwide. Our repeat customer rate exceeds 85%, a testament to our reliability and consistent execution.'
             },
             {
                 heading: 'Industry Expertise',
-                text: 'Deep knowledge of pharmaceutical regulations, food safety standards, glass packaging requirements, and promotional goods production.'
-            },
-            {
-                heading: 'Strong Manufacturer Network',
-                text: 'Long-term relationships with 200+ certified manufacturers. We know which factories deliver the best quality for each product type.'
+                text: 'Deep knowledge of pharmaceutical regulations, food safety standards, glass packaging requirements, and promotional goods production. We know which factories deliver the best quality for each product type.'
             }
         ]
     }
@@ -143,32 +171,49 @@ export function TrustPage() {
     return (
         <div className="page-enter">
             {/* Header */}
-            <div className="bg-zinc-50 py-12">
-                <div className="max-w-7xl mx-auto px-6">
-                    <Link to="/" className="text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-black transition-colors mb-6 inline-flex items-center gap-2">
+            <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 text-white py-16 relative overflow-hidden">
+                {/* Background Pattern */}
+                <div className="absolute inset-0 opacity-5" style={{
+                    backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
+                    backgroundSize: '40px 40px'
+                }}></div>
+
+                <div className="max-w-7xl mx-auto px-6 relative z-10">
+                    <Link to="/" className="text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors mb-6 inline-flex items-center gap-2">
                         <ArrowLeft className="w-4 h-4" /> Back to Home
                     </Link>
                     <div className="flex items-center gap-6 mt-4">
-                        <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center">
-                            <Icon className="w-8 h-8 text-white" />
+                        <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center shadow-lg">
+                            <Icon className="w-10 h-10 text-black" />
                         </div>
                         <div>
                             <h1 className="text-3xl md:text-4xl font-black tracking-tighter">{data.title}</h1>
-                            <p className="text-lg text-zinc-500 mt-1">{data.subtitle}</p>
+                            <p className="text-lg text-zinc-300 mt-2">{data.subtitle}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
+            {/* Intro Section */}
+            <div className="bg-zinc-50 py-12">
+                <div className="max-w-4xl mx-auto px-6">
+                    <p className="text-xl text-zinc-800 leading-relaxed mb-4">{data.intro}</p>
+                    {'secondaryIntro' in data && (
+                        <p className="text-zinc-600 leading-relaxed">{data.secondaryIntro}</p>
+                    )}
+                </div>
+            </div>
+
             {/* Content */}
-            <div className="max-w-7xl mx-auto px-6 py-12">
+            <div className="max-w-7xl mx-auto px-6 py-16">
                 {'hasCategories' in data && data.hasCategories ? (
                     // Certificates & Verified Quality - Category Flow
                     <div>
+                        {/* FIRST: Category Browser at TOP */}
                         {!selectedCategory ? (
                             // Step 1: Show Categories
-                            <div>
-                                <h2 className="text-xl font-black uppercase tracking-widest mb-8">Select Category</h2>
+                            <div className="mb-16">
+                                <h2 className="text-xl font-black uppercase tracking-widest mb-8">Browse Documentation by Category</h2>
                                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                                     {categories.map(cat => {
                                         const CatIcon = categoryIcons[cat.id] || Gift;
@@ -186,7 +231,46 @@ export function TrustPage() {
                                     })}
                                 </div>
                             </div>
-                        ) : !selectedSubcategory ? (
+                        ) : null}
+
+                        {/* SECOND: Quality Control Stages - shown when no category selected */}
+                        {'qualityStages' in data && data.qualityStages && !selectedCategory && (
+                            <div className="mb-16">
+                                <h2 className="text-2xl font-black uppercase tracking-tight mb-8">Quality Control at Every Stage</h2>
+                                <div className="grid md:grid-cols-3 gap-6">
+                                    {data.qualityStages.map((stage, idx) => (
+                                        <div key={idx} className="bg-white border border-zinc-100 rounded-2xl p-8 hover:border-black hover:shadow-lg transition-all">
+                                            <div className="w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center font-black text-xl mb-6">
+                                                {idx + 1}
+                                            </div>
+                                            <h3 className="text-xl font-black mb-3">{stage.title}</h3>
+                                            <p className="text-zinc-600 leading-relaxed">{stage.desc}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* THIRD: Documentation Transparency - shown when no category selected */}
+                        {'documentation' in data && data.documentation && !selectedCategory && (
+                            <div className="mb-16 bg-gradient-to-br from-zinc-50 to-white rounded-3xl border border-zinc-100 p-8 md:p-12">
+                                <h2 className="text-2xl font-black uppercase tracking-tight mb-6">Complete Documentation Transparency</h2>
+                                <p className="text-zinc-600 mb-8 max-w-3xl">
+                                    Buyers receive full quality documentation. This supports smooth customs clearance, regulatory approval, and long term buyer confidence. What you approve is what you receive.
+                                </p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {data.documentation.map((doc, idx) => (
+                                        <div key={idx} className="flex items-center gap-3 bg-white rounded-xl p-4 border border-zinc-100">
+                                            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                            <span className="font-medium text-sm">{doc}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Subcategory Selection - when category is selected but not subcategory */}
+                        {selectedCategory && !selectedSubcategory && (
                             // Step 2: Show Subcategories
                             <div>
                                 <button
@@ -224,7 +308,10 @@ export function TrustPage() {
                                     </button>
                                 )}
                             </div>
-                        ) : (
+                        )}
+
+                        {/* Content Type Tabs + Uploads - ONLY when both category AND subcategory are selected */}
+                        {selectedCategory && selectedSubcategory && (
                             // Step 3: Show Content Type Tabs + Uploads
                             <div>
                                 <button
@@ -261,7 +348,7 @@ export function TrustPage() {
                                 {getUploads().length > 0 ? (
                                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {getUploads().map((item: any, idx: number) => (
-                                            <div key={idx} className="bg-white border border-zinc-100 rounded-2xl overflow-hidden">
+                                            <div key={idx} className="bg-white border border-zinc-100 rounded-2xl overflow-hidden hover:shadow-lg transition-all">
                                                 <img src={item.image} alt={item.title} className="w-full aspect-video object-cover" />
                                                 <div className="p-4">
                                                     <h4 className="font-bold">{item.title}</h4>
@@ -283,13 +370,29 @@ export function TrustPage() {
                     // Regular content sections
                     <div className="grid md:grid-cols-2 gap-8">
                         {'content' in data && data.content?.map((item: any, idx: number) => (
-                            <div key={idx} className="bg-white border border-zinc-100 rounded-3xl p-8">
+                            <div key={idx} className="bg-white border border-zinc-100 rounded-3xl p-8 hover:border-black hover:shadow-lg transition-all">
                                 <h3 className="text-xl font-black mb-4">{item.heading}</h3>
                                 <p className="text-zinc-600 leading-relaxed">{item.text}</p>
                             </div>
                         ))}
                     </div>
                 )}
+            </div>
+
+            {/* CTA Section */}
+            <div className="bg-black text-white py-16">
+                <div className="max-w-4xl mx-auto px-6 text-center">
+                    <h2 className="text-3xl font-black mb-4">Ready to Source with Confidence?</h2>
+                    <p className="text-zinc-400 mb-8">
+                        Submit your enquiry and experience structured manufacturing access.
+                    </p>
+                    <Link
+                        to="/catalog"
+                        className="inline-block px-10 py-4 bg-white text-black font-bold text-sm uppercase tracking-widest rounded-xl hover:bg-zinc-100 transition-colors"
+                    >
+                        Browse Products
+                    </Link>
+                </div>
             </div>
         </div>
     );

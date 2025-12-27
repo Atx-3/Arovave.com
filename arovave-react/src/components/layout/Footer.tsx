@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../../context';
+import { Mail, Phone, MapPin } from 'lucide-react';
 
 // Social media icon components
 const InstagramIcon = () => (
@@ -33,14 +34,16 @@ export function Footer() {
         <footer className="bg-zinc-950 text-white py-16">
             <div className="max-w-7xl mx-auto px-6">
                 <div className="grid md:grid-cols-4 gap-10 mb-12">
-                    {/* Brand */}
-                    <div>
+                    {/* Brand + The Arovave Approach */}
+                    <div className="md:col-span-2 lg:col-span-1">
                         <div className="flex items-center gap-3 mb-4">
                             <img src="/logo.png" alt="Arovave" className="h-10 w-auto invert" />
                         </div>
-                        <p className="text-zinc-400 text-sm leading-relaxed">
-                            Your trusted partner for direct manufacturer access in India.
-                            Premium quality products at factory prices since 1998.
+                        <p className="text-zinc-400 text-sm leading-relaxed mb-4">
+                            Arovave is not built to move fast at any cost. It is built to move correctly.
+                        </p>
+                        <p className="text-zinc-500 text-xs leading-relaxed">
+                            By offering direct factory access, verified quality, transparent pricing, and disciplined execution, we help buyers source from India with confidence. This is not shortcut sourcing. This is structured manufacturing access.
                         </p>
                     </div>
 
@@ -85,10 +88,19 @@ export function Footer() {
                     {/* Contact */}
                     <div>
                         <h4 className="text-xs font-black uppercase tracking-widest mb-5">Contact Us</h4>
-                        <div className="space-y-2 text-zinc-400 text-sm">
-                            <p>📧 export@arovave.com</p>
-                            <p>📞 +91 9315728922</p>
-                            <p>📍 Lucknow, Uttar Pradesh, India</p>
+                        <div className="space-y-3 text-zinc-400 text-sm">
+                            <p className="flex items-center gap-3">
+                                <Mail className="w-4 h-4 text-white" />
+                                export@arovave.com
+                            </p>
+                            <p className="flex items-center gap-3">
+                                <Phone className="w-4 h-4 text-white" />
+                                +91 9315728922
+                            </p>
+                            <p className="flex items-center gap-3">
+                                <MapPin className="w-4 h-4 text-white" />
+                                Lucknow, Uttar Pradesh, India
+                            </p>
                         </div>
                         <div className="flex gap-3 mt-4">
                             <a href="https://facebook.com/arovave" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">

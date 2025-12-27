@@ -17,4 +17,8 @@ export interface Product {
     isTrending?: boolean;
     hsn: string;
     certifications: string[];
+    // New fields for enhanced product info
+    leadTime?: string;          // e.g., "15-30 Days"
+    material?: string;          // Material or formulation
+    packagingOptions?: string;  // Available packaging options
 }

@@ -799,7 +799,11 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
         images: product?.images || [],
         video: product?.video || '',
         isTrending: product?.isTrending || false,
-        specs: product?.specs?.map(s => `${s.label}: ${s.value}`).join('\n') || ''
+        specs: product?.specs?.map(s => `${s.label}: ${s.value}`).join('\n') || '',
+        // New fields
+        leadTime: product?.leadTime || '15-30 Days',
+        material: product?.material || '',
+        packagingOptions: product?.packagingOptions || ''
     });
     const [imagePreviews, setImagePreviews] = useState<string[]>(product?.images || []);
 
@@ -853,7 +857,11 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
                 const [label, ...rest] = line.split(':');
                 return { label: label?.trim() || '', value: rest.join(':')?.trim() || '' };
             }).filter(s => s.label && s.value),
-            isTrending: formData.isTrending
+            isTrending: formData.isTrending,
+            // New fields
+            leadTime: formData.leadTime || undefined,
+            material: formData.material || undefined,
+            packagingOptions: formData.packagingOptions || undefined
         };
 
         onSave(productData);
@@ -951,6 +959,43 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
                                 />
                                 <span className="text-sm font-bold">Show in Trending Products</span>
                             </label>
+                        </div>
+
+                        {/* New Enhanced Fields */}
+                        <div className="md:col-span-2 bg-zinc-50 rounded-xl p-4 mt-2">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">Key Specifications (for frontend display)</h4>
+                            <div className="grid md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Lead Time</label>
+                                    <input
+                                        type="text"
+                                        value={formData.leadTime}
+                                        onChange={e => setFormData({ ...formData, leadTime: e.target.value })}
+                                        placeholder="e.g., 15-30 Days"
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Material / Formulation</label>
+                                    <input
+                                        type="text"
+                                        value={formData.material}
+                                        onChange={e => setFormData({ ...formData, material: e.target.value })}
+                                        placeholder="e.g., Glass, Plastic, API"
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Packaging Options</label>
+                                    <input
+                                        type="text"
+                                        value={formData.packagingOptions}
+                                        onChange={e => setFormData({ ...formData, packagingOptions: e.target.value })}
+                                        placeholder="e.g., Bulk, Retail, Custom"
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
+                                    />
+                                </div>
+                            </div>
                         </div>
                         <div className="md:col-span-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Description*</label>

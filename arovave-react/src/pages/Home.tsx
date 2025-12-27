@@ -16,6 +16,7 @@ export function Home() {
     const [showPopup, setShowPopup] = useState(false);
     const [trendingProducts, setTrendingProducts] = useState(products.filter(p => p.isTrending).slice(0, 4));
     const [videoUrl, setVideoUrl] = useState(localStorage.getItem('arovaveVideoUrl') || 'https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
+    const [activeTrustTab, setActiveTrustTab] = useState('middleman');
 
     // Scroll to top on mount
     useEffect(() => {
@@ -83,11 +84,65 @@ export function Home() {
         return () => clearInterval(interval);
     }, []);
 
+    // Trust tabs - original 4 tabs with updated professional content
+    const trustTabs = [
+        {
+            id: 'middleman',
+            icon: Handshake,
+            label: 'Direct Manufacturer Access',
+            title: 'What Happens When You Work with Arovave',
+            content: 'When you raise an enquiry on Arovave, your requirement does not circulate through traders or agents. It is evaluated, mapped, and sent directly to factories that already match your product category, volume, compliance needs, and export requirements.',
+            benefits: [
+                { title: 'Clarity from Day One', desc: 'You know who is manufacturing your product before production begins. There is no ambiguity about the source.' },
+                { title: 'Control Without Complexity', desc: 'Direct factory access allows you to control product specifications, formulation, packaging, branding, lead times, and batch wise quality checks.' },
+                { title: 'Faster Decisions', desc: 'Without intermediaries, pricing approvals, sampling, revisions, and confirmations move faster with fewer misunderstandings.' }
+            ]
+        },
+        {
+            id: 'certificate',
+            icon: Award,
+            label: 'Certificates & Verified Quality',
+            title: 'Quality Is a Process, Not a Promise',
+            content: 'At Arovave, quality is not communicated through claims. It is demonstrated through process, documentation, and inspection. Every manufacturing partner operates under recognized quality frameworks such as WHO GMP, ISO standards, FSSAI where applicable.',
+            hasCategoryBrowser: true, // Links to category browser
+            stages: [
+                { title: 'Before Production', desc: 'Raw materials, formulations, specifications verified and approved.' },
+                { title: 'During Production', desc: 'Batch consistency and compliance with technical specifications.' },
+                { title: 'Before Dispatch', desc: 'Quantity accuracy, labeling correctness, and export readiness.' }
+            ]
+        },
+        {
+            id: 'rates',
+            icon: TrendingUp,
+            label: 'Factory Direct Pricing',
+            title: 'Pricing Built on Visibility',
+            content: 'Arovave pricing is designed to be clear, structured, and predictable. There are no brokers, trading chains, or commission based markups involved. Prices are shared directly from factory quotations.',
+            points: [
+                'Bulk orders benefit from manufacturing efficiency and competitive rates',
+                'Repeat sourcing allows for structured pricing and long term cost planning',
+                'Each quotation clearly outlines manufacturing, packaging, compliance, and export coordination',
+                'Trade friendly payment terms including T/T, L/C, and trade credit for approved partners'
+            ]
+        },
+        {
+            id: 'history',
+            icon: Calendar,
+            label: '25+ Years Experience',
+            title: 'Built on Real Industry Exposure',
+            content: 'Arovave is backed by more than 25 years of hands on experience within Indian manufacturing, especially across pharmaceuticals, packaging, printing, glass, and promotional industries.',
+            highlights: [
+                { title: 'Responsible Growth', desc: 'Exports are approached carefully. We work with factories that already understand export requirements and global quality expectations.' },
+                { title: 'Long Term Relationships', desc: 'Factories are evaluated on performance, not potential. Focus is always on long term partnerships rather than short term transactions.' },
+                { title: 'Proven Track Record', desc: 'Over 10,000 successful shipments delivered worldwide. Our repeat customer rate exceeds 85%.' }
+            ]
+        }
+    ];
+
     const trustCards = [
-        { id: 'middleman', icon: Handshake, title: 'Direct Manufacturer Access', desc: t('trust_middleman_desc') },
-        { id: 'certificate', icon: Award, title: 'Certificates and Verified Quality', desc: t('trust_certificate_desc') },
-        { id: 'rates', icon: TrendingUp, title: 'Factory Direct Pricing', desc: t('trust_rates_desc') },
-        { id: 'history', icon: Calendar, title: 'Decades of Industrial Experience', desc: t('trust_history_desc') }
+        { id: 'middleman', icon: Handshake, title: 'Direct Manufacturer Access', desc: 'Connect directly with verified Indian factories. No brokers, no middlemen.' },
+        { id: 'certificate', icon: Award, title: 'Certificates & Verified Quality', desc: 'Real documentation you can review. WHO GMP, ISO, FSSAI certified.' },
+        { id: 'rates', icon: TrendingUp, title: 'Factory Direct Pricing', desc: 'Transparent pricing from factory quotations. No hidden markups.' },
+        { id: 'history', icon: Calendar, title: '25+ Years Experience', desc: 'Built on decades of hands-on manufacturing and export expertise.' }
     ];
 
     const categoryNav = [
@@ -213,24 +268,131 @@ export function Home() {
 
             {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
 
-            {/* Why Trust Arovave */}
-            <section className="py-20 bg-white">
+            {/* Why Trust Arovave - Enhanced Section */}
+            <section className="py-24 bg-white">
                 <div className="max-w-7xl mx-auto px-6">
-                    <h2 className="text-3xl font-black uppercase tracking-tighter text-center mb-12">
-                        {t('whyTrust')}
-                    </h2>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {trustCards.map(card => (
-                            <Link
-                                key={card.id}
-                                to={`/trust/${card.id}`}
-                                className="trust-card group"
-                            >
-                                <card.icon className="w-10 h-10 mb-6 text-zinc-400 group-hover:text-black transition-colors" />
-                                <h3 className="font-black text-lg mb-3">{card.title}</h3>
-                                <p className="text-zinc-500 text-sm leading-relaxed">{card.desc}</p>
-                            </Link>
-                        ))}
+                    {/* Section Header */}
+                    <div className="text-center mb-16">
+                        <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-6">
+                            {t('whyTrust')}
+                        </h2>
+                        <div className="h-1.5 w-20 bg-gradient-to-r from-black to-zinc-400 rounded-full mx-auto mb-8"></div>
+                    </div>
+
+                    {/* Intro Text */}
+                    <div className="max-w-4xl mx-auto text-center mb-16">
+                        <h3 className="text-2xl md:text-3xl font-bold text-zinc-800 mb-6">
+                            A Different Way to Source from India
+                        </h3>
+                        <p className="text-lg text-zinc-600 leading-relaxed mb-6">
+                            India is not short of manufacturers. It is short of reliable access.
+                        </p>
+                        <p className="text-zinc-500 leading-relaxed">
+                            Most buyers struggle not because production is difficult, but because the system between buyer and factory is unclear, fragmented, and risky. Arovave was built to remove that uncertainty. We are not a marketplace listing random suppliers. We are not a broker chasing commissions. We are a structured manufacturing access platform that connects buyers directly to verified Indian factories, with control, documentation, and accountability built in.
+                        </p>
+                    </div>
+
+                    {/* Interactive Tabs */}
+                    <div className="bg-gradient-to-br from-zinc-50 to-white rounded-[32px] border border-zinc-100 overflow-hidden">
+                        {/* Tab Navigation */}
+                        <div className="flex overflow-x-auto border-b border-zinc-100">
+                            {trustTabs.map((tab) => {
+                                const TabIcon = tab.icon;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTrustTab(tab.id)}
+                                        className={`flex-1 min-w-[180px] px-6 py-5 text-sm font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTrustTab === tab.id
+                                            ? 'bg-black text-white'
+                                            : 'text-zinc-500 hover:text-black hover:bg-zinc-50'
+                                            }`}
+                                    >
+                                        <TabIcon className="w-4 h-4" />
+                                        <span className="hidden md:inline">{tab.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Tab Content */}
+                        <div className="p-8 md:p-12">
+                            {trustTabs.map((tab) => (
+                                activeTrustTab === tab.id && (
+                                    <div key={tab.id} className="animate-in fade-in duration-300">
+                                        <h3 className="text-2xl md:text-3xl font-black mb-4">{tab.title}</h3>
+                                        <p className="text-zinc-600 text-lg leading-relaxed mb-8 max-w-3xl">{tab.content}</p>
+
+                                        {/* Benefits for Direct Manufacturer Access tab */}
+                                        {'benefits' in tab && tab.benefits && (
+                                            <div className="grid md:grid-cols-3 gap-6">
+                                                {(tab.benefits as { title: string; desc: string }[]).map((benefit, idx) => (
+                                                    <div key={idx} className="bg-white border border-zinc-100 rounded-2xl p-6 hover:border-black hover:shadow-lg transition-all">
+                                                        <h4 className="font-black text-lg mb-3">{benefit.title}</h4>
+                                                        <p className="text-zinc-500 text-sm leading-relaxed">{benefit.desc}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Stages + Category Browser for Certificates tab */}
+                                        {'stages' in tab && tab.stages && (
+                                            <>
+                                                <div className="grid md:grid-cols-3 gap-6 mb-8">
+                                                    {(tab.stages as { title: string; desc: string }[]).map((stage, idx) => (
+                                                        <div key={idx} className="relative">
+                                                            <div className="bg-white border border-zinc-100 rounded-2xl p-6 hover:border-black hover:shadow-lg transition-all h-full">
+                                                                <div className="w-10 h-10 bg-black text-white rounded-xl flex items-center justify-center font-black mb-4">
+                                                                    {idx + 1}
+                                                                </div>
+                                                                <h4 className="font-black text-lg mb-3">{stage.title}</h4>
+                                                                <p className="text-zinc-500 text-sm leading-relaxed">{stage.desc}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {'hasCategoryBrowser' in tab && tab.hasCategoryBrowser && (
+                                                    <Link
+                                                        to="/trust/certificate"
+                                                        className="inline-flex items-center gap-3 px-8 py-4 bg-black text-white font-bold text-sm uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-colors"
+                                                    >
+                                                        Browse Documentation by Category
+                                                        <ArrowRight className="w-4 h-4" />
+                                                    </Link>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {/* Points for Factory Direct Pricing tab */}
+                                        {'points' in tab && tab.points && (
+                                            <div className="grid md:grid-cols-2 gap-4">
+                                                {(tab.points as string[]).map((point, idx) => (
+                                                    <div key={idx} className="flex items-start gap-4 bg-white border border-zinc-100 rounded-xl p-5 hover:border-black transition-all">
+                                                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                        </div>
+                                                        <p className="text-zinc-700">{point}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Highlights for 25+ Years Experience tab */}
+                                        {'highlights' in tab && tab.highlights && (
+                                            <div className="grid md:grid-cols-3 gap-6">
+                                                {(tab.highlights as { title: string; desc: string }[]).map((highlight, idx) => (
+                                                    <div key={idx} className="bg-white border border-zinc-100 rounded-2xl p-6 hover:border-black hover:shadow-lg transition-all">
+                                                        <h4 className="font-black text-lg mb-3">{highlight.title}</h4>
+                                                        <p className="text-zinc-500 text-sm leading-relaxed">{highlight.desc}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            ))}
+                        </div>
                     </div>
                 </div>
             </section>
