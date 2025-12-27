@@ -176,14 +176,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             try {
                 const profileData = JSON.parse(pendingProfile);
                 console.log('📝 Applying pending profile:', profileData.name);
-                await supabase
+
+                // First, set the session in Supabase so RLS works
+                await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken
+                });
+
+                // Wait a moment for trigger to create profile
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Use upsert to handle both insert and update cases
+                const { error: upsertError } = await supabase
                     .from('profiles')
-                    .update({
+                    .upsert({
+                        id: payload.sub,
+                        email: payload.email,
                         name: profileData.name,
                         phone: profileData.phone,
-                        country: profileData.country
-                    })
-                    .eq('id', payload.sub);
+                        country: profileData.country,
+                        role: 'user',
+                        permissions: []
+                    }, {
+                        onConflict: 'id'
+                    });
+
+                if (upsertError) {
+                    console.error('❌ Profile upsert error:', upsertError);
+                } else {
+                    console.log('✅ Profile saved successfully');
+                }
+
                 localStorage.removeItem('pendingProfile');
             } catch (err) {
                 console.error('Error applying pending profile:', err);
