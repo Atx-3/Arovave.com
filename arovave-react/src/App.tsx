@@ -23,8 +23,15 @@ export default function App() {
                 {/* Protected Routes */}
                 <Route path="/profile" element={<Profile />} />
 
-                {/* Admin Routes - Direct access for development */}
-                <Route path="/admin/dashboard" element={<Admin />} />
+                {/* Admin Routes - Protected with Supabase role check */}
+                <Route
+                  path="/admin/dashboard"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <Admin />
+                    </ProtectedRoute>
+                  }
+                />
                 {/* Redirect old /admin to new path */}
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               </Routes>
