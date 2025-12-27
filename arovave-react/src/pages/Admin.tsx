@@ -5,7 +5,6 @@ import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
 import type { Product, Enquiry } from '../types';
-import { saveVideoToDB, getVideoFromDB } from '../utils/storage';
 import type { AdminPermission } from '../context/AuthContext';
 
 // Get products from localStorage or use initial
@@ -38,6 +37,52 @@ export function Admin() {
 
     // Video URL state
     const [videoUrl, setVideoUrl] = useState('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
+    const [isSavingVideo, setIsSavingVideo] = useState(false);
+
+    // Fetch video URL from Supabase
+    const fetchVideoUrl = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('site_settings')
+                .select('video_url')
+                .eq('id', 'global')
+                .single();
+
+            if (!error && data?.video_url) {
+                setVideoUrl(data.video_url);
+            }
+        } catch (err) {
+            console.error('Error fetching video URL:', err);
+        }
+    };
+
+    // Save video URL to Supabase
+    const saveVideoUrl = async (url: string) => {
+        if (!url || url.startsWith('data:')) return;
+
+        setIsSavingVideo(true);
+        try {
+            const { error } = await supabase
+                .from('site_settings')
+                .upsert({
+                    id: 'global',
+                    video_url: url,
+                    updated_at: new Date().toISOString()
+                });
+
+            if (error) {
+                console.error('Error saving video URL:', error);
+                alert('Failed to save video URL. You may not have admin permissions.');
+            } else {
+                alert('Video URL saved! All users will see this video on the homepage.');
+            }
+        } catch (err) {
+            console.error('Error saving video URL:', err);
+            alert('Failed to save video URL.');
+        } finally {
+            setIsSavingVideo(false);
+        }
+    };
 
     // Available admin permissions
     const availablePermissions: { key: AdminPermission; label: string; icon: any }[] = [
@@ -101,9 +146,9 @@ export function Admin() {
         if (saved) {
             setQualityContent(JSON.parse(saved));
         }
-        getVideoFromDB().then(video => {
-            if (video) setVideoUrl(video);
-        });
+
+        // Load video URL from Supabase
+        fetchVideoUrl();
 
         // Load users for superadmin
         if (isSuperAdmin) {
@@ -252,83 +297,174 @@ export function Admin() {
 
             {/* Manage Admins Tab (Super Admin Only) */}
             {tab === 'admins' && isSuperAdmin && (
-                <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                    <div className="p-6 border-b border-zinc-100">
-                        <h3 className="font-black uppercase tracking-widest text-sm">Manage Admin Permissions</h3>
-                        <p className="text-zinc-500 text-sm mt-2">Promote users to admin and select which tabs they can access.</p>
-                    </div>
-                    {isLoadingUsers ? (
-                        <div className="p-12 text-center">
-                            <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
+                <div className="space-y-6">
+                    {/* Add New Admin Form */}
+                    <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                        <div className="p-6 border-b border-zinc-100">
+                            <h3 className="font-black uppercase tracking-widest text-sm">Add New Admin</h3>
+                            <p className="text-zinc-500 text-sm mt-2">Enter a registered user's email to promote them to admin or super admin.</p>
                         </div>
-                    ) : (
-                        <div className="divide-y divide-zinc-100">
-                            {allUsers.filter(u => u.id !== currentUser?.id).map(user => (
-                                <div key={user.id} className="p-6">
-                                    <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                                        <div>
-                                            <p className="font-bold text-lg">{user.name || 'No name'}</p>
-                                            <p className="text-zinc-500 text-sm">{user.email}</p>
-                                            <span className={`inline-block mt-2 px-3 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
-                                                user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
-                                                    'bg-zinc-100 text-zinc-600'
-                                                }`}>
-                                                {user.role === 'superadmin' ? 'Super Admin' : user.role === 'admin' ? 'Admin' : 'User'}
-                                            </span>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            {user.role === 'user' && (
-                                                <button
-                                                    onClick={() => updateUserRole(user.id, 'admin', ['enquiries'])}
-                                                    disabled={savingPermissions === user.id}
-                                                    className="px-4 py-2 bg-blue-600 text-white text-xs font-bold uppercase rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                                                >
-                                                    {savingPermissions === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Make Admin'}
-                                                </button>
-                                            )}
-                                            {user.role === 'admin' && (
-                                                <button
-                                                    onClick={() => updateUserRole(user.id, 'user', [])}
-                                                    disabled={savingPermissions === user.id}
-                                                    className="px-4 py-2 bg-red-100 text-red-600 text-xs font-bold uppercase rounded-lg hover:bg-red-200 disabled:opacity-50"
-                                                >
-                                                    {savingPermissions === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Remove Admin'}
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Permissions checkboxes for admins */}
-                                    {user.role === 'admin' && (
-                                        <div className="bg-zinc-50 rounded-xl p-4">
-                                            <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3">Admin Tab Access:</p>
-                                            <div className="flex flex-wrap gap-3">
-                                                {availablePermissions.map(perm => {
-                                                    const userPerms: AdminPermission[] = user.permissions || [];
-                                                    const hasThisPerm = userPerms.includes(perm.key);
-                                                    return (
-                                                        <button
-                                                            key={perm.key}
-                                                            onClick={() => togglePermission(user.id, perm.key, userPerms)}
-                                                            disabled={savingPermissions === user.id}
-                                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors ${hasThisPerm
-                                                                ? 'bg-green-600 text-white'
-                                                                : 'bg-white border-2 border-zinc-200 text-zinc-500 hover:border-black'
-                                                                }`}
-                                                        >
-                                                            {hasThisPerm && <Check className="w-3 h-3" />}
-                                                            <perm.icon className="w-3 h-3" />
-                                                            {perm.label}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
+                        <div className="p-6">
+                            <div className="flex flex-wrap gap-4 items-end">
+                                <div className="flex-1 min-w-[200px]">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                        <Mail className="w-3 h-3 inline mr-1" /> User Email
+                                    </label>
+                                    <input
+                                        type="email"
+                                        id="newAdminEmail"
+                                        placeholder="user@example.com"
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                    />
                                 </div>
-                            ))}
+                                <div className="min-w-[150px]">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                        Role
+                                    </label>
+                                    <select
+                                        id="newAdminRole"
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
+                                    >
+                                        <option value="admin">Admin</option>
+                                        <option value="superadmin">Super Admin</option>
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        const emailInput = document.getElementById('newAdminEmail') as HTMLInputElement;
+                                        const roleSelect = document.getElementById('newAdminRole') as HTMLSelectElement;
+                                        const email = emailInput?.value.trim();
+                                        const role = roleSelect?.value as 'admin' | 'superadmin';
+
+                                        if (!email) {
+                                            alert('Please enter an email address');
+                                            return;
+                                        }
+
+                                        // Find user by email
+                                        const user = allUsers.find(u => u.email?.toLowerCase() === email.toLowerCase());
+                                        if (!user) {
+                                            alert('User not found! Make sure they have registered first.');
+                                            return;
+                                        }
+
+                                        if (user.role === 'superadmin' || user.role === 'admin') {
+                                            alert('This user is already an admin!');
+                                            return;
+                                        }
+
+                                        const permissions = role === 'superadmin'
+                                            ? ['enquiries', 'products', 'users', 'settings']
+                                            : ['enquiries'];
+
+                                        await updateUserRole(user.id, role, permissions as AdminPermission[]);
+                                        emailInput.value = '';
+                                        alert(`${user.name || email} is now a ${role === 'superadmin' ? 'Super Admin' : 'Admin'}!`);
+                                    }}
+                                    className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                >
+                                    <UserCog className="w-4 h-4 inline mr-2" />
+                                    Add Admin
+                                </button>
+                            </div>
                         </div>
-                    )}
+                    </div>
+
+                    {/* Current Admins List */}
+                    <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                        <div className="p-6 border-b border-zinc-100">
+                            <h3 className="font-black uppercase tracking-widest text-sm">
+                                Current Admins ({allUsers.filter(u => u.role === 'admin' || u.role === 'superadmin').length})
+                            </h3>
+                        </div>
+                        {isLoadingUsers ? (
+                            <div className="p-12 text-center">
+                                <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-zinc-100">
+                                {allUsers
+                                    .filter(u => (u.role === 'admin' || u.role === 'superadmin') && u.id !== currentUser?.id)
+                                    .map(user => (
+                                        <div key={user.id} className="p-6">
+                                            <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                                                <div>
+                                                    <p className="font-bold text-lg">{user.name || 'No name'}</p>
+                                                    <p className="text-zinc-500 text-sm">{user.email}</p>
+                                                    <span className={`inline-block mt-2 px-3 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                                        }`}>
+                                                        {user.role === 'superadmin' ? 'Super Admin' : 'Admin'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    {/* Role Dropdown */}
+                                                    <div className="flex items-center gap-2">
+                                                        <label className="text-xs font-bold uppercase tracking-widest text-zinc-400">Role:</label>
+                                                        <select
+                                                            value={user.role || 'admin'}
+                                                            onChange={(e) => {
+                                                                const newRole = e.target.value as 'admin' | 'superadmin';
+                                                                const newPermissions = newRole === 'superadmin'
+                                                                    ? ['enquiries', 'products', 'users', 'settings']
+                                                                    : user.permissions || ['enquiries'];
+                                                                updateUserRole(user.id, newRole, newPermissions as AdminPermission[]);
+                                                            }}
+                                                            disabled={savingPermissions === user.id}
+                                                            className="px-4 py-2 border-2 border-zinc-200 rounded-lg text-sm font-bold focus:border-black focus:outline-none bg-white disabled:opacity-50"
+                                                        >
+                                                            <option value="admin">Admin</option>
+                                                            <option value="superadmin">Super Admin</option>
+                                                        </select>
+                                                    </div>
+                                                    {/* Remove Admin Button */}
+                                                    <button
+                                                        onClick={() => updateUserRole(user.id, 'user', [])}
+                                                        disabled={savingPermissions === user.id}
+                                                        className="px-4 py-2 bg-red-100 text-red-600 text-xs font-bold uppercase rounded-lg hover:bg-red-200 disabled:opacity-50"
+                                                    >
+                                                        {savingPermissions === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Remove'}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Permissions checkboxes for admins */}
+                                            {user.role === 'admin' && (
+                                                <div className="bg-zinc-50 rounded-xl p-4">
+                                                    <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3">Admin Tab Access:</p>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        {availablePermissions.map(perm => {
+                                                            const userPerms: AdminPermission[] = user.permissions || [];
+                                                            const hasThisPerm = userPerms.includes(perm.key);
+                                                            return (
+                                                                <button
+                                                                    key={perm.key}
+                                                                    onClick={() => togglePermission(user.id, perm.key, userPerms)}
+                                                                    disabled={savingPermissions === user.id}
+                                                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors ${hasThisPerm
+                                                                        ? 'bg-green-600 text-white'
+                                                                        : 'bg-white border-2 border-zinc-200 text-zinc-500 hover:border-black'
+                                                                        }`}
+                                                                >
+                                                                    {hasThisPerm && <Check className="w-3 h-3" />}
+                                                                    <perm.icon className="w-3 h-3" />
+                                                                    {perm.label}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                {allUsers.filter(u => (u.role === 'admin' || u.role === 'superadmin') && u.id !== currentUser?.id).length === 0 && (
+                                    <div className="p-12 text-center text-zinc-400">
+                                        <Shield className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                                        <p>No other admins yet. Add one using the form above!</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -702,36 +838,62 @@ export function Admin() {
                                 Landing Page Background Video
                             </label>
 
-                            {/* File Upload - Up to 25MB */}
+                            {/* File Upload - Upload to Supabase Storage */}
                             <input
                                 type="file"
                                 accept="video/mp4,video/webm,video/ogg"
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                     const file = e.target.files?.[0];
                                     if (file) {
-                                        // Max 25MB for IndexedDB
-                                        if (file.size > 25 * 1024 * 1024) {
-                                            alert('Video file too large! Maximum 25MB allowed.');
+                                        // Max 50MB for Supabase Storage
+                                        if (file.size > 50 * 1024 * 1024) {
+                                            alert('Video file too large! Maximum 50MB allowed.');
                                             return;
                                         }
-                                        const reader = new FileReader();
-                                        reader.onload = async () => {
-                                            const base64 = reader.result as string;
-                                            try {
-                                                await saveVideoToDB(base64);
-                                                setVideoUrl(base64);
-                                                alert('✅ Video saved! Go to homepage to see it.');
-                                            } catch (err) {
-                                                alert('❌ Storage error! Please try a smaller video.');
+
+                                        setIsSavingVideo(true);
+                                        try {
+                                            // Generate unique filename
+                                            const filename = `background_${Date.now()}.${file.name.split('.').pop()}`;
+
+                                            // Upload to Supabase Storage
+                                            const { data: uploadData, error: uploadError } = await supabase.storage
+                                                .from('videos')
+                                                .upload(filename, file, {
+                                                    cacheControl: '3600',
+                                                    upsert: true
+                                                });
+
+                                            if (uploadError) {
+                                                console.error('Upload error:', uploadError);
+                                                alert('Failed to upload video: ' + uploadError.message);
+                                                return;
                                             }
-                                        };
-                                        reader.readAsDataURL(file);
+
+                                            // Get public URL
+                                            const { data: urlData } = supabase.storage
+                                                .from('videos')
+                                                .getPublicUrl(filename);
+
+                                            const publicUrl = urlData.publicUrl;
+
+                                            // Save URL to site_settings
+                                            await saveVideoUrl(publicUrl);
+                                            setVideoUrl(publicUrl);
+
+                                        } catch (err) {
+                                            console.error('Upload error:', err);
+                                            alert('Failed to upload video. Please try again.');
+                                        } finally {
+                                            setIsSavingVideo(false);
+                                        }
                                     }
                                 }}
-                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white file:cursor-pointer"
+                                disabled={isSavingVideo}
+                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white file:cursor-pointer disabled:opacity-50"
                             />
                             <p className="text-xs text-zinc-400 mt-2">
-                                Upload .mp4, .webm or .ogg video (max 25MB). Short looping video recommended.
+                                {isSavingVideo ? 'Uploading video...' : 'Upload .mp4, .webm or .ogg video (max 50MB). Short looping video recommended.'}
                             </p>
 
                             {/* Or URL Input */}
@@ -746,15 +908,11 @@ export function Admin() {
                                         className="flex-1 px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none text-sm"
                                     />
                                     <button
-                                        onClick={() => {
-                                            if (videoUrl && !videoUrl.startsWith('data:')) {
-                                                localStorage.setItem('arovaveVideoUrl', videoUrl);
-                                                alert('Video URL saved! Refresh homepage to see changes.');
-                                            }
-                                        }}
-                                        className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                        onClick={() => saveVideoUrl(videoUrl)}
+                                        disabled={isSavingVideo}
+                                        className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors disabled:opacity-50"
                                     >
-                                        Save URL
+                                        {isSavingVideo ? 'Saving...' : 'Save URL'}
                                     </button>
                                 </div>
                             </div>

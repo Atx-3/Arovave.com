@@ -4,7 +4,7 @@ import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products, categories } from '../data';
 import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
-import { getVideoFromDB } from '../utils/storage';
+import { supabase } from '../lib/supabase';
 
 export function Home() {
     const t = useTranslation();
@@ -15,7 +15,7 @@ export function Home() {
     const [pendingProduct, setPendingProduct] = useState<number | null>(null);
     const [showPopup, setShowPopup] = useState(false);
     const [trendingProducts, setTrendingProducts] = useState(products.filter(p => p.isTrending).slice(0, 4));
-    const [videoUrl, setVideoUrl] = useState(localStorage.getItem('arovaveVideoUrl') || 'https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
+    const [videoUrl, setVideoUrl] = useState('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
     const [activeTrustTab, setActiveTrustTab] = useState('middleman');
 
     // Scroll to top on mount
@@ -23,18 +23,24 @@ export function Home() {
         window.scrollTo(0, 0);
     }, []);
 
-    // Load video from IndexedDB
+    // Load video from Supabase
     useEffect(() => {
         const loadVideo = async () => {
-            const saved = await getVideoFromDB();
-            if (saved) {
-                setVideoUrl(saved);
+            try {
+                const { data, error } = await supabase
+                    .from('site_settings')
+                    .select('video_url')
+                    .eq('id', 'global')
+                    .single();
+
+                if (!error && data?.video_url) {
+                    setVideoUrl(data.video_url);
+                }
+            } catch (err) {
+                console.error('Error loading video URL:', err);
             }
         };
         loadVideo();
-        // Check periodically for changes
-        const interval = setInterval(loadVideo, 2000);
-        return () => clearInterval(interval);
     }, []);
 
     // Auto-close popup after 3 seconds
