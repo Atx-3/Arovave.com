@@ -1,9 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { User as UserIcon, Settings, LogOut, Save, Edit2, X, Mail, Phone, MapPin, Calendar, HelpCircle, MessageSquare, FileText, Shield, ChevronRight, Loader2 } from 'lucide-react';
+import { User as UserIcon, Settings, LogOut, Save, Edit2, X, Mail, Phone, MapPin, Calendar, HelpCircle, MessageSquare, FileText, Shield, ChevronRight, Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth, useTranslation } from '../context';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 import { countries } from '../data';
+import { supabase } from '../lib/supabase';
 
 export function Profile() {
     const { currentUser, supabaseUser, isAuthenticated, isLoading, isAdmin, logout, updateProfile } = useAuth();
@@ -19,6 +20,21 @@ export function Profile() {
         phone: '',
         country: ''
     });
+
+    // Password change state
+    const [showPasswordChange, setShowPasswordChange] = useState(false);
+    const [passwordChangeStep, setPasswordChangeStep] = useState<'request' | 'verify' | 'newpass'>('request');
+    const [passwordForm, setPasswordForm] = useState({
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [passwordChanging, setPasswordChanging] = useState(false);
+    const [passwordError, setPasswordError] = useState<string | null>(null);
+    const [passwordSuccess, setPasswordSuccess] = useState(false);
+    const [otpCode, setOtpCode] = useState(['', '', '', '', '', '', '', '']);
+    const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
     // Debug log
     useEffect(() => {
@@ -56,71 +72,149 @@ export function Profile() {
         setIsEditing(false);
     };
 
+    // OTP Input handlers
+    const handleOtpChange = (index: number, value: string) => {
+        if (!/^\d*$/.test(value)) return;
+        const newOtp = [...otpCode];
+        newOtp[index] = value.slice(-1);
+        setOtpCode(newOtp);
+        if (value && index < 7) {
+            otpRefs.current[index + 1]?.focus();
+        }
+    };
+
+    const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+        if (e.key === 'Backspace' && !otpCode[index] && index > 0) {
+            otpRefs.current[index - 1]?.focus();
+        }
+    };
+
+    const handleOtpPaste = (e: React.ClipboardEvent) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 8);
+        const newOtp = [...otpCode];
+        for (let i = 0; i < pastedData.length; i++) {
+            newOtp[i] = pastedData[i];
+        }
+        setOtpCode(newOtp);
+        const lastIndex = Math.min(pastedData.length, 7);
+        otpRefs.current[lastIndex]?.focus();
+    };
+
+    // Step 1: Request OTP for password change
+    const handleRequestPasswordOtp = async () => {
+        setPasswordError(null);
+        setPasswordChanging(true);
+
+        try {
+            const { error } = await supabase.auth.signInWithOtp({
+                email: displayEmail,
+                options: {
+                    shouldCreateUser: false
+                }
+            });
+
+            if (error) {
+                setPasswordError(error.message);
+            } else {
+                setOtpCode(['', '', '', '', '', '', '', '']);
+                setPasswordChangeStep('verify');
+            }
+        } catch (err: any) {
+            setPasswordError(err.message || 'Failed to send verification code.');
+        } finally {
+            setPasswordChanging(false);
+        }
+    };
+
+    // Step 2: Verify OTP
+    const handleVerifyPasswordOtp = async () => {
+        setPasswordError(null);
+        const code = otpCode.join('');
+
+        if (code.length !== 8) {
+            setPasswordError('Please enter the complete 8-digit code.');
+            return;
+        }
+
+        setPasswordChanging(true);
+
+        try {
+            const { error } = await supabase.auth.verifyOtp({
+                email: displayEmail,
+                token: code,
+                type: 'email'
+            });
+
+            if (error) {
+                setPasswordError('Invalid or expired code. Please try again.');
+            } else {
+                setPasswordChangeStep('newpass');
+            }
+        } catch (err: any) {
+            setPasswordError(err.message || 'Verification failed.');
+        } finally {
+            setPasswordChanging(false);
+        }
+    };
+
+    // Step 3: Set new password
+    const handlePasswordChange = async () => {
+        setPasswordError(null);
+
+        if (!passwordForm.newPassword) {
+            setPasswordError('Please enter a new password.');
+            return;
+        }
+        if (passwordForm.newPassword.length < 6) {
+            setPasswordError('Password must be at least 6 characters.');
+            return;
+        }
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            setPasswordError('Passwords do not match.');
+            return;
+        }
+
+        setPasswordChanging(true);
+
+        try {
+            const { error } = await supabase.auth.updateUser({
+                password: passwordForm.newPassword
+            });
+
+            if (error) {
+                setPasswordError(error.message);
+            } else {
+                setPasswordSuccess(true);
+                setPasswordForm({ newPassword: '', confirmPassword: '' });
+                setTimeout(() => {
+                    setPasswordSuccess(false);
+                    setShowPasswordChange(false);
+                    setPasswordChangeStep('request');
+                }, 2000);
+            }
+        } catch (err: any) {
+            setPasswordError(err.message || 'Failed to update password.');
+        } finally {
+            setPasswordChanging(false);
+        }
+    };
+
+    // Reset password change modal state when closed
+    const closePasswordModal = () => {
+        setShowPasswordChange(false);
+        setPasswordChangeStep('request');
+        setPasswordError(null);
+        setPasswordForm({ newPassword: '', confirmPassword: '' });
+        setOtpCode(['', '', '', '', '', '', '', '']);
+    };
+
     // No loading check needed - isLoading is always false now
 
+    // Redirect to auth page if not authenticated
     if (!isAuthenticated) {
-        return (
-            <>
-                <div className="page-enter min-h-[80vh] flex items-center justify-center px-6 py-20 relative overflow-hidden">
-                    {/* Background Gradient Orbs */}
-                    <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-blue-200/30 to-purple-200/30 rounded-full blur-3xl pointer-events-none"></div>
-                    <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-br from-pink-200/30 to-orange-200/30 rounded-full blur-3xl pointer-events-none"></div>
-
-                    <div className="relative z-10 max-w-md w-full">
-                        {/* Premium Welcome Card */}
-                        <div className="glass-modal p-10 rounded-[32px] text-center">
-                            {/* Animated Avatar */}
-                            <div className="relative mx-auto mb-8">
-                                <div className="w-28 h-28 bg-gradient-to-br from-zinc-100 to-zinc-50 rounded-3xl flex items-center justify-center mx-auto shadow-lg float-animation">
-                                    <UserIcon className="w-14 h-14 text-zinc-400" />
-                                </div>
-                                {/* Decorative rings */}
-                                <div className="absolute inset-0 w-28 h-28 mx-auto rounded-3xl border-2 border-zinc-200/50 animate-pulse"></div>
-                            </div>
-
-                            {/* Typography */}
-                            <h1 className="text-4xl font-black uppercase tracking-tighter mb-3">
-                                Welcome
-                            </h1>
-                            <p className="text-lg text-zinc-600 font-medium mb-2">
-                                to <span className="font-black text-black">Arovave</span>
-                            </p>
-                            <p className="text-zinc-500 mb-8 max-w-sm mx-auto">
-                                Sign in to manage your enquiries and get personalized quotes from verified manufacturers.
-                            </p>
-
-                            {/* Feature Pills */}
-                            <div className="flex flex-wrap justify-center gap-2 mb-8">
-                                <span className="px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-bold uppercase tracking-wider rounded-full">
-                                    Verified Suppliers
-                                </span>
-                                <span className="px-3 py-1.5 bg-green-50 text-green-600 text-xs font-bold uppercase tracking-wider rounded-full">
-                                    Factory Direct
-                                </span>
-                                <span className="px-3 py-1.5 bg-purple-50 text-purple-600 text-xs font-bold uppercase tracking-wider rounded-full">
-                                    Global Export
-                                </span>
-                            </div>
-
-                            {/* Sign In Button */}
-                            <button
-                                onClick={() => setShowAuthModal(true)}
-                                className="btn-premium w-full py-4 text-white font-bold text-sm uppercase tracking-widest rounded-xl"
-                            >
-                                {t('signIn')}
-                            </button>
-
-                            {/* Trust Badge */}
-                            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-zinc-400">
-                                <Shield className="w-4 h-4" />
-                                <span>Secure authentication powered by Google</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
-            </>
-        );
+        navigate('/auth');
+        return null;
     }
 
     return (
@@ -417,6 +511,235 @@ export function Profile() {
                     </div>
                 </div>
             </div>
+
+            {/* Security Settings Section */}
+            <div className="mb-6">
+                <h2 className="section-title text-xl font-black uppercase tracking-tight">Security Settings</h2>
+            </div>
+            <div className="mb-10">
+                <button
+                    onClick={() => setShowPasswordChange(true)}
+                    className="action-card card-animate w-full flex items-center justify-between p-6 rounded-2xl group"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="icon-container w-14 h-14 bg-gradient-to-br from-red-100 to-red-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Lock className="w-7 h-7 text-red-600" />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="font-bold text-lg">Change Password</h3>
+                            <p className="text-sm text-zinc-500">Update your account password</p>
+                        </div>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all">
+                        <ChevronRight className="w-5 h-5" />
+                    </div>
+                </button>
+            </div>
+
+            {/* Change Password Modal */}
+            {showPasswordChange && (
+                <div className="modal-overlay fixed inset-0" onClick={closePasswordModal}>
+                    <div className="glass-modal p-8 md:p-10 rounded-[32px] w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-8">
+                            <div>
+                                <h2 className="text-2xl font-black uppercase tracking-tight">Change Password</h2>
+                                <p className="text-sm text-zinc-500 mt-1">
+                                    {passwordChangeStep === 'request' && 'We will send a verification code to your email'}
+                                    {passwordChangeStep === 'verify' && `Enter the 8-digit code sent to ${displayEmail}`}
+                                    {passwordChangeStep === 'newpass' && 'Create your new password'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={closePasswordModal}
+                                className="p-3 hover:bg-zinc-100 rounded-xl transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {passwordSuccess ? (
+                            <div className="text-center py-8">
+                                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                                <p className="text-lg font-bold text-green-600">Password updated successfully!</p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Step 1: Request OTP */}
+                                {passwordChangeStep === 'request' && (
+                                    <div className="space-y-6">
+                                        <div className="p-5 bg-zinc-50 rounded-xl">
+                                            <p className="text-sm text-zinc-600">
+                                                For your security, we need to verify your identity before changing your password.
+                                            </p>
+                                            <p className="text-sm font-bold mt-2">
+                                                We'll send a verification code to: <span className="text-black">{displayEmail}</span>
+                                            </p>
+                                        </div>
+
+                                        {passwordError && (
+                                            <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm flex items-start gap-3">
+                                                <AlertCircle className="w-5 h-5 shrink-0" />
+                                                <p className="font-bold">{passwordError}</p>
+                                            </div>
+                                        )}
+
+                                        <div className="flex gap-4">
+                                            <button
+                                                onClick={handleRequestPasswordOtp}
+                                                disabled={passwordChanging}
+                                                className="btn-premium flex-1 flex items-center justify-center gap-2 py-4 text-white rounded-xl font-bold text-sm uppercase tracking-widest disabled:opacity-50"
+                                            >
+                                                {passwordChanging ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <Mail className="w-4 h-4" />
+                                                )}
+                                                {passwordChanging ? 'Sending...' : 'Send Verification Code'}
+                                            </button>
+                                            <button
+                                                onClick={closePasswordModal}
+                                                className="px-6 py-4 border-2 border-zinc-200 rounded-xl font-bold text-sm hover:border-black hover:bg-zinc-50 transition-all"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Step 2: Verify OTP */}
+                                {passwordChangeStep === 'verify' && (
+                                    <div className="space-y-6">
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-4">
+                                                Enter 8-digit Code
+                                            </label>
+                                            <div className="flex gap-2 justify-between">
+                                                {otpCode.map((digit, index) => (
+                                                    <input
+                                                        key={index}
+                                                        ref={(el) => { otpRefs.current[index] = el; }}
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        maxLength={1}
+                                                        value={digit}
+                                                        onChange={(e) => handleOtpChange(index, e.target.value)}
+                                                        onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                                                        onPaste={handleOtpPaste}
+                                                        className="w-10 h-12 text-center text-xl font-bold border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none transition-colors"
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {passwordError && (
+                                            <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm flex items-start gap-3">
+                                                <AlertCircle className="w-5 h-5 shrink-0" />
+                                                <p className="font-bold">{passwordError}</p>
+                                            </div>
+                                        )}
+
+                                        <button
+                                            onClick={handleVerifyPasswordOtp}
+                                            disabled={passwordChanging || otpCode.join('').length !== 8}
+                                            className="w-full btn-premium flex items-center justify-center gap-2 py-4 text-white rounded-xl font-bold text-sm uppercase tracking-widest disabled:opacity-50"
+                                        >
+                                            {passwordChanging ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify Code'}
+                                        </button>
+
+                                        <p className="text-center text-sm text-zinc-500">
+                                            Didn't receive the code?{' '}
+                                            <button onClick={handleRequestPasswordOtp} disabled={passwordChanging} className="font-bold text-black hover:underline">
+                                                Resend
+                                            </button>
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Step 3: New Password */}
+                                {passwordChangeStep === 'newpass' && (
+                                    <div className="space-y-6">
+                                        <div className="p-4 bg-green-50 text-green-600 rounded-xl text-sm flex items-start gap-3 mb-2">
+                                            <CheckCircle className="w-5 h-5 shrink-0" />
+                                            <p className="font-semibold">Email verified! Now set your new password.</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                                <Lock className="w-3 h-3 inline mr-1" /> New Password
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type={showNewPassword ? 'text' : 'password'}
+                                                    value={passwordForm.newPassword}
+                                                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                                                    className="input-premium w-full px-5 py-4 rounded-xl font-semibold pr-12"
+                                                    placeholder="Min 6 characters"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-black"
+                                                >
+                                                    {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                                <Lock className="w-3 h-3 inline mr-1" /> Confirm New Password
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type={showConfirmPassword ? 'text' : 'password'}
+                                                    value={passwordForm.confirmPassword}
+                                                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                                                    className="input-premium w-full px-5 py-4 rounded-xl font-semibold pr-12"
+                                                    placeholder="••••••••"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-black"
+                                                >
+                                                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {passwordError && (
+                                            <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm flex items-start gap-3">
+                                                <AlertCircle className="w-5 h-5 shrink-0" />
+                                                <p className="font-bold">{passwordError}</p>
+                                            </div>
+                                        )}
+
+                                        <div className="flex gap-4 mt-8">
+                                            <button
+                                                onClick={handlePasswordChange}
+                                                disabled={passwordChanging}
+                                                className="btn-premium flex-1 flex items-center justify-center gap-2 py-4 text-white rounded-xl font-bold text-sm uppercase tracking-widest disabled:opacity-50"
+                                            >
+                                                {passwordChanging ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <Lock className="w-4 h-4" />
+                                                )}
+                                                {passwordChanging ? 'Updating...' : 'Update Password'}
+                                            </button>
+                                            <button
+                                                onClick={closePasswordModal}
+                                                className="px-6 py-4 border-2 border-zinc-200 rounded-xl font-bold text-sm hover:border-black hover:bg-zinc-50 transition-all"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Premium Logout Button */}
             <button

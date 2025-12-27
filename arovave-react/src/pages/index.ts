@@ -5,3 +5,7 @@ export { Profile } from './Profile';
 export { Admin } from './Admin';
 export { Enquiries } from './Enquiries';
 export { TrustPage } from './TrustPage';
+export { TrustManufacturer } from './TrustManufacturer';
+export { TrustPricing } from './TrustPricing';
+export { TrustExperience } from './TrustExperience';
+export { AuthPage } from './AuthPage';

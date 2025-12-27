@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, LanguageProvider, EnquiryProvider } from './context';
 import { Layout, ScrollToTop } from './components/layout';
-import { Home, Catalog, ProductDetail, Profile, Admin, Enquiries, TrustPage } from './pages';
+import { Home, Catalog, ProductDetail, Profile, Admin, Enquiries, TrustPage, TrustManufacturer, TrustPricing, TrustExperience, AuthPage } from './pages';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 export default function App() {
@@ -11,34 +11,36 @@ export default function App() {
         <AuthProvider>
           <EnquiryProvider>
             <ScrollToTop />
-            <Layout>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Home />} />
-                <Route path="/catalog" element={<Catalog />} />
-                <Route path="/product/:id" element={<ProductDetail />} />
-                <Route path="/enquiries" element={<Enquiries />} />
-                <Route path="/trust/:section" element={<TrustPage />} />
+            <Routes>
+              {/* Full-screen Auth Page - Outside Layout */}
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/login" element={<AuthPage />} />
+              <Route path="/signup" element={<AuthPage />} />
 
-                {/* Protected Routes */}
-                <Route path="/profile" element={<Profile />} />
-
-                {/* Admin Routes - Protected with Supabase role check */}
-                <Route
-                  path="/admin/dashboard"
-                  element={
-                    <ProtectedRoute requiredRole="admin">
-                      <Admin />
-                    </ProtectedRoute>
-                  }
-                />
-                {/* Redirect old /admin to new path */}
-                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-              </Routes>
-            </Layout>
+              {/* Routes with Layout (Header/Footer) */}
+              <Route element={<Layout><Home /></Layout>} path="/" />
+              <Route element={<Layout><Catalog /></Layout>} path="/catalog" />
+              <Route element={<Layout><ProductDetail /></Layout>} path="/product/:id" />
+              <Route element={<Layout><Enquiries /></Layout>} path="/enquiries" />
+              <Route element={<Layout><TrustPage /></Layout>} path="/trust/:section" />
+              <Route element={<Layout><TrustManufacturer /></Layout>} path="/trust/manufacturer" />
+              <Route element={<Layout><TrustPricing /></Layout>} path="/trust/pricing" />
+              <Route element={<Layout><TrustExperience /></Layout>} path="/trust/experience" />
+              <Route element={<Layout><Profile /></Layout>} path="/profile" />
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <Layout><Admin /></Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+            </Routes>
           </EnquiryProvider>
         </AuthProvider>
       </LanguageProvider>
     </BrowserRouter>
   );
 }
+
