@@ -79,7 +79,7 @@ export function Footer() {
                             <Link to="/trust/rates" className="block text-zinc-400 hover:text-white text-sm transition-colors">
                                 Factory Direct Pricing
                             </Link>
-                            <Link to="/trust/history" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                            <Link to="/trust/experience" className="block text-zinc-400 hover:text-white text-sm transition-colors">
                                 25+ Years Experience
                             </Link>
                         </div>

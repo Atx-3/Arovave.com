@@ -134,12 +134,12 @@ export function Home() {
             id: 'history',
             icon: Calendar,
             label: '25+ Years Experience',
-            title: 'Built on Real Industry Exposure',
-            content: 'Arovave is backed by more than 25 years of hands on experience within Indian manufacturing, especially across pharmaceuticals, packaging, printing, glass, and promotional industries.',
+            title: 'Built on 25+ Years of Proven Experience',
+            content: 'Arovave Global is not entering the global market as a newcomer. We are stepping onto the international stage backed by over 25 years of proven manufacturing, sourcing, and execution experience in India through Raj Prints and Vigilant Life Sciences Private Limited.',
             highlights: [
-                { title: 'Responsible Growth', desc: 'Exports are approached carefully. We work with factories that already understand export requirements and global quality expectations.' },
-                { title: 'Long Term Relationships', desc: 'Factories are evaluated on performance, not potential. Focus is always on long term partnerships rather than short term transactions.' },
-                { title: 'Proven Track Record', desc: 'Over 10,000 successful shipments delivered worldwide. Our repeat customer rate exceeds 85%.' }
+                { title: 'Raj Prints', desc: 'Over 25 years of continuous operation in printing and production, with high-volume handling, process-driven quality checks, and deadline-focused execution.' },
+                { title: 'Vigilant Life Sciences', desc: 'Experience in compliance-driven pharmaceutical markets with regulatory discipline, documentation accuracy, and verified sourcing.' },
+                { title: 'Trust & Accountability', desc: 'Every product, shipment, and collaboration is guided by the same values that have sustained our businesses — trust, consistency, and accountability.' }
             ]
         }
     ];
