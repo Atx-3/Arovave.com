@@ -9,3 +9,6 @@ export { TrustManufacturer } from './TrustManufacturer';
 export { TrustPricing } from './TrustPricing';
 export { TrustExperience } from './TrustExperience';
 export { AuthPage } from './AuthPage';
+export { About } from './About';
+export { PrivacyTerms } from './PrivacyTerms';
+export { Support } from './Support';

@@ -483,8 +483,8 @@ export function Profile() {
                 <h2 className="section-title text-xl font-black uppercase tracking-tight">Help & Support</h2>
             </div>
             <div className="grid md:grid-cols-2 gap-4 mb-10">
-                <a
-                    href="mailto:support@arovave.com"
+                <Link
+                    to="/support"
                     className="action-card card-animate stagger-1 flex items-center justify-between p-6 rounded-2xl group"
                 >
                     <div className="flex items-center gap-4">
@@ -499,10 +499,15 @@ export function Profile() {
                     <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all">
                         <ChevronRight className="w-5 h-5" />
                     </div>
-                </a>
+                </Link>
 
                 <a
-                    href="https://wa.me/919876543210"
+                    href={`https://wa.me/919305764815?text=${encodeURIComponent(`Hi, I need help from Arovave Global.
+
+Name: ${displayName}
+Phone: ${displayPhone || 'Not provided'}
+Email: ${displayEmail}
+Country: ${displayCountry || 'Not provided'}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="action-card card-animate stagger-2 flex items-center justify-between p-6 rounded-2xl group"
@@ -539,20 +544,23 @@ export function Profile() {
                     </div>
                 </Link>
 
-                <div className="action-card card-animate stagger-4 flex items-center justify-between p-6 rounded-2xl opacity-75">
+                <Link
+                    to="/privacy"
+                    className="action-card card-animate stagger-4 flex items-center justify-between p-6 rounded-2xl group"
+                >
                     <div className="flex items-center gap-4">
-                        <div className="icon-container w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center">
-                            <Shield className="w-7 h-7 text-zinc-500" />
+                        <div className="icon-container w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-black transition-all">
+                            <Shield className="w-7 h-7 text-zinc-700 group-hover:text-white" />
                         </div>
                         <div>
                             <h3 className="font-bold text-lg">Privacy & Terms</h3>
                             <p className="text-sm text-zinc-500">Your data is secure with us</p>
                         </div>
                     </div>
-                    <div className="px-3 py-1 rounded-full bg-zinc-100 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                        Coming Soon
+                    <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all">
+                        <ChevronRight className="w-5 h-5" />
                     </div>
-                </div>
+                </Link>
             </div>
 
             {/* Security Settings Section */}

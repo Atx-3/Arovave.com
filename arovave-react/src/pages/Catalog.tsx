@@ -6,6 +6,13 @@ import { products as initialProducts, categories } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
 import type { Product } from '../types';
 
+// Category type for managed categories
+type Category = {
+    id: string;
+    name: string;
+    subcategories: { id: string; name: string; }[];
+};
+
 // Get products from localStorage or use initial
 const getStoredProducts = (): Product[] => {
     const saved = localStorage.getItem('arovaveProducts');
@@ -13,6 +20,19 @@ const getStoredProducts = (): Product[] => {
         return JSON.parse(saved);
     }
     return [...initialProducts];
+};
+
+// Get categories from localStorage or use initial
+const getStoredCategories = (): Category[] => {
+    const saved = localStorage.getItem('arovaveCategories');
+    if (saved) {
+        return JSON.parse(saved);
+    }
+    return categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        subcategories: cat.subcategories || []
+    }));
 };
 
 export function Catalog() {
@@ -27,6 +47,7 @@ export function Catalog() {
     const filterType = searchParams.get('filter');
     const [expandedCategory, setExpandedCategory] = useState<string | null>(selectedCategory);
     const [products, setProducts] = useState<Product[]>(getStoredProducts);
+    const [managedCategories, setManagedCategories] = useState<Category[]>(getStoredCategories);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
     const [showPopup, setShowPopup] = useState(false);
@@ -36,8 +57,11 @@ export function Catalog() {
     }, []);
 
     useEffect(() => {
-        const checkProducts = () => setProducts(getStoredProducts());
-        const interval = setInterval(checkProducts, 1000);
+        const checkData = () => {
+            setProducts(getStoredProducts());
+            setManagedCategories(getStoredCategories());
+        };
+        const interval = setInterval(checkData, 1000);
         return () => clearInterval(interval);
     }, []);
 
@@ -105,7 +129,7 @@ export function Catalog() {
         promo: Gift
     };
 
-    const currentCategory = categories.find(c => c.id === selectedCategory);
+    const currentCategory = managedCategories.find(c => c.id === selectedCategory);
 
     return (
         <div className="page-enter">
@@ -146,7 +170,7 @@ export function Catalog() {
                                     All Products
                                 </button>
                             )}
-                            {categories.map(cat => {
+                            {managedCategories.map(cat => {
                                 const Icon = categoryIcons[cat.id];
                                 const hasSubcategories = cat.subcategories && cat.subcategories.length > 0;
                                 const isExpanded = expandedCategory === cat.id;

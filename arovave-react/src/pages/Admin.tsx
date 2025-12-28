@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2, FolderOpen } from 'lucide-react';
+import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2, FolderOpen, MessageCircle, Send, Clock } from 'lucide-react';
 import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
@@ -35,7 +35,7 @@ const getStoredCategories = (): Category[] => {
 
 export function Admin() {
     const { hasPermission, isSuperAdmin, currentUser } = useAuth();
-    const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins' | 'categories'>('enquiries');
+    const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins' | 'categories' | 'support'>('enquiries');
     const { allEnquiries, updateEnquiryStatus, isLoadingEnquiries } = useEnquiry();
     const [products, setProducts] = useState<Product[]>(getStoredProducts);
     const [showProductModal, setShowProductModal] = useState(false);
@@ -60,6 +60,32 @@ export function Admin() {
     // Video URL state
     const [videoUrl, setVideoUrl] = useState('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
     const [isSavingVideo, setIsSavingVideo] = useState(false);
+
+    // Support ticket state
+    type SupportTicket = {
+        id: string;
+        user_email: string;
+        user_name: string;
+        problem_type: string;
+        subject: string;
+        status: string;
+        created_at: string;
+        updated_at: string;
+    };
+    type SupportMessage = {
+        id: string;
+        ticket_id: string;
+        sender_type: 'user' | 'admin';
+        sender_name: string;
+        message: string;
+        created_at: string;
+    };
+    const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+    const [selectedSupportTicket, setSelectedSupportTicket] = useState<SupportTicket | null>(null);
+    const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
+    const [supportReply, setSupportReply] = useState('');
+    const [loadingSupport, setLoadingSupport] = useState(false);
+    const [supportStatusFilter, setSupportStatusFilter] = useState<string>('all');
 
     // Fetch video URL from Supabase
     const fetchVideoUrl = async () => {
@@ -159,6 +185,96 @@ export function Admin() {
             ? currentPermissions.filter(p => p !== permission)
             : [...currentPermissions, permission];
         await updateUserRole(userId, 'admin', newPermissions);
+    };
+
+    // Support ticket functions
+    const loadSupportTickets = async () => {
+        setLoadingSupport(true);
+        try {
+            const { data, error } = await supabase
+                .from('support_tickets')
+                .select('*')
+                .order('updated_at', { ascending: false });
+
+            if (!error && data) {
+                setSupportTickets(data);
+            }
+        } catch (err) {
+            console.error('Error loading support tickets:', err);
+        } finally {
+            setLoadingSupport(false);
+        }
+    };
+
+    const loadSupportMessages = async (ticketId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('support_messages')
+                .select('*')
+                .eq('ticket_id', ticketId)
+                .order('created_at', { ascending: true });
+
+            if (!error && data) {
+                setSupportMessages(data);
+            }
+        } catch (err) {
+            console.error('Error loading messages:', err);
+        }
+    };
+
+    const sendSupportReply = async () => {
+        if (!supportReply.trim() || !selectedSupportTicket) return;
+
+        try {
+            await supabase.from('support_messages').insert({
+                ticket_id: selectedSupportTicket.id,
+                sender_type: 'admin',
+                sender_name: currentUser?.name || 'Admin',
+                message: supportReply
+            });
+
+            await supabase
+                .from('support_tickets')
+                .update({ updated_at: new Date().toISOString(), status: 'in_progress' })
+                .eq('id', selectedSupportTicket.id);
+
+            setSupportReply('');
+            await loadSupportMessages(selectedSupportTicket.id);
+            await loadSupportTickets();
+        } catch (err) {
+            console.error('Error sending reply:', err);
+        }
+    };
+
+    const updateTicketStatus = async (ticketId: string, status: string) => {
+        try {
+            await supabase
+                .from('support_tickets')
+                .update({ status, updated_at: new Date().toISOString() })
+                .eq('id', ticketId);
+
+            await loadSupportTickets();
+            if (selectedSupportTicket?.id === ticketId) {
+                setSelectedSupportTicket(prev => prev ? { ...prev, status } : null);
+            }
+        } catch (err) {
+            console.error('Error updating status:', err);
+        }
+    };
+
+    const problemTypeLabels: Record<string, string> = {
+        account: 'Account Issues',
+        order: 'Order & Shipping',
+        product: 'Product Questions',
+        technical: 'Technical Problems',
+        other: 'Other'
+    };
+
+    const supportStatusConfig: Record<string, { color: string; label: string }> = {
+        open: { color: 'bg-yellow-100 text-yellow-700', label: 'Open' },
+        in_progress: { color: 'bg-blue-100 text-blue-700', label: 'In Progress' },
+        resolved: { color: 'bg-green-100 text-green-700', label: 'Resolved' },
+        closed: { color: 'bg-zinc-100 text-zinc-600', label: 'Closed' }
     };
 
     // Scroll to top on mount and load data
@@ -321,6 +437,14 @@ export function Admin() {
                         className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'admins' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
                     >
                         <Shield className="w-4 h-4" /> Manage Admins
+                    </button>
+                )}
+                {(isSuperAdmin || hasPermission('enquiries')) && (
+                    <button
+                        onClick={() => { setTab('support'); loadSupportTickets(); }}
+                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'support' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                    >
+                        <MessageCircle className="w-4 h-4" /> Support
                     </button>
                 )}
             </div>
@@ -1072,6 +1196,149 @@ export function Admin() {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Support Tab */}
+            {tab === 'support' && (isSuperAdmin || hasPermission('enquiries')) && (
+                <div className="space-y-6">
+                    {/* Header with filter */}
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-black uppercase tracking-widest text-sm">Support Tickets</h3>
+                        <div className="flex gap-2">
+                            {['all', 'open', 'in_progress', 'resolved', 'closed'].map(status => (
+                                <button
+                                    key={status}
+                                    onClick={() => setSupportStatusFilter(status)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest ${supportStatusFilter === status
+                                            ? 'bg-black text-white'
+                                            : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                        }`}
+                                >
+                                    {status === 'all' ? 'All' : status.replace('_', ' ')}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Selected Ticket View */}
+                    {selectedSupportTicket ? (
+                        <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                            {/* Ticket Header */}
+                            <div className="p-6 border-b border-zinc-100">
+                                <button
+                                    onClick={() => { setSelectedSupportTicket(null); setSupportMessages([]); }}
+                                    className="text-sm text-zinc-400 hover:text-black mb-4 flex items-center gap-2"
+                                >
+                                    ← Back to Tickets
+                                </button>
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <h2 className="text-xl font-black mb-1">{selectedSupportTicket.subject}</h2>
+                                        <p className="text-sm text-zinc-400">
+                                            From: {selectedSupportTicket.user_name} ({selectedSupportTicket.user_email})
+                                        </p>
+                                        <p className="text-sm text-zinc-400">
+                                            {problemTypeLabels[selectedSupportTicket.problem_type] || selectedSupportTicket.problem_type} • {new Date(selectedSupportTicket.created_at).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                    <select
+                                        value={selectedSupportTicket.status}
+                                        onChange={e => updateTicketStatus(selectedSupportTicket.id, e.target.value)}
+                                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase ${supportStatusConfig[selectedSupportTicket.status]?.color}`}
+                                    >
+                                        <option value="open">Open</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="resolved">Resolved</option>
+                                        <option value="closed">Closed</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Messages */}
+                            <div className="p-6 max-h-96 overflow-y-auto space-y-4 bg-zinc-50">
+                                {supportMessages.map(msg => (
+                                    <div
+                                        key={msg.id}
+                                        className={`flex ${msg.sender_type === 'admin' ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        <div className={`max-w-[75%] rounded-2xl p-4 ${msg.sender_type === 'admin'
+                                                ? 'bg-black text-white'
+                                                : 'bg-white border-2 border-zinc-200'
+                                            }`}>
+                                            <p className={`text-xs font-bold mb-1 ${msg.sender_type === 'admin' ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                                {msg.sender_name} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                            <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {supportMessages.length === 0 && (
+                                    <p className="text-center text-zinc-400 py-8">No messages yet.</p>
+                                )}
+                            </div>
+
+                            {/* Reply Input */}
+                            <div className="p-4 border-t border-zinc-100 flex gap-3">
+                                <input
+                                    type="text"
+                                    value={supportReply}
+                                    onChange={e => setSupportReply(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && sendSupportReply()}
+                                    placeholder="Type your reply..."
+                                    className="flex-1 px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                />
+                                <button
+                                    onClick={sendSupportReply}
+                                    disabled={!supportReply.trim()}
+                                    className="px-6 py-3 bg-black text-white rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                                >
+                                    <Send className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        /* Ticket List */
+                        <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                            {loadingSupport ? (
+                                <div className="p-12 text-center">
+                                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
+                                </div>
+                            ) : supportTickets.filter(t => supportStatusFilter === 'all' || t.status === supportStatusFilter).length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <MessageCircle className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
+                                    <p className="text-zinc-400">No support tickets found.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-zinc-100">
+                                    {supportTickets
+                                        .filter(t => supportStatusFilter === 'all' || t.status === supportStatusFilter)
+                                        .map(ticket => (
+                                            <button
+                                                key={ticket.id}
+                                                onClick={() => { setSelectedSupportTicket(ticket); loadSupportMessages(ticket.id); }}
+                                                className="w-full flex items-center justify-between p-5 hover:bg-zinc-50 transition-colors text-left"
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${supportStatusConfig[ticket.status]?.color}`}>
+                                                        <MessageCircle className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-bold">{ticket.subject}</h3>
+                                                        <p className="text-sm text-zinc-400">
+                                                            {ticket.user_name} • {problemTypeLabels[ticket.problem_type] || ticket.problem_type} • {new Date(ticket.created_at).toLocaleDateString()}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase ${supportStatusConfig[ticket.status]?.color}`}>
+                                                    {supportStatusConfig[ticket.status]?.label}
+                                                </span>
+                                            </button>
+                                        ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
