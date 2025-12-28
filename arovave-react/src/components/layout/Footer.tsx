@@ -37,10 +37,10 @@ export function Footer() {
                     {/* Brand + The Arovave Approach */}
                     <div className="md:col-span-2 lg:col-span-1">
                         <div className="flex items-center gap-3 mb-4">
-                            <img src="/logo.png" alt="Arovave" className="h-10 w-auto invert" />
+                            <img src="/logo.png" alt="Arovave Global" className="h-10 w-auto invert" />
                         </div>
                         <p className="text-zinc-400 text-sm leading-relaxed mb-4">
-                            Arovave is not built to move fast at any cost. It is built to move correctly.
+                            Arovave Global is not built to move fast at any cost. It is built to move correctly.
                         </p>
                         <p className="text-zinc-500 text-xs leading-relaxed">
                             By offering direct factory access, verified quality, transparent pricing, and disciplined execution, we help buyers source from India with confidence. This is not shortcut sourcing. This is structured manufacturing access.

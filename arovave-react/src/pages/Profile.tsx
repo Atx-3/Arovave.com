@@ -240,24 +240,54 @@ export function Profile() {
 
             {/* Success Message */}
             {saveSuccess && (
-                <div className="success-toast mb-6 p-5 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="success-toast mb-6 p-5 bg-zinc-100 border border-zinc-200 rounded-2xl flex items-center gap-3">
+                    <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
                     <div>
-                        <p className="font-bold text-emerald-800">Profile updated successfully!</p>
-                        <p className="text-sm text-emerald-600">Your changes have been saved.</p>
+                        <p className="font-bold text-black">Profile updated successfully!</p>
+                        <p className="text-sm text-zinc-500">Your changes have been saved.</p>
                     </div>
                 </div>
             )}
 
-            {/* Premium Profile Card */}
-            <div className="profile-card rounded-[32px] p-8 md:p-10 mb-10 text-white relative overflow-hidden">
-                {/* Animated Orbs */}
-                <div className="orb orb-1"></div>
-                <div className="orb orb-2"></div>
+            {/* Premium Profile Card - B&W Export Theme */}
+            <div className="bg-black rounded-[32px] p-8 md:p-10 mb-10 text-white relative overflow-hidden">
+                {/* Animated export icons background */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    {/* Flying airplane */}
+                    <div
+                        className="absolute top-[15%] opacity-30"
+                        style={{ animation: 'flyAcross 12s linear infinite' }}
+                    >
+                        <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24" style={{ transform: 'rotate(90deg)' }}>
+                            <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+                        </svg>
+                    </div>
+
+                    {/* Ship silhouette */}
+                    <div
+                        className="absolute bottom-[10%] right-[15%] opacity-10"
+                        style={{ animation: 'float 8s ease-in-out infinite', animationDelay: '-3s' }}
+                    >
+                        <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.44 1.71-5.56 1.71-8 0C6.78 20.53 5.39 21 4 21H2v2h2c1.38 0 2.74-.35 4-.99 2.52 1.29 5.48 1.29 8 0 1.26.65 2.62.99 4 .99h2v-2h-2zM3.95 19H4c1.6 0 3.02-.88 4-2 .98 1.12 2.4 2 4 2s3.02-.88 4-2c.98 1.12 2.4 2 4 2h.05l1.89-6.68c.08-.26.06-.54-.06-.78s-.34-.42-.6-.5L20 10.62V6c0-1.1-.9-2-2-2h-3V1H9v3H6c-1.1 0-2 .9-2 2v4.62l-1.29.42c-.26.08-.48.26-.6.5s-.15.52-.06.78L3.95 19zM6 6h12v3.97L12 8 6 9.97V6z" />
+                        </svg>
+                    </div>
+
+                    {/* Globe */}
+                    <div
+                        className="absolute top-1/2 right-[5%] opacity-5"
+                        style={{ animation: 'spin 40s linear infinite' }}
+                    >
+                        <svg className="w-40 h-40" fill="none" stroke="currentColor" strokeWidth="0.5" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                    </div>
+                </div>
 
                 {/* Subtle Grid Pattern */}
                 <div className="absolute inset-0 opacity-5" style={{
@@ -267,22 +297,22 @@ export function Profile() {
 
                 <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6">
                     <div className="flex items-center gap-6">
-                        {/* Premium Avatar */}
-                        <div className="avatar-premium w-24 h-24 md:w-28 md:h-28 rounded-2xl flex items-center justify-center cursor-pointer">
-                            <span className="text-3xl md:text-4xl font-black bg-gradient-to-br from-zinc-800 to-black bg-clip-text text-transparent">{initials}</span>
+                        {/* Premium Avatar - B&W */}
+                        <div className="w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-white flex items-center justify-center shadow-2xl">
+                            <span className="text-3xl md:text-4xl font-black text-black">{initials}</span>
                         </div>
 
                         {/* User Info */}
                         <div className="space-y-2">
                             <h2 className="text-2xl md:text-3xl font-black tracking-tight">{displayName}</h2>
-                            <div className="flex items-center gap-2 text-zinc-300 text-sm">
+                            <div className="flex items-center gap-2 text-zinc-400 text-sm">
                                 <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center">
                                     <Mail className="w-3 h-3" />
                                 </div>
                                 <span>{displayEmail}</span>
                             </div>
                             {displayPhone && (
-                                <div className="flex items-center gap-2 text-zinc-300 text-sm">
+                                <div className="flex items-center gap-2 text-zinc-400 text-sm">
                                     <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center">
                                         <Phone className="w-3 h-3" />
                                     </div>
@@ -290,7 +320,7 @@ export function Profile() {
                                 </div>
                             )}
                             {displayCountry && (
-                                <div className="flex items-center gap-2 text-zinc-300 text-sm">
+                                <div className="flex items-center gap-2 text-zinc-400 text-sm">
                                     <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center">
                                         <MapPin className="w-3 h-3" />
                                     </div>
@@ -303,7 +333,7 @@ export function Profile() {
                     {/* Edit Button */}
                     <button
                         onClick={() => setIsEditing(true)}
-                        className="flex items-center gap-2 px-5 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-sm font-bold hover:bg-white/20 hover:border-white/30 transition-all duration-300 group"
+                        className="flex items-center gap-2 px-5 py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-zinc-100 transition-all duration-300 group"
                     >
                         <Edit2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                         Edit Profile
@@ -313,8 +343,8 @@ export function Profile() {
                 {/* Member Since Badge */}
                 <div className="relative z-10 mt-8 pt-6 border-t border-white/10 flex items-center gap-3">
                     <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl flex items-center gap-2 text-sm">
-                        <Calendar className="w-4 h-4 text-zinc-300" />
-                        <span className="text-zinc-200">Member since <span className="text-white font-semibold">{displayJoined}</span></span>
+                        <Calendar className="w-4 h-4 text-zinc-400" />
+                        <span className="text-zinc-400">Member since <span className="text-white font-semibold">{displayJoined}</span></span>
                     </div>
                 </div>
             </div>
@@ -414,8 +444,8 @@ export function Profile() {
                     className="action-card card-animate stagger-1 flex items-center justify-between p-6 rounded-2xl group"
                 >
                     <div className="flex items-center gap-4">
-                        <div className="icon-container w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <FileText className="w-7 h-7 text-blue-600" />
+                        <div className="icon-container w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-black transition-all">
+                            <FileText className="w-7 h-7 text-zinc-700 group-hover:text-white" />
                         </div>
                         <div>
                             <h3 className="font-bold text-lg">My Enquiries</h3>
@@ -433,8 +463,8 @@ export function Profile() {
                         className="action-card card-animate stagger-2 flex items-center justify-between p-6 rounded-2xl group"
                     >
                         <div className="flex items-center gap-4">
-                            <div className="icon-container w-14 h-14 bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <Settings className="w-7 h-7 text-purple-600" />
+                            <div className="icon-container w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-black transition-all">
+                                <Settings className="w-7 h-7 text-zinc-700 group-hover:text-white" />
                             </div>
                             <div>
                                 <h3 className="font-bold text-lg">{t('admin')}</h3>
@@ -458,8 +488,8 @@ export function Profile() {
                     className="action-card card-animate stagger-1 flex items-center justify-between p-6 rounded-2xl group"
                 >
                     <div className="flex items-center gap-4">
-                        <div className="icon-container w-14 h-14 bg-gradient-to-br from-green-100 to-green-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <MessageSquare className="w-7 h-7 text-green-600" />
+                        <div className="icon-container w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-black transition-all">
+                            <MessageSquare className="w-7 h-7 text-zinc-700 group-hover:text-white" />
                         </div>
                         <div>
                             <h3 className="font-bold text-lg">Contact Us</h3>
@@ -478,8 +508,8 @@ export function Profile() {
                     className="action-card card-animate stagger-2 flex items-center justify-between p-6 rounded-2xl group"
                 >
                     <div className="flex items-center gap-4">
-                        <div className="icon-container w-14 h-14 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <HelpCircle className="w-7 h-7 text-emerald-600" />
+                        <div className="icon-container w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-black transition-all">
+                            <HelpCircle className="w-7 h-7 text-zinc-700 group-hover:text-white" />
                         </div>
                         <div>
                             <h3 className="font-bold text-lg">WhatsApp Support</h3>
@@ -496,12 +526,12 @@ export function Profile() {
                     className="action-card card-animate stagger-3 flex items-center justify-between p-6 rounded-2xl group"
                 >
                     <div className="flex items-center gap-4">
-                        <div className="icon-container w-14 h-14 bg-gradient-to-br from-orange-100 to-orange-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <FileText className="w-7 h-7 text-orange-600" />
+                        <div className="icon-container w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-black transition-all">
+                            <FileText className="w-7 h-7 text-zinc-700 group-hover:text-white" />
                         </div>
                         <div>
                             <h3 className="font-bold text-lg">About Us</h3>
-                            <p className="text-sm text-zinc-500">Learn more about Arovave</p>
+                            <p className="text-sm text-zinc-500">Learn more about Arovave Global</p>
                         </div>
                     </div>
                     <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all">
@@ -511,8 +541,8 @@ export function Profile() {
 
                 <div className="action-card card-animate stagger-4 flex items-center justify-between p-6 rounded-2xl opacity-75">
                     <div className="flex items-center gap-4">
-                        <div className="icon-container w-14 h-14 bg-gradient-to-br from-zinc-100 to-zinc-50 rounded-xl flex items-center justify-center">
-                            <Shield className="w-7 h-7 text-zinc-600" />
+                        <div className="icon-container w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center">
+                            <Shield className="w-7 h-7 text-zinc-500" />
                         </div>
                         <div>
                             <h3 className="font-bold text-lg">Privacy & Terms</h3>
@@ -535,8 +565,8 @@ export function Profile() {
                     className="action-card card-animate w-full flex items-center justify-between p-6 rounded-2xl group"
                 >
                     <div className="flex items-center gap-4">
-                        <div className="icon-container w-14 h-14 bg-gradient-to-br from-red-100 to-red-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Lock className="w-7 h-7 text-red-600" />
+                        <div className="icon-container w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-black transition-all">
+                            <Lock className="w-7 h-7 text-zinc-700 group-hover:text-white" />
                         </div>
                         <div className="text-left">
                             <h3 className="font-bold text-lg">Change Password</h3>
@@ -572,8 +602,8 @@ export function Profile() {
 
                         {passwordSuccess ? (
                             <div className="text-center py-8">
-                                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                                <p className="text-lg font-bold text-green-600">Password updated successfully!</p>
+                                <CheckCircle className="w-16 h-16 text-black mx-auto mb-4" />
+                                <p className="text-lg font-bold text-black">Password updated successfully!</p>
                             </div>
                         ) : (
                             <>
@@ -760,7 +790,7 @@ export function Profile() {
                     await logout();
                     navigate('/');
                 }}
-                className="btn-logout w-full flex items-center justify-center gap-3 p-5 rounded-2xl text-red-600 font-bold group"
+                className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl bg-zinc-100 text-zinc-700 font-bold group hover:bg-black hover:text-white transition-all"
             >
                 <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                 Sign Out

@@ -117,7 +117,7 @@ export function Header() {
                 <div className="hidden md:flex items-center justify-between gap-6">
                     {/* Logo */}
                     <Link to="/" className="flex-shrink-0">
-                        <img src="/logo.png" alt="Arovave" className="h-12 w-auto" />
+                        <img src="/logo.png" alt="Arovave Global" className="h-12 w-auto" />
                     </Link>
 
                     {/* Search - Desktop */}
@@ -208,7 +208,7 @@ export function Header() {
                     {/* Top Row: Logo + Hamburger */}
                     <div className="flex items-center justify-between mb-3">
                         <Link to="/" className="flex-shrink-0">
-                            <img src="/logo.png" alt="Arovave" className="h-10 w-auto" />
+                            <img src="/logo.png" alt="Arovave Global" className="h-10 w-auto" />
                         </Link>
                         <div className="flex items-center gap-3">
                             <Link to="/enquiries" className={`relative transition-colors ${isActive('/enquiries') ? 'text-black' : 'text-zinc-400'}`}>

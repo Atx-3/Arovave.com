@@ -445,60 +445,154 @@ export function AuthPage() {
     };
 
     return (
-        <div className="min-h-screen flex">
-            {/* Left Panel - Decorative */}
+        <div className="min-h-screen flex bg-white">
+            {/* Left Panel - Export Theme B&W Design */}
             <div className="hidden lg:flex lg:w-1/2 bg-black relative overflow-hidden">
-                {/* Animated gradient orbs */}
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-purple-600/30 to-blue-600/30 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-br from-pink-600/30 to-orange-600/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+                {/* Animated export icons - Ship and Airplane */}
+                <div className="absolute inset-0">
+                    {/* Animated Airplane - flying across */}
+                    <div
+                        className="absolute top-[20%] cursor-pointer group"
+                        style={{ animation: 'flyAcross 15s linear infinite' }}
+                    >
+                        <svg className="w-20 h-20 text-white/40 group-hover:text-white group-hover:scale-125 transition-all duration-300" fill="currentColor" viewBox="0 0 24 24" style={{ transform: 'rotate(90deg)' }}>
+                            <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+                        </svg>
+                    </div>
 
-                {/* Grid pattern */}
-                <div className="absolute inset-0 opacity-10" style={{
-                    backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-                    backgroundSize: '60px 60px'
-                }}></div>
+                    {/* Large Ship silhouette - floating */}
+                    <div
+                        className="absolute bottom-[15%] left-[10%] cursor-pointer group"
+                        style={{ animation: 'float 8s ease-in-out infinite' }}
+                    >
+                        <svg className="w-48 h-48 text-white/20 group-hover:text-white/50 transition-all duration-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.44 1.71-5.56 1.71-8 0C6.78 20.53 5.39 21 4 21H2v2h2c1.38 0 2.74-.35 4-.99 2.52 1.29 5.48 1.29 8 0 1.26.65 2.62.99 4 .99h2v-2h-2zM3.95 19H4c1.6 0 3.02-.88 4-2 .98 1.12 2.4 2 4 2s3.02-.88 4-2c.98 1.12 2.4 2 4 2h.05l1.89-6.68c.08-.26.06-.54-.06-.78s-.34-.42-.6-.5L20 10.62V6c0-1.1-.9-2-2-2h-3V1H9v3H6c-1.1 0-2 .9-2 2v4.62l-1.29.42c-.26.08-.48.26-.6.5s-.15.52-.06.78L3.95 19zM6 6h12v3.97L12 8 6 9.97V6z" />
+                        </svg>
+                    </div>
+
+                    {/* Small airplane - different path */}
+                    <div
+                        className="absolute top-[45%] right-[5%] cursor-pointer group"
+                        style={{ animation: 'flyDiagonal 12s linear infinite', animationDelay: '-6s' }}
+                    >
+                        <svg className="w-12 h-12 text-white/30 group-hover:text-white group-hover:scale-150 transition-all duration-300" fill="currentColor" viewBox="0 0 24 24" style={{ transform: 'rotate(-90deg)' }}>
+                            <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+                        </svg>
+                    </div>
+
+                    {/* Container/Cargo box icons */}
+                    <div
+                        className="absolute top-[60%] left-[60%] cursor-pointer group"
+                        style={{ animation: 'float 5s ease-in-out infinite', animationDelay: '-2s' }}
+                    >
+                        <svg className="w-16 h-16 text-white/15 group-hover:text-white/40 transition-all duration-300" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 013 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L6.04 7.5 12 10.85l5.96-3.35L12 4.15zM5 15.91l6 3.38v-6.71L5 9.21v6.7zm14 0v-6.7l-6 3.37v6.71l6-3.38z" />
+                        </svg>
+                    </div>
+
+                    {/* Globe icon */}
+                    <div
+                        className="absolute top-[25%] right-[25%] cursor-pointer group"
+                        style={{ animation: 'spin 30s linear infinite' }}
+                    >
+                        <svg className="w-24 h-24 text-white/10 group-hover:text-white/30 transition-all duration-500" fill="none" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                    </div>
+
+                    {/* Dotted shipping route lines */}
+                    <svg className="absolute inset-0 w-full h-full opacity-10">
+                        <path d="M0,200 Q200,100 400,150 T800,100" fill="none" stroke="white" strokeWidth="2" strokeDasharray="10,10">
+                            <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1s" repeatCount="indefinite" />
+                        </path>
+                        <path d="M0,400 Q300,300 600,350 T1200,250" fill="none" stroke="white" strokeWidth="1" strokeDasharray="5,5">
+                            <animate attributeName="stroke-dashoffset" from="0" to="-10" dur="0.8s" repeatCount="indefinite" />
+                        </path>
+                    </svg>
+                </div>
 
                 {/* Content */}
-                <div className="relative z-10 flex flex-col justify-center px-16 text-white">
-                    <Link to="/" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white mb-12 transition-colors w-fit">
-                        <ArrowLeft className="w-5 h-5" />
-                        Back to Home
-                    </Link>
+                <div className="relative z-10 flex flex-col justify-between h-full p-16">
+                    {/* Top section */}
+                    <div>
+                        <Link to="/" className="inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors group">
+                            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                            <span className="font-medium">Back to Home</span>
+                        </Link>
+                    </div>
 
-                    <h1 className="text-6xl font-black uppercase tracking-tighter mb-6">
-                        AROVAVE
-                    </h1>
-                    <p className="text-xl text-zinc-400 mb-8 max-w-md">
-                        Your gateway to verified Indian manufacturers. Direct access. No middlemen.
-                    </p>
+                    {/* Center section */}
+                    <div className="text-white">
+                        <div className="mb-8">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-12 h-px bg-white/50"></div>
+                                <span className="text-xs font-bold tracking-[0.3em] text-zinc-500 uppercase">Welcome to</span>
+                            </div>
+                            <h1 className="text-6xl font-black uppercase tracking-tighter leading-none mb-2">
+                                AROVAVE
+                            </h1>
+                            <h2 className="text-4xl font-black uppercase tracking-tighter leading-none mb-6 text-zinc-400">
+                                GLOBAL
+                            </h2>
+                            <p className="text-lg text-zinc-400 max-w-sm leading-relaxed">
+                                Your trusted gateway to verified Indian manufacturers. Direct access. Zero middlemen. Premium quality.
+                            </p>
+                        </div>
 
-                    {/* Feature badges */}
-                    <div className="flex flex-wrap gap-3">
-                        <span className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-sm font-bold">
-                            ✓ Verified Suppliers
+                        {/* Stats */}
+                        <div className="flex gap-12 mt-12">
+                            <div className="group cursor-pointer">
+                                <div className="text-4xl font-black text-white group-hover:scale-110 transition-transform">25+</div>
+                                <div className="text-xs text-zinc-500 uppercase tracking-wider mt-1">Years</div>
+                            </div>
+                            <div className="group cursor-pointer">
+                                <div className="text-4xl font-black text-white group-hover:scale-110 transition-transform">30+</div>
+                                <div className="text-xs text-zinc-500 uppercase tracking-wider mt-1">Products</div>
+                            </div>
+                            <div className="group cursor-pointer">
+                                <div className="text-4xl font-black text-white group-hover:scale-110 transition-transform">50+</div>
+                                <div className="text-xs text-zinc-500 uppercase tracking-wider mt-1">Countries</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bottom section - Export categories */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                        <span className="px-4 py-2 border border-white/20 rounded-full text-sm text-zinc-400 hover:border-white/50 hover:text-white transition-all cursor-default">
+                            🏭 Pharma
                         </span>
-                        <span className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-sm font-bold">
-                            ✓ Factory Direct Pricing
+                        <span className="px-4 py-2 border border-white/20 rounded-full text-sm text-zinc-400 hover:border-white/50 hover:text-white transition-all cursor-default">
+                            🍽️ Food
                         </span>
-                        <span className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-sm font-bold">
-                            ✓ 25+ Years Experience
+                        <span className="px-4 py-2 border border-white/20 rounded-full text-sm text-zinc-400 hover:border-white/50 hover:text-white transition-all cursor-default">
+                            🥃 Glass
+                        </span>
+                        <span className="px-4 py-2 border border-white/20 rounded-full text-sm text-zinc-400 hover:border-white/50 hover:text-white transition-all cursor-default">
+                            🎁 Promo
                         </span>
                     </div>
                 </div>
             </div>
 
             {/* Right Panel - Auth Form */}
-            <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-br from-zinc-50 to-white">
+            <div className="flex-1 flex items-center justify-center p-8 lg:p-16 bg-white relative">
+                {/* Subtle corner decorations */}
+                <div className="absolute top-0 right-0 w-32 h-32 border-r-2 border-t-2 border-zinc-100 hidden lg:block"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 border-l-2 border-b-2 border-zinc-100 hidden lg:block"></div>
+
                 <div className="w-full max-w-md">
                     {/* Mobile Back Link */}
-                    <Link to="/" className="lg:hidden inline-flex items-center gap-2 text-zinc-500 hover:text-black mb-8 transition-colors">
-                        <ArrowLeft className="w-5 h-5" />
+                    <Link to="/" className="lg:hidden inline-flex items-center gap-2 text-zinc-500 hover:text-black mb-8 transition-colors group">
+                        <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                         Back to Home
                     </Link>
 
                     {/* Logo for mobile */}
                     <div className="lg:hidden mb-8">
                         <h1 className="text-3xl font-black uppercase tracking-tighter">AROVAVE</h1>
+                        <h2 className="text-xl font-black uppercase tracking-tighter text-zinc-400">GLOBAL</h2>
+                        <div className="w-12 h-1 bg-black mt-2"></div>
                     </div>
 
                     {/* Header */}

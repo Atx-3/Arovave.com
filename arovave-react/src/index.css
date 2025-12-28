@@ -505,3 +505,64 @@ body {
     transform: translate(20px, -20px) scale(1.15);
   }
 }
+
+/* Twinkle Animation for Auth Page Dots */
+@keyframes twinkle {
+
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.5);
+  }
+}
+
+/* Auth Page Animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Airplane flying across screen */
+@keyframes flyAcross {
+  0% {
+    left: -20%;
+    transform: translateY(0) rotate(-10deg);
+  }
+
+  50% {
+    transform: translateY(-30px) rotate(-5deg);
+  }
+
+  100% {
+    left: 120%;
+    transform: translateY(0) rotate(-10deg);
+  }
+}
+
+/* Airplane flying diagonally */
+@keyframes flyDiagonal {
+  0% {
+    transform: translate(0, 0) rotate(-25deg);
+    opacity: 0.3;
+  }
+
+  50% {
+    transform: translate(-100px, 50px) rotate(-25deg);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translate(-200px, 100px) rotate(-25deg);
+    opacity: 0.3;
+  }
+}
