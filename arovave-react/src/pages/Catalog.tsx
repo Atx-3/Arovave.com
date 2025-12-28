@@ -52,6 +52,26 @@ export function Catalog() {
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
     const [showPopup, setShowPopup] = useState(false);
+    const [showSubcategoryNav, setShowSubcategoryNav] = useState(true);
+    const [lastScrollY, setLastScrollY] = useState(0);
+
+    // Scroll detection for subcategory nav
+    useEffect(() => {
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+            if (currentScrollY > lastScrollY && currentScrollY > 150) {
+                // Scrolling down - hide
+                setShowSubcategoryNav(false);
+            } else {
+                // Scrolling up - show
+                setShowSubcategoryNav(true);
+            }
+            setLastScrollY(currentScrollY);
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [lastScrollY]);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -224,7 +244,7 @@ export function Catalog() {
                         </div>
 
                         {currentCategory && currentCategory.subcategories && currentCategory.subcategories.length > 0 && (
-                            <div className="flex items-center justify-center gap-6 mt-4 overflow-x-auto scrollbar-hide py-2">
+                            <div className={`flex items-center justify-center gap-6 mt-4 overflow-x-auto scrollbar-hide py-2 transition-all duration-300 ${showSubcategoryNav ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0 overflow-hidden'}`}>
                                 <button
                                     onClick={() => setSearchParams({ category: currentCategory.id })}
                                     className={`px-6 py-2.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${!selectedSubcategory ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
