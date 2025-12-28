@@ -277,6 +277,45 @@ export function Admin() {
         closed: { color: 'bg-zinc-100 text-zinc-600', label: 'Closed' }
     };
 
+    // Fetch categories from Supabase
+    const fetchCategoriesFromSupabase = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('categories')
+                .select('*')
+                .order('id');
+
+            if (!error && data && data.length > 0) {
+                const formattedCategories = data.map((cat: any) => ({
+                    id: cat.id,
+                    name: cat.name,
+                    icon: cat.icon,
+                    subcategories: cat.subcategories || []
+                }));
+                setManagedCategories(formattedCategories);
+                // Also save to localStorage for faster loading
+                localStorage.setItem('arovaveCategories', JSON.stringify(formattedCategories));
+            }
+        } catch (err) {
+            console.error('Error fetching categories:', err);
+        }
+    };
+
+    // Save category to Supabase
+    const saveCategoryToSupabase = async (categoryId: string, subcategories: { id: string; name: string }[]) => {
+        try {
+            await supabase
+                .from('categories')
+                .update({
+                    subcategories: subcategories,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', categoryId);
+        } catch (err) {
+            console.error('Error saving category:', err);
+        }
+    };
+
     // Scroll to top on mount and load data
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -287,6 +326,9 @@ export function Admin() {
 
         // Load video URL from Supabase
         fetchVideoUrl();
+
+        // Load categories from Supabase
+        fetchCategoriesFromSupabase();
 
         // Load users for superadmin
         if (isSuperAdmin) {
@@ -1146,6 +1188,11 @@ export function Admin() {
                                             });
                                             setManagedCategories(updatedCategories);
                                             localStorage.setItem('arovaveCategories', JSON.stringify(updatedCategories));
+                                            // Save to Supabase for persistence
+                                            const updatedCat = updatedCategories.find(c => c.id === selectedCategoryForSubcat);
+                                            if (updatedCat) {
+                                                saveCategoryToSupabase(updatedCat.id, updatedCat.subcategories);
+                                            }
                                             setNewSubcategoryName('');
                                         }}
                                         className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors flex items-center gap-2"
@@ -1182,6 +1229,11 @@ export function Admin() {
                                                     });
                                                     setManagedCategories(updatedCategories);
                                                     localStorage.setItem('arovaveCategories', JSON.stringify(updatedCategories));
+                                                    // Save to Supabase for persistence
+                                                    const updatedCat = updatedCategories.find(c => c.id === selectedCategoryForSubcat);
+                                                    if (updatedCat) {
+                                                        saveCategoryToSupabase(updatedCat.id, updatedCat.subcategories);
+                                                    }
                                                 }}
                                                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                             >
@@ -1211,8 +1263,8 @@ export function Admin() {
                                     key={status}
                                     onClick={() => setSupportStatusFilter(status)}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest ${supportStatusFilter === status
-                                            ? 'bg-black text-white'
-                                            : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                        ? 'bg-black text-white'
+                                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                                         }`}
                                 >
                                     {status === 'all' ? 'All' : status.replace('_', ' ')}
@@ -1263,8 +1315,8 @@ export function Admin() {
                                         className={`flex ${msg.sender_type === 'admin' ? 'justify-end' : 'justify-start'}`}
                                     >
                                         <div className={`max-w-[75%] rounded-2xl p-4 ${msg.sender_type === 'admin'
-                                                ? 'bg-black text-white'
-                                                : 'bg-white border-2 border-zinc-200'
+                                            ? 'bg-black text-white'
+                                            : 'bg-white border-2 border-zinc-200'
                                             }`}>
                                             <p className={`text-xs font-bold mb-1 ${msg.sender_type === 'admin' ? 'text-zinc-400' : 'text-zinc-500'}`}>
                                                 {msg.sender_name} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

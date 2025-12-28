@@ -4,6 +4,7 @@ import { Utensils, Pill, FlaskConical, Gift, ChevronDown, Check } from 'lucide-r
 import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products as initialProducts, categories } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
+import { supabase } from '../lib/supabase';
 import type { Product } from '../types';
 
 // Category type for managed categories
@@ -56,12 +57,42 @@ export function Catalog() {
         window.scrollTo(0, 0);
     }, []);
 
+    // Fetch categories from Supabase on mount
+    useEffect(() => {
+        const fetchCategoriesFromSupabase = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .order('id');
+
+                if (!error && data && data.length > 0) {
+                    const formattedCategories = data.map((cat: any) => ({
+                        id: cat.id,
+                        name: cat.name,
+                        subcategories: cat.subcategories || []
+                    }));
+                    setManagedCategories(formattedCategories);
+                    localStorage.setItem('arovaveCategories', JSON.stringify(formattedCategories));
+                }
+            } catch (err) {
+                console.error('Error fetching categories:', err);
+            }
+        };
+
+        fetchCategoriesFromSupabase();
+    }, []);
+
     useEffect(() => {
         const checkData = () => {
             setProducts(getStoredProducts());
-            setManagedCategories(getStoredCategories());
+            // Categories are now fetched from Supabase, so just check localStorage for cache
+            const saved = localStorage.getItem('arovaveCategories');
+            if (saved) {
+                setManagedCategories(JSON.parse(saved));
+            }
         };
-        const interval = setInterval(checkData, 1000);
+        const interval = setInterval(checkData, 2000);
         return () => clearInterval(interval);
     }, []);
 
