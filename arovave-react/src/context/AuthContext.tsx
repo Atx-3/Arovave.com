@@ -265,6 +265,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             async (event, newSession) => {
                 console.log('🔔 Auth event:', event, newSession?.user?.email || 'no user');
 
+                if (event === 'SIGNED_IN' && newSession) {
+                    console.log('✅ User signed in, updating state...');
+                    setSession(newSession);
+                    setSupabaseUser(newSession.user);
+
+                    // Fetch and set the user profile
+                    const profile = await fetchProfile(newSession.user.id, newSession.user.email);
+                    setCurrentUser(profile);
+
+                    // Store session in localStorage
+                    localStorage.setItem(storageKey, JSON.stringify({
+                        access_token: newSession.access_token,
+                        refresh_token: newSession.refresh_token,
+                        expires_at: newSession.expires_at,
+                        token_type: 'bearer',
+                        user: newSession.user
+                    }));
+                }
+
                 if (event === 'SIGNED_OUT') {
                     setSession(null);
                     setSupabaseUser(null);

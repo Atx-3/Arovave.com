@@ -286,6 +286,9 @@ export function AuthPage() {
                 } else {
                     setError(signInError.message);
                 }
+            } else {
+                // Success - navigate to profile
+                navigate('/profile');
             }
         } catch (err: any) {
             setError(err.message || 'Something went wrong. Please try again.');

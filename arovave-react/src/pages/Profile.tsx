@@ -211,10 +211,23 @@ export function Profile() {
 
     // No loading check needed - isLoading is always false now
 
-    // Redirect to auth page if not authenticated
+    // Redirect to auth page if not authenticated (using useEffect to avoid race condition)
+    useEffect(() => {
+        if (!isAuthenticated) {
+            navigate('/auth');
+        }
+    }, [isAuthenticated, navigate]);
+
+    // Show nothing briefly while checking auth state
     if (!isAuthenticated) {
-        navigate('/auth');
-        return null;
+        return (
+            <div className="page-enter max-w-4xl mx-auto px-6 py-12 flex items-center justify-center min-h-[50vh]">
+                <div className="animate-pulse">
+                    <div className="h-8 w-48 bg-zinc-200 rounded-lg mb-4"></div>
+                    <div className="h-4 w-32 bg-zinc-100 rounded-lg"></div>
+                </div>
+            </div>
+        );
     }
 
     return (

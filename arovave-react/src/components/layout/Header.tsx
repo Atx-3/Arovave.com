@@ -33,7 +33,7 @@ export function Header() {
         ).slice(0, 5)
         : [];
 
-    // Close menus when clicking outside OR scrolling
+    // Close menus when clicking outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) {
@@ -46,7 +46,7 @@ export function Header() {
         }
 
         function handleScroll() {
-            setShowLangMenu(false);
+            // Only close search suggestions on scroll, not the language menu
             setShowSuggestions(false);
         }
 
@@ -58,6 +58,7 @@ export function Header() {
         };
     }, []);
 
+
     // Close mobile menu on route change
     useEffect(() => {
         setMobileMenuOpen(false);
@@ -67,7 +68,30 @@ export function Header() {
         { code: 'en', name: 'English', short: 'EN' },
         { code: 'hi', name: 'हिंदी', short: 'HI' },
         { code: 'es', name: 'Español', short: 'ES' },
-        { code: 'fr', name: 'Français', short: 'FR' }
+        { code: 'fr', name: 'Français', short: 'FR' },
+        { code: 'ar', name: 'العربية', short: 'AR' },
+        { code: 'zh', name: '中文', short: 'ZH' },
+        { code: 'pt', name: 'Português', short: 'PT' },
+        { code: 'de', name: 'Deutsch', short: 'DE' },
+        { code: 'ja', name: '日本語', short: 'JA' },
+        { code: 'ko', name: '한국어', short: 'KO' },
+        { code: 'ru', name: 'Русский', short: 'RU' },
+        { code: 'it', name: 'Italiano', short: 'IT' },
+        { code: 'tr', name: 'Türkçe', short: 'TR' },
+        { code: 'nl', name: 'Nederlands', short: 'NL' },
+        { code: 'id', name: 'Bahasa ID', short: 'ID' },
+        { code: 'vi', name: 'Tiếng Việt', short: 'VI' },
+        { code: 'th', name: 'ไทย', short: 'TH' },
+        { code: 'pl', name: 'Polski', short: 'PL' },
+        { code: 'el', name: 'Ελληνικά', short: 'EL' },
+        { code: 'sv', name: 'Svenska', short: 'SV' },
+        { code: 'he', name: 'עברית', short: 'HE' },
+        { code: 'uk', name: 'Українська', short: 'UK' },
+        { code: 'bn', name: 'বাংলা', short: 'BN' },
+        { code: 'ta', name: 'தமிழ்', short: 'TA' },
+        { code: 'ms', name: 'Bahasa MY', short: 'MS' },
+        { code: 'fil', name: 'Filipino', short: 'FIL' },
+        { code: 'sw', name: 'Kiswahili', short: 'SW' }
     ];
 
     const isActive = (path: string) => location.pathname === path;
@@ -149,14 +173,19 @@ export function Header() {
                                 <span className="text-xs font-bold">{language.toUpperCase()}</span>
                             </button>
                             {showLangMenu && (
-                                <div className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-zinc-100 py-2 z-50">
+                                <div
+                                    className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-zinc-100 py-2 z-50 w-48"
+                                    style={{ maxHeight: '320px', overflowY: 'auto' }}
+                                    onWheel={(e) => e.stopPropagation()}
+                                >
                                     {languages.map(lang => (
                                         <button
                                             key={lang.code}
-                                            onClick={() => { setLanguage(lang.code as 'en' | 'hi' | 'es' | 'fr'); setShowLangMenu(false); }}
-                                            className={`w-full px-4 py-2 text-left text-sm font-medium hover:bg-zinc-50 ${language === lang.code ? 'text-black' : 'text-zinc-500'}`}
+                                            onClick={() => { setLanguage(lang.code as any); setShowLangMenu(false); }}
+                                            className={`w-full px-4 py-2.5 text-left text-sm font-medium hover:bg-zinc-50 flex items-center justify-between gap-3 ${language === lang.code ? 'bg-zinc-50 text-black' : 'text-zinc-500'}`}
                                         >
-                                            {lang.name}
+                                            <span>{lang.name}</span>
+                                            <span className="text-[10px] font-bold text-zinc-300">{lang.short}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -263,7 +292,7 @@ export function Header() {
                                     {languages.map(lang => (
                                         <button
                                             key={lang.code}
-                                            onClick={() => setLanguage(lang.code as 'en' | 'hi' | 'es' | 'fr')}
+                                            onClick={() => setLanguage(lang.code as any)}
                                             className={`px-3 py-1.5 rounded-full text-xs font-bold ${language === lang.code ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600'}`}
                                         >
                                             {lang.short}
