@@ -58,11 +58,11 @@ export function Enquiries() {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {userEnquiries.map(enquiry => (
+                    {userEnquiries.map((enquiry, index) => (
                         <div key={enquiry.id} className="bg-white border-2 border-zinc-100 rounded-2xl p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-3">
-                                    <span className="text-zinc-400 font-bold">#{enquiry.id}</span>
+                                    <span className="text-zinc-400 font-bold">#{index + 1}</span>
                                     <span className="text-sm text-zinc-400">{enquiry.date}</span>
                                 </div>
                                 <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase ${statusColors[enquiry.status]}`}>
