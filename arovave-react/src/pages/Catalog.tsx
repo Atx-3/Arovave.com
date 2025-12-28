@@ -213,7 +213,7 @@ export function Catalog() {
                         <div key={product.id} className="bg-white rounded-3xl border border-zinc-100 overflow-hidden group hover:shadow-lg transition-shadow">
                             <Link to={`/product/${product.id}`}>
                                 <div className="aspect-[4/3] overflow-hidden">
-                                    <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                    <img src={product.thumbnail || product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                 </div>
                             </Link>
                             <div className="p-6">

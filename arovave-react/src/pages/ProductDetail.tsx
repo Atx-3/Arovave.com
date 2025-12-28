@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Package, BadgeCheck, Play, ChevronLeft, ChevronRight, Check, Clock, Shield, CheckCircle2, FileText } from 'lucide-react';
+import { Package, BadgeCheck, Play, ChevronLeft, ChevronRight, Check, Clock, Shield, FileText } from 'lucide-react';
 import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products as initialProducts } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -11,6 +11,8 @@ const getStoredProducts = (): Product[] => {
     const saved = localStorage.getItem('arovaveProducts');
     return saved ? JSON.parse(saved) : initialProducts;
 };
+
+type TabType = 'description' | 'specifications' | 'advantage' | 'benefit';
 
 export function ProductDetail() {
     const { id } = useParams();
@@ -23,6 +25,7 @@ export function ProductDetail() {
     const [products, setProducts] = useState<Product[]>(getStoredProducts);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
+    const [activeTab, setActiveTab] = useState<TabType>('description');
 
     // Reload products on mount to catch any updates
     useEffect(() => {
@@ -206,45 +209,27 @@ export function ProductDetail() {
                             {product.description}
                         </p>
 
-                        {/* Key Specifications - Highlighted */}
+                        {/* Technical Specifications - Merged (specs + keySpecs) */}
                         <div className="bg-gradient-to-br from-zinc-50 to-white rounded-2xl border border-zinc-100 p-6 mb-8">
                             <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-4 flex items-center gap-2">
                                 <FileText className="w-4 h-4" />
-                                Key Specifications
+                                Technical Specifications
                             </h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex items-center gap-3">
-                                    <Package className="w-5 h-5 text-zinc-400" />
-                                    <div>
-                                        <p className="text-xs text-zinc-400">Min. Order</p>
-                                        <p className="font-bold">{product.moq}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Regular specs */}
+                                {product.specs.map((spec, idx) => (
+                                    <div key={`spec-${idx}`} className="flex justify-between items-center p-4 bg-white rounded-xl border border-zinc-100">
+                                        <span className="text-xs font-black uppercase tracking-widest text-zinc-400">{spec.label}</span>
+                                        <span className="font-bold">{spec.value}</span>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <Clock className="w-5 h-5 text-zinc-400" />
-                                    <div>
-                                        <p className="text-xs text-zinc-400">Lead Time</p>
-                                        <p className="font-bold">{product.leadTime || '15-30 Days'}</p>
+                                ))}
+                                {/* Key specs from admin */}
+                                {product.keySpecs?.map((spec, idx) => (
+                                    <div key={`keyspec-${idx}`} className="flex justify-between items-center p-4 bg-white rounded-xl border border-zinc-100">
+                                        <span className="text-xs font-black uppercase tracking-widest text-zinc-400">{spec.key}</span>
+                                        <span className="font-bold">{spec.value}</span>
                                     </div>
-                                </div>
-                                {product.material && (
-                                    <div className="flex items-center gap-3">
-                                        <Shield className="w-5 h-5 text-zinc-400" />
-                                        <div>
-                                            <p className="text-xs text-zinc-400">Material</p>
-                                            <p className="font-bold">{product.material}</p>
-                                        </div>
-                                    </div>
-                                )}
-                                {product.packagingOptions && (
-                                    <div className="flex items-center gap-3">
-                                        <Package className="w-5 h-5 text-zinc-400" />
-                                        <div>
-                                            <p className="text-xs text-zinc-400">Packaging</p>
-                                            <p className="font-bold">{product.packagingOptions}</p>
-                                        </div>
-                                    </div>
-                                )}
+                                ))}
                             </div>
                         </div>
 
@@ -282,56 +267,56 @@ export function ProductDetail() {
                 </div>
             </div>
 
-            {/* Technical Specifications - Full Details */}
+            {/* Tabs Section - Description, Specifications, Advantage, Benefit */}
             <div className="bg-zinc-50 py-16">
                 <div className="max-w-7xl mx-auto px-6">
-                    <h2 className="text-2xl font-black uppercase tracking-tighter mb-8">Technical Specifications</h2>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        {product.specs.map(spec => (
-                            <div key={spec.label} className="flex justify-between items-center p-5 bg-white rounded-xl border border-zinc-100">
-                                <span className="text-xs font-black uppercase tracking-widest text-zinc-400">{spec.label}</span>
-                                <span className="font-bold">{spec.value}</span>
-                            </div>
-                        ))}
+                    {/* Tabs Navigation */}
+                    <div className="border-b border-zinc-200 mb-8">
+                        <div className="flex gap-8">
+                            {(['description', 'specifications', 'advantage', 'benefit'] as TabType[]).map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`pb-3 text-sm font-bold capitalize transition-colors relative ${activeTab === tab
+                                        ? 'text-black'
+                                        : 'text-zinc-400 hover:text-zinc-600'
+                                        }`}
+                                >
+                                    {tab}
+                                    {activeTab === tab && (
+                                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black"></div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Tab Content */}
+                    <div className="bg-white rounded-2xl p-8 min-h-[200px] border border-zinc-100">
+                        {activeTab === 'description' && (
+                            <p className="text-zinc-600 leading-relaxed whitespace-pre-wrap">
+                                {product.tabDescription || product.description || 'No description available.'}
+                            </p>
+                        )}
+                        {activeTab === 'specifications' && (
+                            <p className="text-zinc-600 leading-relaxed whitespace-pre-wrap">
+                                {product.tabSpecifications || 'No specifications details available.'}
+                            </p>
+                        )}
+                        {activeTab === 'advantage' && (
+                            <p className="text-zinc-600 leading-relaxed whitespace-pre-wrap">
+                                {product.tabAdvantage || 'No advantage details available.'}
+                            </p>
+                        )}
+                        {activeTab === 'benefit' && (
+                            <p className="text-zinc-600 leading-relaxed whitespace-pre-wrap">
+                                {product.tabBenefit || 'No benefit details available.'}
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Why This Product - Clear, Factual, Practical */}
-            <div className="py-16">
-                <div className="max-w-7xl mx-auto px-6">
-                    <h2 className="text-2xl font-black uppercase tracking-tighter mb-8">Why This Product</h2>
-                    <div className="grid md:grid-cols-3 gap-6">
-                        <div className="bg-white border border-zinc-100 rounded-2xl p-6 hover:border-black transition-all">
-                            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
-                                <CheckCircle2 className="w-6 h-6 text-blue-600" />
-                            </div>
-                            <h3 className="font-black text-lg mb-2">Verified Manufacturing</h3>
-                            <p className="text-zinc-500 text-sm leading-relaxed">
-                                Produced in certified facilities with documented quality processes.
-                            </p>
-                        </div>
-                        <div className="bg-white border border-zinc-100 rounded-2xl p-6 hover:border-black transition-all">
-                            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center mb-4">
-                                <Shield className="w-6 h-6 text-green-600" />
-                            </div>
-                            <h3 className="font-black text-lg mb-2">Export Ready</h3>
-                            <p className="text-zinc-500 text-sm leading-relaxed">
-                                Compliant with international standards and export documentation.
-                            </p>
-                        </div>
-                        <div className="bg-white border border-zinc-100 rounded-2xl p-6 hover:border-black transition-all">
-                            <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-4">
-                                <Package className="w-6 h-6 text-purple-600" />
-                            </div>
-                            <h3 className="font-black text-lg mb-2">Custom Packaging</h3>
-                            <p className="text-zinc-500 text-sm leading-relaxed">
-                                Private labeling and custom packaging options available.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             {/* CTA Section */}
             <div className="bg-black text-white py-16">

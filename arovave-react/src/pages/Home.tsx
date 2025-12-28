@@ -366,7 +366,7 @@ export function Home() {
                                 <Link to={`/product/${product.id}`}>
                                     <div className="aspect-square overflow-hidden">
                                         <img
-                                            src={product.images[0]}
+                                            src={product.thumbnail || product.images[0]}
                                             alt={product.name}
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         />

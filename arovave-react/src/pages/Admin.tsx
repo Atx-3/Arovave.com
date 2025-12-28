@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2 } from 'lucide-react';
+import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2, FolderOpen } from 'lucide-react';
 import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
@@ -16,13 +16,35 @@ const getStoredProducts = (): Product[] => {
     return [...initialProducts];
 };
 
+// Category type
+type Category = {
+    id: string;
+    name: string;
+    icon: string;
+    subcategories: { id: string; name: string }[];
+};
+
+// Get categories from localStorage or use initial
+const getStoredCategories = (): Category[] => {
+    const saved = localStorage.getItem('arovaveCategories');
+    if (saved) {
+        return JSON.parse(saved);
+    }
+    return categories as Category[];
+};
+
 export function Admin() {
     const { hasPermission, isSuperAdmin, currentUser } = useAuth();
-    const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins'>('enquiries');
+    const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins' | 'categories'>('enquiries');
     const { allEnquiries, updateEnquiryStatus, isLoadingEnquiries } = useEnquiry();
     const [products, setProducts] = useState<Product[]>(getStoredProducts);
     const [showProductModal, setShowProductModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+    // Category management state
+    const [managedCategories, setManagedCategories] = useState<Category[]>(getStoredCategories);
+    const [newSubcategoryName, setNewSubcategoryName] = useState('');
+    const [selectedCategoryForSubcat, setSelectedCategoryForSubcat] = useState<string>('food');
 
     // Admin management state (for superadmins)
     const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -283,6 +305,14 @@ export function Admin() {
                         className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'settings' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
                     >
                         ⚙️ Settings
+                    </button>
+                )}
+                {isSuperAdmin && (
+                    <button
+                        onClick={() => setTab('categories')}
+                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'categories' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                    >
+                        <FolderOpen className="w-4 h-4" /> Categories
                     </button>
                 )}
                 {isSuperAdmin && (
@@ -933,6 +963,117 @@ export function Admin() {
                     </div>
                 </div>
             )}
+
+            {/* Categories Tab (Super Admin Only) */}
+            {tab === 'categories' && isSuperAdmin && (
+                <div className="space-y-6">
+                    <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                        <div className="p-6 border-b border-zinc-100">
+                            <h3 className="font-black uppercase tracking-widest text-sm">Manage Subcategories</h3>
+                            <p className="text-zinc-500 text-sm mt-2">Add or remove subcategories for each product category.</p>
+                        </div>
+                        <div className="p-6">
+                            {/* Category Selector */}
+                            <div className="mb-6">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Select Category</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {managedCategories.map(cat => (
+                                        <button
+                                            key={cat.id}
+                                            onClick={() => setSelectedCategoryForSubcat(cat.id)}
+                                            className={`px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-widest transition-colors ${selectedCategoryForSubcat === cat.id
+                                                ? 'bg-black text-white'
+                                                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                                }`}
+                                        >
+                                            {cat.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Add New Subcategory */}
+                            <div className="mb-6 p-4 bg-zinc-50 rounded-xl">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Add New Subcategory</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={newSubcategoryName}
+                                        onChange={e => setNewSubcategoryName(e.target.value)}
+                                        placeholder="e.g., Organic Products"
+                                        className="flex-1 px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            if (!newSubcategoryName.trim()) return;
+                                            const updatedCategories = managedCategories.map(cat => {
+                                                if (cat.id === selectedCategoryForSubcat) {
+                                                    const newId = newSubcategoryName.toLowerCase().replace(/\s+/g, '-');
+                                                    if (cat.subcategories.some(s => s.id === newId)) {
+                                                        alert('Subcategory already exists!');
+                                                        return cat;
+                                                    }
+                                                    return {
+                                                        ...cat,
+                                                        subcategories: [...cat.subcategories, { id: newId, name: newSubcategoryName.trim() }]
+                                                    };
+                                                }
+                                                return cat;
+                                            });
+                                            setManagedCategories(updatedCategories);
+                                            localStorage.setItem('arovaveCategories', JSON.stringify(updatedCategories));
+                                            setNewSubcategoryName('');
+                                        }}
+                                        className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors flex items-center gap-2"
+                                    >
+                                        <Plus className="w-4 h-4" /> Add
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Subcategory List */}
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-3">
+                                    Current Subcategories ({managedCategories.find(c => c.id === selectedCategoryForSubcat)?.subcategories.length || 0})
+                                </label>
+                                <div className="space-y-2">
+                                    {managedCategories.find(c => c.id === selectedCategoryForSubcat)?.subcategories.map((subcat, idx) => (
+                                        <div key={subcat.id} className="flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-xl">
+                                            <div className="flex items-center gap-3">
+                                                <span className="w-6 h-6 bg-zinc-100 rounded-full flex items-center justify-center text-xs font-bold text-zinc-500">{idx + 1}</span>
+                                                <span className="font-semibold">{subcat.name}</span>
+                                                <span className="text-xs text-zinc-400">({subcat.id})</span>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    if (!confirm(`Delete subcategory "${subcat.name}"?`)) return;
+                                                    const updatedCategories = managedCategories.map(cat => {
+                                                        if (cat.id === selectedCategoryForSubcat) {
+                                                            return {
+                                                                ...cat,
+                                                                subcategories: cat.subcategories.filter(s => s.id !== subcat.id)
+                                                            };
+                                                        }
+                                                        return cat;
+                                                    });
+                                                    setManagedCategories(updatedCategories);
+                                                    localStorage.setItem('arovaveCategories', JSON.stringify(updatedCategories));
+                                                }}
+                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {managedCategories.find(c => c.id === selectedCategoryForSubcat)?.subcategories.length === 0 && (
+                                        <p className="text-zinc-400 text-sm text-center py-4">No subcategories yet. Add one above.</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -945,6 +1086,9 @@ interface ProductModalProps {
 }
 
 function ProductModal({ product, onClose, onSave }: ProductModalProps) {
+    // Find default image index (0 if not set)
+    const initialDefaultIndex = product?.images?.findIndex(img => img === product?.thumbnail) ?? 0;
+
     const [formData, setFormData] = useState({
         name: product?.name || '',
         cat: product?.cat || 'food',
@@ -957,13 +1101,19 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
         images: product?.images || [],
         video: product?.video || '',
         isTrending: product?.isTrending || false,
-        specs: product?.specs?.map(s => `${s.label}: ${s.value}`).join('\n') || '',
-        // New fields
-        leadTime: product?.leadTime || '15-30 Days',
-        material: product?.material || '',
-        packagingOptions: product?.packagingOptions || ''
+        // Specs as array of key-value pairs
+        specs: [
+            ...(product?.specs?.map(s => ({ key: s.label, value: s.value })) || []),
+            ...(product?.keySpecs?.map(s => ({ key: s.key, value: s.value })) || [])
+        ] as { key: string; value: string }[],
+        // Tab contents
+        tabDescription: product?.tabDescription || '',
+        tabSpecifications: product?.tabSpecifications || '',
+        tabAdvantage: product?.tabAdvantage || '',
+        tabBenefit: product?.tabBenefit || ''
     });
     const [imagePreviews, setImagePreviews] = useState<string[]>(product?.images || []);
+    const [defaultImageIndex, setDefaultImageIndex] = useState<number>(initialDefaultIndex >= 0 ? initialDefaultIndex : 0);
 
     // Get subcategories for selected category
     const currentCategory = categories.find(c => c.id === formData.cat);
@@ -999,6 +1149,13 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Reorder images so default is first
+        const orderedImages = formData.images.length ? [...formData.images] : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800'];
+        if (defaultImageIndex > 0 && defaultImageIndex < orderedImages.length) {
+            const defaultImg = orderedImages.splice(defaultImageIndex, 1)[0];
+            orderedImages.unshift(defaultImg);
+        }
+
         const productData: Product = {
             id: product?.id || 0,
             name: formData.name,
@@ -1009,17 +1166,16 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
             priceRange: formData.priceRange,
             description: formData.description,
             certifications: formData.certifications.split(',').map(s => s.trim()).filter(Boolean),
-            images: formData.images.length ? formData.images : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800'],
+            images: orderedImages,
+            thumbnail: orderedImages[0], // First image is both thumbnail and default
             video: formData.video || undefined,
-            specs: formData.specs.split('\n').filter(Boolean).map(line => {
-                const [label, ...rest] = line.split(':');
-                return { label: label?.trim() || '', value: rest.join(':')?.trim() || '' };
-            }).filter(s => s.label && s.value),
+            specs: formData.specs.filter(s => s.key && s.value).map(s => ({ label: s.key, value: s.value })),
             isTrending: formData.isTrending,
-            // New fields
-            leadTime: formData.leadTime || undefined,
-            material: formData.material || undefined,
-            packagingOptions: formData.packagingOptions || undefined
+            // Tab contents
+            tabDescription: formData.tabDescription || undefined,
+            tabSpecifications: formData.tabSpecifications || undefined,
+            tabAdvantage: formData.tabAdvantage || undefined,
+            tabBenefit: formData.tabBenefit || undefined
         };
 
         onSave(productData);
@@ -1118,43 +1274,6 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
                                 <span className="text-sm font-bold">Show in Trending Products</span>
                             </label>
                         </div>
-
-                        {/* New Enhanced Fields */}
-                        <div className="md:col-span-2 bg-zinc-50 rounded-xl p-4 mt-2">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">Key Specifications (for frontend display)</h4>
-                            <div className="grid md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Lead Time</label>
-                                    <input
-                                        type="text"
-                                        value={formData.leadTime}
-                                        onChange={e => setFormData({ ...formData, leadTime: e.target.value })}
-                                        placeholder="e.g., 15-30 Days"
-                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Material / Formulation</label>
-                                    <input
-                                        type="text"
-                                        value={formData.material}
-                                        onChange={e => setFormData({ ...formData, material: e.target.value })}
-                                        placeholder="e.g., Glass, Plastic, API"
-                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Packaging Options</label>
-                                    <input
-                                        type="text"
-                                        value={formData.packagingOptions}
-                                        onChange={e => setFormData({ ...formData, packagingOptions: e.target.value })}
-                                        placeholder="e.g., Bulk, Retail, Custom"
-                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
-                                    />
-                                </div>
-                            </div>
-                        </div>
                         <div className="md:col-span-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Description*</label>
                             <textarea
@@ -1201,15 +1320,63 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
                                 </div>
                             )}
                         </div>
+                        {/* Specifications - Dynamic Key-Value Inputs */}
                         <div className="md:col-span-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Specifications (one per line, e.g. "Weight: 500g")</label>
-                            <textarea
-                                rows={4}
-                                value={formData.specs}
-                                onChange={e => setFormData({ ...formData, specs: e.target.value })}
-                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none resize-none"
-                                placeholder="Weight: 500g&#10;Material: Glass&#10;Color: Amber&#10;Capacity: 100ml"
-                            />
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Specifications</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({
+                                        ...prev,
+                                        specs: [...prev.specs, { key: '', value: '' }]
+                                    }))}
+                                    className="px-3 py-1.5 bg-black text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-zinc-700 transition-colors flex items-center gap-1"
+                                >
+                                    <Plus className="w-3 h-3" /> Add
+                                </button>
+                            </div>
+                            {formData.specs.length === 0 ? (
+                                <p className="text-xs text-zinc-500 text-center py-4 border-2 border-dashed border-zinc-200 rounded-xl">No specs added. Click "Add" to add one.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {formData.specs.map((spec, idx) => (
+                                        <div key={idx} className="flex gap-2 items-center">
+                                            <input
+                                                type="text"
+                                                value={spec.key}
+                                                onChange={e => {
+                                                    const newSpecs = [...formData.specs];
+                                                    newSpecs[idx] = { ...newSpecs[idx], key: e.target.value };
+                                                    setFormData({ ...formData, specs: newSpecs });
+                                                }}
+                                                placeholder="Key (e.g., Weight)"
+                                                className="flex-1 px-3 py-2 border-2 border-zinc-200 rounded-lg font-semibold focus:border-black focus:outline-none text-sm"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={spec.value}
+                                                onChange={e => {
+                                                    const newSpecs = [...formData.specs];
+                                                    newSpecs[idx] = { ...newSpecs[idx], value: e.target.value };
+                                                    setFormData({ ...formData, specs: newSpecs });
+                                                }}
+                                                placeholder="Value (e.g., 500g)"
+                                                className="flex-1 px-3 py-2 border-2 border-zinc-200 rounded-lg font-semibold focus:border-black focus:outline-none text-sm"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const newSpecs = formData.specs.filter((_, i) => i !== idx);
+                                                    setFormData({ ...formData, specs: newSpecs });
+                                                }}
+                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         <div className="md:col-span-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Certifications (comma-separated)</label>
@@ -1218,8 +1385,80 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
                                 value={formData.certifications}
                                 onChange={e => setFormData({ ...formData, certifications: e.target.value })}
                                 className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                                placeholder="ISO 9001, FSSAI, WHO-GMP"
                             />
+                        </div>
+
+                        {/* Default Image Selection */}
+                        {imagePreviews.length > 0 && (
+                            <div className="md:col-span-2">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">Click image to set as default (first / thumbnail):</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {imagePreviews.map((img, idx) => (
+                                        <div
+                                            key={idx}
+                                            onClick={() => setDefaultImageIndex(idx)}
+                                            className={`w-16 h-16 rounded-lg overflow-hidden cursor-pointer transition-all relative ${defaultImageIndex === idx
+                                                ? 'ring-4 ring-black ring-offset-2'
+                                                : 'border-2 border-zinc-200 hover:border-zinc-400'
+                                                }`}
+                                        >
+                                            <img src={img} alt={`Image ${idx + 1}`} className="w-full h-full object-cover" />
+                                            {defaultImageIndex === idx && (
+                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-black rounded-full flex items-center justify-center">
+                                                    <Check className="w-2.5 h-2.5 text-white" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tab Contents Section */}
+                        <div className="md:col-span-2 bg-blue-50 rounded-xl p-4 mt-2">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4">Tab Contents (for product detail page)</h4>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Description Tab</label>
+                                    <textarea
+                                        rows={3}
+                                        value={formData.tabDescription}
+                                        onChange={e => setFormData({ ...formData, tabDescription: e.target.value })}
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none resize-none bg-white"
+                                        placeholder="Detailed description for the Description tab..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Specifications Tab</label>
+                                    <textarea
+                                        rows={3}
+                                        value={formData.tabSpecifications}
+                                        onChange={e => setFormData({ ...formData, tabSpecifications: e.target.value })}
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none resize-none bg-white"
+                                        placeholder="Technical specifications for the Specifications tab..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Advantage Tab</label>
+                                    <textarea
+                                        rows={3}
+                                        value={formData.tabAdvantage}
+                                        onChange={e => setFormData({ ...formData, tabAdvantage: e.target.value })}
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none resize-none bg-white"
+                                        placeholder="Product advantages for the Advantage tab..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Benefit Tab</label>
+                                    <textarea
+                                        rows={3}
+                                        value={formData.tabBenefit}
+                                        onChange={e => setFormData({ ...formData, tabBenefit: e.target.value })}
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none resize-none bg-white"
+                                        placeholder="Product benefits for the Benefit tab..."
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div className="flex gap-4 mt-8">
@@ -1231,7 +1470,7 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
