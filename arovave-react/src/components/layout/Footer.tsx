@@ -89,30 +89,30 @@ export function Footer() {
                     <div>
                         <h4 className="text-xs font-black uppercase tracking-widest mb-5">Contact Us</h4>
                         <div className="space-y-3 text-zinc-400 text-sm">
-                            <p className="flex items-center gap-3">
+                            <a href="mailto:export@arovave.com" className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer">
                                 <Mail className="w-4 h-4 text-white" />
                                 export@arovave.com
-                            </p>
-                            <p className="flex items-center gap-3">
+                            </a>
+                            <a href="tel:+919305764815" className="flex items-center gap-3 hover:text-white transition-colors">
                                 <Phone className="w-4 h-4 text-white" />
-                                +91 9315728922
-                            </p>
-                            <p className="flex items-center gap-3">
+                                +91 9305764815
+                            </a>
+                            <a href="https://www.google.com/maps/search/?api=1&query=Lucknow,+Uttar+Pradesh,+India" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer">
                                 <MapPin className="w-4 h-4 text-white" />
                                 Lucknow, Uttar Pradesh, India
-                            </p>
+                            </a>
                         </div>
                         <div className="flex gap-3 mt-4">
-                            <a href="https://facebook.com/arovave" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                            <a href="https://www.facebook.com/p/Arovave-Group-of-Companies-61578211982053/" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
                                 <FacebookIcon />
                             </a>
-                            <a href="https://instagram.com/arovave" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                            <a href="https://www.instagram.com/arovave_global?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
                                 <InstagramIcon />
                             </a>
                             <a href="https://x.com/arovave" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
                                 <XIcon />
                             </a>
-                            <a href="https://linkedin.com/company/arovave" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                            <a href="https://www.linkedin.com/company/arovave-global/posts/?feedView=all" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
                                 <LinkedInIcon />
                             </a>
                         </div>
