@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import Lenis from 'lenis';
 import { Header } from './Header';
 import { Footer } from './Footer';
@@ -9,6 +10,9 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
+    const lenisRef = useRef<Lenis | null>(null);
+    const { pathname } = useLocation();
+
     // Initialize Lenis smooth scroll
     useEffect(() => {
         const lenis = new Lenis({
@@ -18,6 +22,8 @@ export function Layout({ children }: LayoutProps) {
             gestureOrientation: 'vertical',
             smoothWheel: true,
         });
+
+        lenisRef.current = lenis;
 
         function raf(time: number) {
             lenis.raf(time);
@@ -30,6 +36,15 @@ export function Layout({ children }: LayoutProps) {
             lenis.destroy();
         };
     }, []);
+
+    // Scroll to top on route change
+    useEffect(() => {
+        if (lenisRef.current) {
+            lenisRef.current.scrollTo(0, { immediate: true });
+        } else {
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        }
+    }, [pathname]);
 
     return (
         <div className="min-h-screen flex flex-col">

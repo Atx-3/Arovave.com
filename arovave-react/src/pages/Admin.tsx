@@ -316,6 +316,11 @@ export function Admin() {
         }
     };
 
+    // Scroll to top when tab changes
+    useEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }, [tab]);
+
     // Scroll to top on mount and load data
     useEffect(() => {
         window.scrollTo(0, 0);
