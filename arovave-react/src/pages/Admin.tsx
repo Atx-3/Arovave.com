@@ -304,15 +304,21 @@ export function Admin() {
     // Save category to Supabase
     const saveCategoryToSupabase = async (categoryId: string, subcategories: { id: string; name: string }[]) => {
         try {
-            await supabase
+            const { error } = await supabase
                 .from('categories')
                 .update({
-                    subcategories: subcategories,
-                    updated_at: new Date().toISOString()
+                    subcategories: subcategories
                 })
                 .eq('id', categoryId);
+
+            if (error) {
+                console.error('Supabase error:', error);
+                throw error;
+            }
+            console.log('Category saved to Supabase:', categoryId);
         } catch (err) {
             console.error('Error saving category:', err);
+            throw err;
         }
     };
 
@@ -1335,7 +1341,7 @@ export function Admin() {
                                                 <span className="text-xs text-zinc-400">({subcat.id})</span>
                                             </div>
                                             <button
-                                                onClick={() => {
+                                                onClick={async () => {
                                                     if (!confirm(`Delete subcategory "${subcat.name}"?`)) return;
                                                     const updatedCategories = managedCategories.map(cat => {
                                                         if (cat.id === selectedCategoryForSubcat) {
@@ -1351,7 +1357,13 @@ export function Admin() {
                                                     // Save to Supabase for persistence
                                                     const updatedCat = updatedCategories.find(c => c.id === selectedCategoryForSubcat);
                                                     if (updatedCat) {
-                                                        saveCategoryToSupabase(updatedCat.id, updatedCat.subcategories);
+                                                        try {
+                                                            await saveCategoryToSupabase(updatedCat.id, updatedCat.subcategories);
+                                                            alert('✅ Subcategory deleted!');
+                                                        } catch (err) {
+                                                            console.error('Error saving to Supabase:', err);
+                                                            alert('Deleted locally but failed to sync to database');
+                                                        }
                                                     }
                                                 }}
                                                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
