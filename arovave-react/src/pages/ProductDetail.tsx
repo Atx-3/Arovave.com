@@ -317,22 +317,6 @@ export function ProductDetail() {
                 </div>
             </div>
 
-
-            {/* CTA Section */}
-            <div className="bg-black text-white py-16">
-                <div className="max-w-4xl mx-auto px-6 text-center">
-                    <h2 className="text-3xl font-black mb-4">Ready to Place an Order?</h2>
-                    <p className="text-zinc-400 mb-8">
-                        Submit an enquiry and our team will provide detailed quotations.
-                    </p>
-                    <button
-                        onClick={handleEnquire}
-                        className="inline-block px-10 py-4 bg-white text-black font-bold text-sm uppercase tracking-widest rounded-xl hover:bg-zinc-100 transition-colors"
-                    >
-                        Request Quote
-                    </button>
-                </div>
-            </div>
         </div>
     );
 }
