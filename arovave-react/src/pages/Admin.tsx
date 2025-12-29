@@ -316,6 +316,79 @@ export function Admin() {
         }
     };
 
+    // Fetch quality uploads from Supabase
+    const fetchQualityUploadsFromSupabase = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('quality_uploads')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (!error && data) {
+                // Group by key (category_subcategory_contentType)
+                const grouped: Record<string, any[]> = {};
+                data.forEach((item: any) => {
+                    const key = `${item.category_id}_${item.subcategory_id}_${item.content_type}`;
+                    if (!grouped[key]) grouped[key] = [];
+                    grouped[key].push({
+                        id: item.id,
+                        title: item.title,
+                        image: item.image_url,
+                        description: item.description
+                    });
+                });
+                setQualityContent(grouped);
+                // Also cache to localStorage
+                localStorage.setItem('arovaveQualityUploads', JSON.stringify(grouped));
+            }
+        } catch (err) {
+            console.error('Error fetching quality uploads:', err);
+        }
+    };
+
+    // Save quality upload to Supabase
+    const saveQualityUploadToSupabase = async (
+        categoryId: string,
+        subcategoryId: string,
+        contentType: string,
+        title: string,
+        imageUrl: string,
+        description?: string
+    ) => {
+        try {
+            const { data, error } = await supabase
+                .from('quality_uploads')
+                .insert({
+                    category_id: categoryId,
+                    subcategory_id: subcategoryId,
+                    content_type: contentType,
+                    title: title,
+                    image_url: imageUrl,
+                    description: description || null
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (err) {
+            console.error('Error saving quality upload:', err);
+            return null;
+        }
+    };
+
+    // Delete quality upload from Supabase
+    const deleteQualityUploadFromSupabase = async (id: string) => {
+        try {
+            await supabase
+                .from('quality_uploads')
+                .delete()
+                .eq('id', id);
+        } catch (err) {
+            console.error('Error deleting quality upload:', err);
+        }
+    };
+
     // Scroll to top when tab changes
     useEffect(() => {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -324,10 +397,9 @@ export function Admin() {
     // Scroll to top on mount and load data
     useEffect(() => {
         window.scrollTo(0, 0);
-        const saved = localStorage.getItem('arovaveQualityContent');
-        if (saved) {
-            setQualityContent(JSON.parse(saved));
-        }
+
+        // Load quality uploads from Supabase
+        fetchQualityUploadsFromSupabase();
 
         // Load video URL from Supabase
         fetchVideoUrl();
@@ -356,12 +428,9 @@ export function Admin() {
         }
     }, [isSuperAdmin, currentUser]);
 
-    const qualityCategories = [
-        { id: 'food', name: 'Processed Food', icon: Utensils },
-        { id: 'pharma', name: 'Generic Medicines', icon: Pill },
-        { id: 'glass', name: 'Glass Bottles', icon: FlaskConical },
-        { id: 'promo', name: 'Promotional Items', icon: Gift }
-    ];
+
+    // Quality categories now use managedCategories from Supabase
+    // This allows dynamic add/delete of categories
 
     const statusColors: Record<string, string> = {
         pending: 'bg-yellow-50 text-yellow-700',
@@ -842,19 +911,23 @@ export function Admin() {
                     <div className="mb-6">
                         <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Select Category</label>
                         <div className="flex gap-3 flex-wrap">
-                            {qualityCategories.map(cat => (
-                                <button
-                                    key={cat.id}
-                                    onClick={() => setSelectedQualityCategory(cat.id)}
-                                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest whitespace-nowrap transition-colors ${selectedQualityCategory === cat.id
-                                        ? 'bg-black text-white'
-                                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                                        }`}
-                                >
-                                    <cat.icon className="w-4 h-4" />
-                                    {cat.name}
-                                </button>
-                            ))}
+                            {managedCategories.map(cat => {
+                                const categoryIcons: Record<string, any> = { food: Utensils, pharma: Pill, glass: FlaskConical, promo: Gift };
+                                const CatIcon = categoryIcons[cat.id] || Gift;
+                                return (
+                                    <button
+                                        key={cat.id}
+                                        onClick={() => setSelectedQualityCategory(cat.id)}
+                                        className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest whitespace-nowrap transition-colors ${selectedQualityCategory === cat.id
+                                            ? 'bg-black text-white'
+                                            : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                            }`}
+                                    >
+                                        <CatIcon className="w-4 h-4" />
+                                        {cat.name}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -868,8 +941,8 @@ export function Admin() {
                                 className="px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
                             >
                                 <option value="">-- Select Subcategory --</option>
-                                <option value="all">All {qualityCategories.find(c => c.id === selectedQualityCategory)?.name}</option>
-                                {categories.find(c => c.id === selectedQualityCategory)?.subcategories?.map(sub => (
+                                <option value="all">All {managedCategories.find(c => c.id === selectedQualityCategory)?.name}</option>
+                                {managedCategories.find(c => c.id === selectedQualityCategory)?.subcategories?.map(sub => (
                                     <option key={sub.id} value={sub.id}>{sub.name}</option>
                                 ))}
                             </select>
@@ -933,22 +1006,64 @@ export function Admin() {
                                     if (!file) return alert('Please select an image file');
                                     if (file.size > 5 * 1024 * 1024) return alert('Image too large! Max 5MB.');
 
-                                    // Convert to base64
-                                    const reader = new FileReader();
-                                    reader.onload = () => {
-                                        const image = reader.result as string;
-                                        const key = `${selectedQualityCategory}_${qualitySubcategory}_${qualityContentType}`;
-                                        const saved = JSON.parse(localStorage.getItem('arovaveQualityUploads') || '{}');
-                                        saved[key] = saved[key] || [];
-                                        saved[key].push({ id: Date.now(), title, image, description });
-                                        localStorage.setItem('arovaveQualityUploads', JSON.stringify(saved));
-                                        setQualityContent(saved);
-                                        (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
-                                        (document.getElementById('qualityItemDesc') as HTMLTextAreaElement).value = '';
-                                        fileInput.value = '';
-                                        alert('✅ Item added!');
-                                    };
-                                    reader.readAsDataURL(file);
+                                    try {
+                                        // Upload image to Supabase Storage
+                                        const fileName = `quality/${selectedQualityCategory}/${qualitySubcategory}/${qualityContentType}/${Date.now()}_${file.name}`;
+                                        const { data: uploadData, error: uploadError } = await supabase.storage
+                                            .from('quality-images')
+                                            .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+                                        if (uploadError) {
+                                            // If bucket doesn't exist, use base64 as fallback
+                                            console.warn('Storage upload failed, using base64 fallback:', uploadError);
+                                            const reader = new FileReader();
+                                            reader.onload = async () => {
+                                                const imageUrl = reader.result as string;
+                                                const saved = await saveQualityUploadToSupabase(
+                                                    selectedQualityCategory,
+                                                    qualitySubcategory,
+                                                    qualityContentType,
+                                                    title,
+                                                    imageUrl,
+                                                    description
+                                                );
+                                                if (saved) {
+                                                    await fetchQualityUploadsFromSupabase();
+                                                    (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
+                                                    (document.getElementById('qualityItemDesc') as HTMLTextAreaElement).value = '';
+                                                    fileInput.value = '';
+                                                    alert('✅ Item added!');
+                                                }
+                                            };
+                                            reader.readAsDataURL(file);
+                                            return;
+                                        }
+
+                                        // Get public URL
+                                        const { data: urlData } = supabase.storage.from('quality-images').getPublicUrl(fileName);
+                                        const imageUrl = urlData.publicUrl;
+
+                                        // Save to database
+                                        const saved = await saveQualityUploadToSupabase(
+                                            selectedQualityCategory,
+                                            qualitySubcategory,
+                                            qualityContentType,
+                                            title,
+                                            imageUrl,
+                                            description
+                                        );
+
+                                        if (saved) {
+                                            await fetchQualityUploadsFromSupabase();
+                                            (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
+                                            (document.getElementById('qualityItemDesc') as HTMLTextAreaElement).value = '';
+                                            fileInput.value = '';
+                                            alert('✅ Item added!');
+                                        }
+                                    } catch (err) {
+                                        console.error('Error adding item:', err);
+                                        alert('Failed to add item. Please try again.');
+                                    }
                                 }}
                                 className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
                             >
@@ -971,11 +1086,10 @@ export function Admin() {
                                                 <div className="aspect-video overflow-hidden relative">
                                                     <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
                                                     <button
-                                                        onClick={() => {
-                                                            const saved = JSON.parse(localStorage.getItem('arovaveQualityUploads') || '{}');
-                                                            saved[key] = (saved[key] || []).filter((i: any) => i.id !== item.id);
-                                                            localStorage.setItem('arovaveQualityUploads', JSON.stringify(saved));
-                                                            setQualityContent(saved);
+                                                        onClick={async () => {
+                                                            if (!confirm('Delete this item?')) return;
+                                                            await deleteQualityUploadFromSupabase(item.id);
+                                                            await fetchQualityUploadsFromSupabase();
                                                         }}
                                                         className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                                                     >

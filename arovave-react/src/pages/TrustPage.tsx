@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Handshake, Award, TrendingUp, Calendar, Utensils, Pill, FlaskConical, Gift, FileCheck, Factory, Package, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { categories } from '../data';
+import { supabase } from '../lib/supabase';
 
 // Trust section content with comprehensive professional copy
 const trustContent = {
@@ -131,14 +132,85 @@ export function TrustPage() {
     const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
     const [selectedContentType, setSelectedContentType] = useState<string>('certificate');
     const [qualityContent, setQualityContent] = useState<Record<string, any>>({});
+    const [managedCategories, setManagedCategories] = useState<{ id: string; name: string; subcategories: { id: string; name: string }[] }[]>([]);
 
     useEffect(() => {
         window.scrollTo(0, 0);
-        // Load content from localStorage
-        const saved = localStorage.getItem('arovaveQualityUploads');
-        if (saved) {
-            setQualityContent(JSON.parse(saved));
-        }
+
+        // Load categories from Supabase
+        const fetchCategories = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .order('id');
+
+                if (!error && data) {
+                    setManagedCategories(data.map((cat: any) => ({
+                        id: cat.id,
+                        name: cat.name,
+                        subcategories: cat.subcategories || []
+                    })));
+                } else {
+                    // Fallback to static categories
+                    setManagedCategories(categories.map(cat => ({
+                        id: cat.id,
+                        name: cat.name,
+                        subcategories: cat.subcategories || []
+                    })));
+                }
+            } catch (err) {
+                console.error('Error fetching categories:', err);
+                // Fallback to static categories
+                setManagedCategories(categories.map(cat => ({
+                    id: cat.id,
+                    name: cat.name,
+                    subcategories: cat.subcategories || []
+                })));
+            }
+        };
+
+        // Load content from Supabase
+        const fetchQualityContent = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('quality_uploads')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (!error && data) {
+                    // Group by key (category_subcategory_contentType)
+                    const grouped: Record<string, any[]> = {};
+                    data.forEach((item: any) => {
+                        const key = `${item.category_id}_${item.subcategory_id}_${item.content_type}`;
+                        if (!grouped[key]) grouped[key] = [];
+                        grouped[key].push({
+                            id: item.id,
+                            title: item.title,
+                            image: item.image_url,
+                            description: item.description
+                        });
+                    });
+                    setQualityContent(grouped);
+                } else {
+                    // Fallback to localStorage if Supabase fails
+                    const saved = localStorage.getItem('arovaveQualityUploads');
+                    if (saved) {
+                        setQualityContent(JSON.parse(saved));
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching quality content:', err);
+                // Fallback to localStorage
+                const saved = localStorage.getItem('arovaveQualityUploads');
+                if (saved) {
+                    setQualityContent(JSON.parse(saved));
+                }
+            }
+        };
+
+        fetchCategories();
+        fetchQualityContent();
     }, [section]);
 
     // Reset selections when section changes
@@ -159,7 +231,7 @@ export function TrustPage() {
 
     const data = trustContent[section as keyof typeof trustContent];
     const Icon = data.icon;
-    const currentCategory = categories.find(c => c.id === selectedCategory);
+    const currentCategory = managedCategories.find(c => c.id === selectedCategory);
 
     // Get uploads for current selection
     const getUploads = () => {
@@ -194,15 +266,17 @@ export function TrustPage() {
                 </div>
             </div>
 
-            {/* Intro Section */}
-            <div className="bg-zinc-50 py-12">
-                <div className="max-w-4xl mx-auto px-6">
-                    <p className="text-xl text-zinc-800 leading-relaxed mb-4">{data.intro}</p>
-                    {'secondaryIntro' in data && (
-                        <p className="text-zinc-600 leading-relaxed">{data.secondaryIntro}</p>
-                    )}
+            {/* Intro Section - Hide when category is selected on certificate page */}
+            {!('hasCategories' in data && data.hasCategories && selectedCategory) && (
+                <div className="bg-zinc-50 py-12">
+                    <div className="max-w-4xl mx-auto px-6">
+                        <p className="text-xl text-zinc-800 leading-relaxed mb-4">{data.intro}</p>
+                        {'secondaryIntro' in data && (
+                            <p className="text-zinc-600 leading-relaxed">{data.secondaryIntro}</p>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Content */}
             <div className="max-w-7xl mx-auto px-6 py-16">
@@ -215,7 +289,7 @@ export function TrustPage() {
                             <div className="mb-16">
                                 <h2 className="text-xl font-black uppercase tracking-widest mb-8">Browse Documentation by Category</h2>
                                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                    {categories.map(cat => {
+                                    {managedCategories.map(cat => {
                                         const CatIcon = categoryIcons[cat.id] || Gift;
                                         return (
                                             <button
