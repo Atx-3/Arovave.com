@@ -121,7 +121,7 @@ export function Footer() {
 
                 {/* Bottom */}
                 <div className="border-t border-zinc-800 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-zinc-500 text-sm">© 2025 Arovave Global Exports. All rights reserved.</p>
+                    <p className="text-zinc-500 text-sm">© 2026 Arovave Global Exports. All rights reserved.</p>
                     <div className="flex gap-6 text-sm">
                         <Link to="/catalog" className="text-zinc-400 hover:text-white transition-colors">Catalog</Link>
                         <Link to="/profile" className="text-zinc-400 hover:text-white transition-colors">My Account</Link>
