@@ -406,7 +406,7 @@ export function Home() {
                         Global Presence
                     </h2>
                     <p className="text-center text-zinc-500 mb-16">
-                        Operating in over 40+ major trade nations across 5 continents.
+                        Operating in over 50+ major trade nations across 5 continents.
                     </p>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                         {globalPresenceCountries.map(country => (
