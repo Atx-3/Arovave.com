@@ -861,7 +861,6 @@ export function Admin() {
                                     <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Products</th>
                                     <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Date</th>
                                     <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Status</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -891,14 +890,6 @@ export function Admin() {
                                                 <option value="completed-loss">Complete - LOSS</option>
                                                 <option value="cancelled">Cancelled</option>
                                             </select>
-                                        </td>
-                                        <td className="p-4">
-                                            <a
-                                                href={`mailto:${enq.user.email}`}
-                                                className="flex items-center gap-1 px-3 py-1.5 border-2 border-zinc-200 rounded-lg text-[9px] font-black uppercase tracking-widest hover:border-black transition-colors"
-                                            >
-                                                <Mail className="w-3 h-3" /> Email
-                                            </a>
                                         </td>
                                     </tr>
                                 ))}
