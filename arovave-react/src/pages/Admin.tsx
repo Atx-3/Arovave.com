@@ -1115,6 +1115,7 @@ export function Admin() {
                 <ProductModal
                     product={editingProduct}
                     onClose={closeModal}
+                    managedCategories={managedCategories}
                     onSave={(product) => {
                         if (editingProduct) {
                             const updated = products.map(p => p.id === product.id ? product : p);
@@ -1524,9 +1525,10 @@ interface ProductModalProps {
     product: Product | null;
     onClose: () => void;
     onSave: (product: Product) => void;
+    managedCategories: { id: string; name: string; subcategories: { id: string; name: string }[] }[];
 }
 
-function ProductModal({ product, onClose, onSave }: ProductModalProps) {
+function ProductModal({ product, onClose, onSave, managedCategories }: ProductModalProps) {
     // Find default image index (0 if not set)
     const initialDefaultIndex = product?.images?.findIndex(img => img === product?.thumbnail) ?? 0;
 
@@ -1556,8 +1558,8 @@ function ProductModal({ product, onClose, onSave }: ProductModalProps) {
     const [imagePreviews, setImagePreviews] = useState<string[]>(product?.images || []);
     const [defaultImageIndex, setDefaultImageIndex] = useState<number>(initialDefaultIndex >= 0 ? initialDefaultIndex : 0);
 
-    // Get subcategories for selected category
-    const currentCategory = categories.find(c => c.id === formData.cat);
+    // Get subcategories for selected category from managedCategories (Supabase)
+    const currentCategory = managedCategories.find(c => c.id === formData.cat);
     const subcategories = currentCategory?.subcategories || [];
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -77,7 +77,6 @@ export function Catalog() {
         window.scrollTo(0, 0);
     }, []);
 
-    // Fetch categories from Supabase on mount
     useEffect(() => {
         const fetchCategoriesFromSupabase = async () => {
             try {
@@ -100,19 +99,17 @@ export function Catalog() {
             }
         };
 
-        fetchCategoriesFromSupabase();
-    }, []);
-
-    useEffect(() => {
         const checkData = () => {
             setProducts(getStoredProducts());
-            // Categories are now fetched from Supabase, so just check localStorage for cache
-            const saved = localStorage.getItem('arovaveCategories');
-            if (saved) {
-                setManagedCategories(JSON.parse(saved));
-            }
+            // Re-fetch categories from Supabase every interval
+            fetchCategoriesFromSupabase();
         };
-        const interval = setInterval(checkData, 2000);
+
+        // Initial fetch
+        fetchCategoriesFromSupabase();
+
+        // Check every 5 seconds for updates
+        const interval = setInterval(checkData, 5000);
         return () => clearInterval(interval);
     }, []);
 
