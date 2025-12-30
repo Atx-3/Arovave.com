@@ -327,19 +327,41 @@ export function Catalog() {
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
-                <div className="flex items-center justify-between mb-6 md:mb-8">
-                    <h1 className="text-xl md:text-3xl font-black uppercase tracking-tighter">
-                        {filterType === 'trending'
-                            ? 'Trending Products'
-                            : selectedSubcategory
-                                ? currentCategory?.subcategories?.find(s => s.id === selectedSubcategory)?.name
-                                : selectedCategory
-                                    ? categories.find(c => c.id === selectedCategory)?.name
-                                    : 'All Products'}
-                    </h1>
-                    <span className="text-xs md:text-sm text-zinc-400 font-bold whitespace-nowrap">
-                        {filteredProducts.length} products
-                    </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
+                    <div className="flex items-center justify-between sm:justify-start gap-4">
+                        <h1 className="text-xl md:text-3xl font-black uppercase tracking-tighter">
+                            {filterType === 'trending'
+                                ? 'Trending Products'
+                                : selectedSubcategory
+                                    ? currentCategory?.subcategories?.find(s => s.id === selectedSubcategory)?.name
+                                    : selectedCategory
+                                        ? categories.find(c => c.id === selectedCategory)?.name
+                                        : 'All Products'}
+                        </h1>
+                        <span className="text-xs md:text-sm text-zinc-400 font-bold whitespace-nowrap">
+                            {filteredProducts.length} products
+                        </span>
+                    </div>
+                    <div className="relative w-full sm:w-64">
+                        <input
+                            type="text"
+                            placeholder="Search products..."
+                            value={searchQuery}
+                            onChange={(e) => {
+                                const newParams = new URLSearchParams(searchParams);
+                                if (e.target.value) {
+                                    newParams.set('search', e.target.value);
+                                } else {
+                                    newParams.delete('search');
+                                }
+                                setSearchParams(newParams);
+                            }}
+                            className="w-full px-4 py-2 pl-10 border-2 border-zinc-200 rounded-xl text-sm focus:border-black focus:outline-none"
+                        />
+                        <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">

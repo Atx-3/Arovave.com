@@ -1352,29 +1352,29 @@ export function Admin() {
 
                             {/* Add New Item */}
                             {qualitySubcategory && qualityContentType && (
-                                <div className="bg-zinc-50 rounded-2xl p-6 mb-8">
-                                    <h3 className="font-bold mb-4">Add New {qualityContentType === 'certificate' ? 'Certificate' : qualityContentType === 'plant' ? 'Plant Photo' : 'Product Sample'}</h3>
-                                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                                <div className="bg-zinc-50 rounded-2xl p-4 sm:p-6 mb-8">
+                                    <h3 className="font-bold mb-4 text-sm sm:text-base">Add New {qualityContentType === 'certificate' ? 'Certificate' : qualityContentType === 'plant' ? 'Plant Photo' : 'Product Sample'}</h3>
+                                    <div className="space-y-4 mb-4">
                                         <input
                                             type="text"
                                             placeholder="Title"
                                             id="qualityItemTitle"
-                                            className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                                            className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none text-sm"
                                         />
                                         <input
                                             type="file"
                                             accept="image/*"
                                             id="qualityItemImage"
-                                            className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white"
+                                            className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none text-sm file:mr-2 sm:file:mr-4 file:py-1 sm:file:py-2 file:px-2 sm:file:px-4 file:rounded-full file:border-0 file:text-[10px] sm:file:text-xs file:font-bold file:bg-black file:text-white"
                                         />
                                     </div>
                                     <textarea
                                         placeholder="Description (optional - write about this image)"
                                         id="qualityItemDesc"
                                         rows={3}
-                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none resize-none mb-4"
+                                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none resize-none mb-4 text-sm"
                                     />
-                                    <p className="text-xs text-zinc-400 mb-4">Max 5MB image file. Supports JPG, PNG, WebP.</p>
+                                    <p className="text-[10px] sm:text-xs text-zinc-400 mb-4">Max 5MB image file. Supports JPG, PNG, WebP.</p>
                                     <button
                                         onClick={async () => {
                                             const title = (document.getElementById('qualityItemTitle') as HTMLInputElement)?.value;
