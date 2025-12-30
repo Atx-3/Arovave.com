@@ -62,7 +62,7 @@ export function TrustManufacturer() {
                 <div className="text-center bg-zinc-50 rounded-3xl p-12">
                     <h3 className="text-2xl font-black mb-4">Ready to Connect Directly with Manufacturers?</h3>
                     <p className="text-zinc-500 mb-8">Submit your requirement and get matched with verified factories.</p>
-                    <Link to="/products" className="inline-flex items-center gap-3 px-8 py-4 bg-black text-white font-bold text-sm uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-colors">
+                    <Link to="/catalog" className="inline-flex items-center gap-3 px-8 py-4 bg-black text-white font-bold text-sm uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-colors">
                         Browse Products
                         <ArrowRight className="w-4 h-4" />
                     </Link>

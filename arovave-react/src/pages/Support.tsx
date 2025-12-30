@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, Send, Clock, CheckCircle, AlertCircle, Loader2, Plus, ChevronRight } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 
@@ -55,6 +55,7 @@ export function Support() {
 
     // Reply message
     const [replyMessage, setReplyMessage] = useState('');
+    const chatContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -227,25 +228,25 @@ export function Support() {
 
                 {/* New Ticket Form */}
                 {showNewTicket && (
-                    <div className="bg-white border-2 border-zinc-100 rounded-3xl p-8 mb-8">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-black uppercase tracking-tight">New Support Ticket</h2>
-                            <button onClick={() => setShowNewTicket(false)} className="text-zinc-400 hover:text-black">
+                    <div className="bg-white border-2 border-zinc-100 rounded-3xl p-4 md:p-8 mb-6 md:mb-8">
+                        <div className="flex items-center justify-between mb-4 md:mb-6">
+                            <h2 className="text-lg md:text-xl font-black uppercase tracking-tight">New Support Ticket</h2>
+                            <button onClick={() => setShowNewTicket(false)} className="text-zinc-400 hover:text-black p-1">
                                 ✕
                             </button>
                         </div>
 
-                        <div className="space-y-6">
+                        <div className="space-y-4 md:space-y-6">
                             <div>
-                                <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 block mb-2">Problem Type *</label>
+                                <label className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-zinc-400 block mb-2">Problem Type *</label>
                                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                                     {problemTypes.map(type => (
                                         <button
                                             key={type.id}
                                             onClick={() => setNewTicket(prev => ({ ...prev, problem_type: type.id }))}
-                                            className={`px-4 py-3 rounded-xl text-sm font-bold transition-colors ${newTicket.problem_type === type.id
-                                                    ? 'bg-black text-white'
-                                                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                            className={`px-2 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-bold transition-colors ${newTicket.problem_type === type.id
+                                                ? 'bg-black text-white'
+                                                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                                                 }`}
                                         >
                                             {type.label}
@@ -255,33 +256,33 @@ export function Support() {
                             </div>
 
                             <div>
-                                <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 block mb-2">Subject *</label>
+                                <label className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-zinc-400 block mb-2">Subject *</label>
                                 <input
                                     type="text"
                                     value={newTicket.subject}
                                     onChange={e => setNewTicket(prev => ({ ...prev, subject: e.target.value }))}
                                     placeholder="Brief description of your issue"
-                                    className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                    className="w-full px-3 md:px-4 py-2.5 md:py-3 border-2 border-zinc-200 rounded-xl font-semibold text-sm focus:border-black focus:outline-none"
                                 />
                             </div>
 
                             <div>
-                                <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 block mb-2">Describe Your Issue *</label>
+                                <label className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-zinc-400 block mb-2">Describe Your Issue *</label>
                                 <textarea
                                     value={newTicket.message}
                                     onChange={e => setNewTicket(prev => ({ ...prev, message: e.target.value }))}
                                     placeholder="Please provide details about your problem..."
-                                    rows={5}
-                                    className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none resize-none"
+                                    rows={4}
+                                    className="w-full px-3 md:px-4 py-2.5 md:py-3 border-2 border-zinc-200 rounded-xl font-semibold text-sm focus:border-black focus:outline-none resize-none"
                                 />
                             </div>
 
                             <button
                                 onClick={handleCreateTicket}
                                 disabled={sending || !newTicket.problem_type || !newTicket.subject || !newTicket.message}
-                                className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-black text-white font-bold uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                                className="w-full flex items-center justify-center gap-2 md:gap-3 px-4 md:px-6 py-3 md:py-4 bg-black text-white font-bold text-xs md:text-sm uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
                             >
-                                {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                                {sending ? <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" /> : <Send className="w-4 h-4 md:w-5 md:h-5" />}
                                 {sending ? 'Submitting...' : 'Submit Ticket'}
                             </button>
                         </div>
@@ -292,41 +293,51 @@ export function Support() {
                 {selectedTicket && (
                     <div className="bg-white border-2 border-zinc-100 rounded-3xl overflow-hidden mb-8">
                         {/* Ticket Header */}
-                        <div className="p-6 border-b border-zinc-100">
+                        <div className="p-4 md:p-6 border-b border-zinc-100">
                             <button
                                 onClick={() => setSelectedTicket(null)}
                                 className="text-sm text-zinc-400 hover:text-black mb-4 flex items-center gap-2"
                             >
                                 <ArrowLeft className="w-4 h-4" /> Back to Tickets
                             </button>
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <h2 className="text-xl font-black mb-1">{selectedTicket.subject}</h2>
-                                    <p className="text-sm text-zinc-400">
+                            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                    <h2 className="text-lg md:text-xl font-black mb-1 break-words">{selectedTicket.subject}</h2>
+                                    <p className="text-xs md:text-sm text-zinc-400 break-words">
                                         {problemTypes.find(t => t.id === selectedTicket.problem_type)?.label} • Created {new Date(selectedTicket.created_at).toLocaleDateString()}
                                     </p>
                                 </div>
-                                <span className={`px-4 py-2 rounded-full text-xs font-bold uppercase ${statusConfig[selectedTicket.status]?.color}`}>
+                                <span className={`self-start px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold uppercase whitespace-nowrap ${statusConfig[selectedTicket.status]?.color}`}>
                                     {statusConfig[selectedTicket.status]?.label}
                                 </span>
                             </div>
                         </div>
 
                         {/* Messages */}
-                        <div className="p-6 max-h-96 overflow-y-auto space-y-4 bg-zinc-50">
+                        <div
+                            ref={chatContainerRef}
+                            onWheel={(e) => {
+                                e.stopPropagation();
+                                const container = chatContainerRef.current;
+                                if (container) {
+                                    container.scrollTop += e.deltaY;
+                                }
+                            }}
+                            className="p-4 md:p-6 h-[50vh] md:h-[60vh] max-h-[500px] min-h-[200px] overflow-y-scroll overscroll-contain space-y-3 md:space-y-4 bg-zinc-50"
+                        >
                             {messages.map(msg => (
                                 <div
                                     key={msg.id}
                                     className={`flex ${msg.sender_type === 'user' ? 'justify-end' : 'justify-start'}`}
                                 >
-                                    <div className={`max-w-[75%] rounded-2xl p-4 ${msg.sender_type === 'user'
-                                            ? 'bg-black text-white'
-                                            : 'bg-white border-2 border-zinc-200'
+                                    <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-3 md:p-4 ${msg.sender_type === 'user'
+                                        ? 'bg-black text-white'
+                                        : 'bg-white border-2 border-zinc-200'
                                         }`}>
-                                        <p className={`text-xs font-bold mb-1 ${msg.sender_type === 'user' ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                        <p className={`text-[10px] md:text-xs font-bold mb-1 truncate ${msg.sender_type === 'user' ? 'text-zinc-400' : 'text-zinc-500'}`}>
                                             {msg.sender_name} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </p>
-                                        <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                                        <p className="leading-relaxed whitespace-pre-wrap break-words text-sm md:text-base">{msg.message}</p>
                                     </div>
                                 </div>
                             ))}
@@ -337,21 +348,21 @@ export function Support() {
 
                         {/* Reply Input */}
                         {selectedTicket.status !== 'closed' && (
-                            <div className="p-4 border-t border-zinc-100 flex gap-3">
+                            <div className="p-3 md:p-4 border-t border-zinc-100 flex gap-2 md:gap-3">
                                 <input
                                     type="text"
                                     value={replyMessage}
                                     onChange={e => setReplyMessage(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && handleSendReply()}
                                     placeholder="Type your message..."
-                                    className="flex-1 px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                    className="flex-1 min-w-0 px-3 md:px-4 py-2.5 md:py-3 border-2 border-zinc-200 rounded-xl font-semibold text-sm focus:border-black focus:outline-none"
                                 />
                                 <button
                                     onClick={handleSendReply}
                                     disabled={sending || !replyMessage.trim()}
-                                    className="px-6 py-3 bg-black text-white rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                                    className="px-4 md:px-6 py-2.5 md:py-3 bg-black text-white rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50 flex-shrink-0"
                                 >
-                                    <Send className="w-5 h-5" />
+                                    <Send className="w-4 h-4 md:w-5 md:h-5" />
                                 </button>
                             </div>
                         )}

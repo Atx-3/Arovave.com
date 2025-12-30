@@ -1,10 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Utensils, Pill, FlaskConical, Gift, Handshake, Award, TrendingUp, Calendar, ArrowRight, MessageCircle, X } from 'lucide-react';
+import { Utensils, Pill, FlaskConical, Gift, Handshake, Award, TrendingUp, Calendar, ArrowRight, MessageCircle, X, ChevronDown } from 'lucide-react';
 import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products, categories } from '../data';
 import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 import { supabase } from '../lib/supabase';
+import { fetchProducts as fetchProductsFromSupabase } from '../utils/productStorage';
 
 export function Home() {
     const t = useTranslation();
@@ -15,7 +16,8 @@ export function Home() {
     const [pendingProduct, setPendingProduct] = useState<number | null>(null);
     const [showPopup, setShowPopup] = useState(false);
     const [trendingProducts, setTrendingProducts] = useState(products.filter(p => p.isTrending).slice(0, 4));
-    const [videoUrl, setVideoUrl] = useState('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
+    const [videoUrl, setVideoUrl] = useState<string>('');
+    const [trustExpanded, setTrustExpanded] = useState(false);
 
     // Scroll to top on mount
     useEffect(() => {
@@ -63,29 +65,28 @@ export function Home() {
         }
     }, [isAuthenticated, pendingProduct]);
 
-    // Refresh trending products from localStorage
+    // Refresh trending products from Supabase
     useEffect(() => {
-        const checkTrending = () => {
-            // Get products from localStorage
-            const savedProducts = localStorage.getItem('arovaveProducts');
-            const allProducts = savedProducts ? JSON.parse(savedProducts) : products;
+        const fetchTrending = async () => {
+            try {
+                // Fetch products from Supabase
+                const allProducts = await fetchProductsFromSupabase();
 
-            const savedTrending = localStorage.getItem('arovaveTrendingProducts');
-            if (savedTrending) {
-                const trendingIds = JSON.parse(savedTrending) as number[];
-                const trending = allProducts.filter((p: any) => trendingIds.includes(p.id)).slice(0, 4);
-                if (trending.length > 0) {
-                    setTrendingProducts(trending);
-                    return;
-                }
+                // Filter trending products
+                const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
+                setTrendingProducts(trending.length > 0 ? trending : allProducts.slice(0, 4));
+            } catch (err) {
+                console.error('Error fetching trending products:', err);
+                // Fallback to initial products
+                const trending = products.filter(p => p.isTrending).slice(0, 4);
+                setTrendingProducts(trending.length > 0 ? trending : products.slice(0, 4));
             }
-            // Fallback to isTrending property
-            const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
-            setTrendingProducts(trending.length > 0 ? trending : allProducts.slice(0, 4));
         };
-        checkTrending();
-        // Check every second for updates
-        const interval = setInterval(checkTrending, 1000);
+
+        fetchTrending();
+
+        // Refresh every 30 seconds
+        const interval = setInterval(fetchTrending, 30000);
         return () => clearInterval(interval);
     }, []);
 
@@ -235,36 +236,38 @@ export function Home() {
             </div>
 
             {/* Hero Section with Video Background */}
-            <section className="hero-area min-h-[80vh] flex items-center justify-center relative">
-                <video
-                    className="hero-video"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    src={videoUrl}
-                />
+            <section className="hero-area min-h-[60vh] md:min-h-[80vh] flex items-center justify-center relative">
+                {videoUrl && (
+                    <video
+                        className="hero-video"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        src={videoUrl}
+                    />
+                )}
                 <div className="hero-overlay" />
 
-                <div className="relative z-10 text-center px-6 py-20">
-                    <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-[0.9] mb-8">
+                <div className="relative z-10 text-center px-4 md:px-6 py-12 md:py-20">
+                    <h1 className="text-4xl md:text-8xl font-black tracking-tight leading-[0.9] mb-4 md:mb-8">
                         <span className="block">Global Export.</span>
                         <span className="block">Trusted Supply.</span>
                     </h1>
 
-                    <p className="text-lg md:text-xl text-zinc-700 font-medium max-w-2xl mx-auto mb-16">
+                    <p className="text-sm md:text-xl text-zinc-700 font-medium max-w-2xl mx-auto mb-8 md:mb-16">
                         Connecting international buyers with India's most
                         <br className="hidden md:block" />
                         certified manufacturing plants.
                     </p>
 
                     <div className="flex flex-col items-center">
-                        <p className="text-sm font-bold text-black uppercase tracking-[0.3em] mb-6">
+                        <p className="text-xs md:text-sm font-bold text-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-4 md:mb-6">
                             Still Confused?
                         </p>
                         <button
                             onClick={handleContactUs}
-                            className="px-12 py-4 bg-black text-white font-bold text-sm uppercase tracking-[0.2em] rounded-full hover:bg-zinc-800 transition-colors"
+                            className="px-8 md:px-12 py-3 md:py-4 bg-black text-white font-bold text-xs md:text-sm uppercase tracking-[0.15em] md:tracking-[0.2em] rounded-full hover:bg-zinc-800 transition-colors"
                         >
                             Contact Us
                         </button>
@@ -275,47 +278,65 @@ export function Home() {
             {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
 
             {/* Why Trust Arovave - Enhanced Section */}
-            <section className="py-24 bg-white">
-                <div className="max-w-7xl mx-auto px-6">
+            <section className="py-12 md:py-24 bg-white">
+                <div className="max-w-7xl mx-auto px-4 md:px-6">
                     {/* Section Header */}
-                    <div className="text-center mb-16">
-                        <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-6">
+                    <div className="text-center mb-8 md:mb-16">
+                        <h2 className="text-2xl md:text-5xl font-black uppercase tracking-tighter mb-4 md:mb-6">
                             {t('whyTrust')}
                         </h2>
-                        <div className="h-1.5 w-20 bg-gradient-to-r from-black to-zinc-400 rounded-full mx-auto mb-8"></div>
+                        <div className="h-1 md:h-1.5 w-16 md:w-20 bg-gradient-to-r from-black to-zinc-400 rounded-full mx-auto mb-4 md:mb-8"></div>
                     </div>
 
                     {/* Intro Text */}
-                    <div className="max-w-4xl mx-auto text-center mb-16">
-                        <h3 className="text-2xl md:text-3xl font-bold text-zinc-800 mb-6">
+                    <div className="max-w-4xl mx-auto text-center mb-8 md:mb-16">
+                        <h3 className="text-lg md:text-3xl font-bold text-zinc-800 mb-4 md:mb-6">
                             A Different Way to Source from India
                         </h3>
-                        <p className="text-lg text-zinc-600 leading-relaxed mb-6">
+                        <p className="text-sm md:text-lg text-zinc-600 leading-relaxed mb-3 md:mb-6">
                             India is not short of manufacturers. It is short of reliable access.
                         </p>
-                        <p className="text-zinc-500 leading-relaxed">
+
+                        {/* Desktop: Always show full content */}
+                        <p className="text-xs md:text-base text-zinc-500 leading-relaxed hidden md:block">
                             Most buyers struggle not because production is difficult, but because the system between buyer and factory is unclear, fragmented, and risky. Arovave was built to remove that uncertainty. We are not a marketplace listing random suppliers. We are not a broker chasing commissions. We are a structured manufacturing access platform that connects buyers directly to verified Indian factories, with control, documentation, and accountability built in.
                         </p>
+
+                        {/* Mobile: Expandable content */}
+                        <div className="md:hidden">
+                            {trustExpanded && (
+                                <p className="text-xs text-zinc-500 leading-relaxed mb-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    Most buyers struggle not because production is difficult, but because the system between buyer and factory is unclear, fragmented, and risky. Arovave was built to remove that uncertainty. We are not a marketplace listing random suppliers. We are not a broker chasing commissions. We are a structured manufacturing access platform that connects buyers directly to verified Indian factories, with control, documentation, and accountability built in.
+                                </p>
+                            )}
+                            <button
+                                onClick={() => setTrustExpanded(!trustExpanded)}
+                                className="flex items-center gap-1 mx-auto text-xs font-bold text-black uppercase tracking-widest hover:text-zinc-600 transition-colors"
+                            >
+                                {trustExpanded ? 'Read Less' : 'Read More'}
+                                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${trustExpanded ? 'rotate-180' : ''}`} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Trust Cards - Click to open full page */}
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                         {trustCards.map((card) => {
                             const CardIcon = card.icon;
                             return (
                                 <Link
                                     key={card.id}
                                     to={card.route}
-                                    className="group bg-white rounded-3xl border-2 border-zinc-100 p-8 hover:border-black hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
+                                    className="group bg-white rounded-2xl md:rounded-3xl border-2 border-zinc-100 p-4 md:p-8 hover:border-black hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
                                 >
-                                    <div className="w-14 h-14 bg-black text-white rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                        <CardIcon className="w-7 h-7" />
+                                    <div className="w-10 h-10 md:w-14 md:h-14 bg-black text-white rounded-xl md:rounded-2xl flex items-center justify-center mb-3 md:mb-6 group-hover:scale-110 transition-transform">
+                                        <CardIcon className="w-5 h-5 md:w-7 md:h-7" />
                                     </div>
-                                    <h3 className="text-lg font-black uppercase tracking-tight mb-3">{card.title}</h3>
-                                    <p className="text-zinc-500 text-sm leading-relaxed mb-4">{card.desc}</p>
-                                    <div className="flex items-center gap-2 text-black font-bold text-sm uppercase tracking-widest group-hover:gap-4 transition-all">
+                                    <h3 className="text-xs md:text-lg font-black uppercase tracking-tight mb-2 md:mb-3 leading-tight">{card.title}</h3>
+                                    <p className="text-zinc-500 text-[10px] md:text-sm leading-relaxed mb-2 md:mb-4 hidden md:block">{card.desc}</p>
+                                    <div className="flex items-center gap-1 md:gap-2 text-black font-bold text-[10px] md:text-sm uppercase tracking-widest group-hover:gap-2 md:group-hover:gap-4 transition-all">
                                         Learn More
-                                        <ArrowRight className="w-4 h-4" />
+                                        <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
                                     </div>
                                 </Link>
                             );
@@ -325,12 +346,12 @@ export function Home() {
             </section>
 
             {/* Categories */}
-            <section className="py-20 bg-zinc-50">
-                <div className="max-w-7xl mx-auto px-6">
-                    <h2 className="text-3xl font-black uppercase tracking-tighter text-center mb-12">
+            <section className="py-12 md:py-20 bg-zinc-50">
+                <div className="max-w-7xl mx-auto px-4 md:px-6">
+                    <h2 className="text-xl md:text-3xl font-black uppercase tracking-tighter text-center mb-6 md:mb-12">
                         {t('categories')}
                     </h2>
-                    <div className="grid md:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
                         {categories.map(cat => {
                             const navCat = categoryNav.find(c => c.id === cat.id);
                             const Icon = navCat?.icon || Utensils;
@@ -338,10 +359,10 @@ export function Home() {
                                 <Link
                                     key={cat.id}
                                     to={`/catalog?category=${cat.id}`}
-                                    className="category-box rounded-3xl p-8 text-center group cursor-pointer"
+                                    className="category-box rounded-2xl md:rounded-3xl p-4 md:p-8 text-center group cursor-pointer"
                                 >
-                                    <Icon className="w-12 h-12 mx-auto mb-4" />
-                                    <h3 className="font-bold text-sm uppercase tracking-widest">{cat.name}</h3>
+                                    <Icon className="w-8 h-8 md:w-12 md:h-12 mx-auto mb-2 md:mb-4" />
+                                    <h3 className="font-bold text-[10px] md:text-sm uppercase tracking-widest">{cat.name}</h3>
                                 </Link>
                             );
                         })}
@@ -350,17 +371,64 @@ export function Home() {
             </section>
 
             {/* Trending Products */}
-            <section className="py-20 bg-white">
-                <div className="max-w-7xl mx-auto px-6">
-                    <div className="flex justify-between items-center mb-12">
-                        <h2 className="text-3xl font-black uppercase tracking-tighter">
+            <section className="py-12 md:py-20 bg-white">
+                <div className="max-w-7xl mx-auto px-4 md:px-6">
+                    <div className="flex justify-between items-center mb-6 md:mb-12">
+                        <h2 className="text-xl md:text-3xl font-black uppercase tracking-tighter">
                             Trending Products
                         </h2>
-                        <Link to="/catalog?filter=trending" className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-black transition-colors">
+                        <Link to="/catalog?filter=trending" className="hidden md:flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-black transition-colors">
                             View All <ArrowRight className="w-4 h-4" />
                         </Link>
                     </div>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                    {/* Mobile: Show only 1 product */}
+                    <div className="md:hidden">
+                        {displayProducts.slice(0, 1).map(product => (
+                            <div key={product.id} className="bg-zinc-50 rounded-2xl overflow-hidden group">
+                                <Link to={`/product/${product.id}`}>
+                                    <div className="aspect-[4/3] overflow-hidden">
+                                        <img
+                                            src={product.thumbnail || product.images[0]}
+                                            alt={product.name}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        />
+                                    </div>
+                                </Link>
+                                <div className="p-4">
+                                    <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-400">
+                                        {product.cat}
+                                    </span>
+                                    <h3 className="font-bold text-base mt-1 mb-2 line-clamp-2">{product.name}</h3>
+                                    <p className="text-sm font-bold text-zinc-600 mb-3">{product.priceRange}</p>
+                                    <div className="flex gap-2">
+                                        <Link
+                                            to={`/product/${product.id}`}
+                                            className="flex-1 py-2.5 border-2 border-zinc-200 rounded-lg text-center text-[9px] font-black uppercase tracking-widest hover:border-black transition-colors"
+                                        >
+                                            {t('viewDetails')}
+                                        </Link>
+                                        <button
+                                            onClick={() => handleProductEnquiry(product.id)}
+                                            className="px-4 py-2.5 bg-black text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                        >
+                                            Enquire
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        {/* Mobile View All Button */}
+                        <Link
+                            to="/catalog?filter=trending"
+                            className="mt-4 flex items-center justify-center gap-2 py-3 px-6 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                        >
+                            View All Trending <ArrowRight className="w-4 h-4" />
+                        </Link>
+                    </div>
+
+                    {/* Desktop: Show all 4 products */}
+                    <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {displayProducts.map(product => (
                             <div key={product.id} className="bg-zinc-50 rounded-3xl overflow-hidden group">
                                 <Link to={`/product/${product.id}`}>
@@ -400,19 +468,19 @@ export function Home() {
             </section>
 
             {/* Global Presence */}
-            <section className="py-20 bg-zinc-50">
-                <div className="max-w-7xl mx-auto px-6">
-                    <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-center mb-4">
+            <section className="py-12 md:py-20 bg-zinc-50">
+                <div className="max-w-7xl mx-auto px-4 md:px-6">
+                    <h2 className="text-2xl md:text-5xl font-black uppercase tracking-tight text-center mb-2 md:mb-4">
                         Global Presence
                     </h2>
-                    <p className="text-center text-zinc-500 mb-16">
+                    <p className="text-center text-zinc-500 text-xs md:text-base mb-8 md:mb-16">
                         Operating in over 50+ major trade nations across 5 continents.
                     </p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4">
                         {globalPresenceCountries.map(country => (
                             <div
                                 key={country}
-                                className="py-4 px-6 text-center border-2 border-zinc-200 rounded-xl font-black text-sm uppercase tracking-widest text-black hover:border-black hover:bg-white transition-all cursor-default"
+                                className="py-2 md:py-4 px-3 md:px-6 text-center border-2 border-zinc-200 rounded-lg md:rounded-xl font-black text-[10px] md:text-sm uppercase tracking-widest text-black hover:border-black hover:bg-white transition-all cursor-default"
                             >
                                 {country}
                             </div>

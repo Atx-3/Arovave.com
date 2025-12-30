@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, AlertCircle, User, Phone, Mail, Lock, Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { countries } from '../../data';
+import { countries, getCountryCode } from '../../data';
 import { useAuth } from '../../context';
 
 interface AuthModalProps {
@@ -30,13 +30,36 @@ export function AuthModal({ onClose }: AuthModalProps) {
 
     const [formData, setFormData] = useState({
         name: '',
-        phone: '',
+        phone: '+91 ', // Default for India
         email: '',
         password: '',
         confirmPassword: '',
         country: 'India',
         emailOrPhone: '' // For sign in - can be email or phone
     });
+
+    // Auto-update phone country code when country changes
+    const handleCountryChange = (newCountry: string) => {
+        const newCode = getCountryCode(newCountry);
+        const currentCode = getCountryCode(formData.country);
+
+        // Replace old country code with new one
+        let newPhone = formData.phone;
+        if (currentCode && formData.phone.startsWith(currentCode)) {
+            newPhone = formData.phone.replace(currentCode, newCode);
+        } else if (newCode && !formData.phone.startsWith('+')) {
+            newPhone = newCode + ' ' + formData.phone;
+        } else if (newCode) {
+            newPhone = newCode + ' ';
+        }
+
+        setFormData({ ...formData, country: newCountry, phone: newPhone });
+    };
+
+    // Auto-lowercase email
+    const handleEmailChange = (value: string) => {
+        setFormData({ ...formData, email: value.toLowerCase() });
+    };
 
     // Close modal if user becomes authenticated
     useEffect(() => {
@@ -81,12 +104,12 @@ export function AuthModal({ onClose }: AuthModalProps) {
         try {
             // Sign up with Supabase
             const { data, error: signUpError } = await supabase.auth.signUp({
-                email: formData.email,
+                email: formData.email.toLowerCase().trim(),
                 password: formData.password,
                 options: {
                     data: {
-                        full_name: formData.name,
-                        phone: formData.phone,
+                        full_name: formData.name.trim(),
+                        phone: formData.phone.trim(),
                         country: formData.country
                     }
                 }
@@ -104,19 +127,26 @@ export function AuthModal({ onClose }: AuthModalProps) {
 
             // If user was created, update the profile
             if (data.user) {
+                // Wait a moment for auth to settle
+                await new Promise(resolve => setTimeout(resolve, 500));
+
                 const { error: profileError } = await supabase
                     .from('profiles')
                     .upsert({
                         id: data.user.id,
-                        email: formData.email,
-                        name: formData.name,
-                        phone: formData.phone,
+                        email: formData.email.toLowerCase().trim(),
+                        name: formData.name.trim(),
+                        phone: formData.phone.trim(),
                         country: formData.country,
                         role: 'user'
+                    }, {
+                        onConflict: 'id'
                     });
 
                 if (profileError) {
                     console.error('Profile update error:', profileError);
+                } else {
+                    console.log('✅ Profile saved with phone and country');
                 }
             }
 
@@ -469,8 +499,8 @@ export function AuthModal({ onClose }: AuthModalProps) {
                             <input
                                 type="email"
                                 value={formData.email}
-                                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                onChange={e => handleEmailChange(e.target.value)}
+                                className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none lowercase"
                                 placeholder="you@example.com"
                             />
                         </div>
@@ -480,7 +510,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
                             </label>
                             <select
                                 value={formData.country}
-                                onChange={e => setFormData({ ...formData, country: e.target.value })}
+                                onChange={e => handleCountryChange(e.target.value)}
                                 className="w-full px-5 py-4 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
                             >
                                 {countries.map(c => (

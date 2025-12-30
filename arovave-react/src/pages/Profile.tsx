@@ -3,7 +3,7 @@ import { User as UserIcon, Settings, LogOut, Save, Edit2, X, Mail, Phone, MapPin
 import { useAuth, useTranslation } from '../context';
 import { useState, useEffect, useRef } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
-import { countries } from '../data';
+import { countries, getCountryCode } from '../data';
 import { supabase } from '../lib/supabase';
 
 export function Profile() {
@@ -70,6 +70,21 @@ export function Profile() {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 2000);
         setIsEditing(false);
+    };
+
+    // Handle country change in edit form - update phone country code
+    const handleEditCountryChange = (newCountry: string) => {
+        const newCode = getCountryCode(newCountry);
+        const currentCode = getCountryCode(editForm.country);
+
+        let newPhone = editForm.phone;
+        if (currentCode && editForm.phone.startsWith(currentCode)) {
+            newPhone = editForm.phone.replace(currentCode, newCode);
+        } else if (newCode && !editForm.phone.startsWith('+')) {
+            newPhone = newCode + ' ' + editForm.phone;
+        }
+
+        setEditForm({ ...editForm, country: newCountry, phone: newPhone });
     };
 
     // OTP Input handlers
@@ -295,34 +310,34 @@ export function Profile() {
                     backgroundSize: '40px 40px'
                 }}></div>
 
-                <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6">
-                    <div className="flex items-center gap-6">
+                <div className="relative z-10 flex flex-col md:flex-row items-start gap-4 md:gap-6">
+                    <div className="flex items-center gap-4 md:gap-6 w-full md:w-auto">
                         {/* Premium Avatar - B&W */}
-                        <div className="w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-white flex items-center justify-center shadow-2xl">
-                            <span className="text-3xl md:text-4xl font-black text-black">{initials}</span>
+                        <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl bg-white flex items-center justify-center shadow-2xl flex-shrink-0">
+                            <span className="text-2xl md:text-4xl font-black text-black">{initials}</span>
                         </div>
 
                         {/* User Info */}
-                        <div className="space-y-2">
-                            <h2 className="text-2xl md:text-3xl font-black tracking-tight">{displayName}</h2>
-                            <div className="flex items-center gap-2 text-zinc-400 text-sm">
-                                <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center">
-                                    <Mail className="w-3 h-3" />
+                        <div className="space-y-1 md:space-y-2 flex-1 min-w-0">
+                            <h2 className="text-xl md:text-3xl font-black tracking-tight truncate">{displayName}</h2>
+                            <div className="flex items-center gap-2 text-zinc-400 text-xs md:text-sm">
+                                <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                                    <Mail className="w-2.5 h-2.5 md:w-3 md:h-3" />
                                 </div>
-                                <span>{displayEmail}</span>
+                                <span className="truncate">{displayEmail}</span>
                             </div>
                             {displayPhone && (
-                                <div className="flex items-center gap-2 text-zinc-400 text-sm">
-                                    <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center">
-                                        <Phone className="w-3 h-3" />
+                                <div className="flex items-center gap-2 text-zinc-400 text-xs md:text-sm">
+                                    <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                                        <Phone className="w-2.5 h-2.5 md:w-3 md:h-3" />
                                     </div>
                                     <span>{displayPhone}</span>
                                 </div>
                             )}
                             {displayCountry && (
-                                <div className="flex items-center gap-2 text-zinc-400 text-sm">
-                                    <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center">
-                                        <MapPin className="w-3 h-3" />
+                                <div className="flex items-center gap-2 text-zinc-400 text-xs md:text-sm">
+                                    <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                                        <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
                                     </div>
                                     <span>{displayCountry}</span>
                                 </div>
@@ -330,10 +345,10 @@ export function Profile() {
                         </div>
                     </div>
 
-                    {/* Edit Button */}
+                    {/* Edit Button - Full width on mobile */}
                     <button
                         onClick={() => setIsEditing(true)}
-                        className="flex items-center gap-2 px-5 py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-zinc-100 transition-all duration-300 group"
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-zinc-100 transition-all duration-300 group mt-2 md:mt-0"
                     >
                         <Edit2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                         Edit Profile
@@ -402,7 +417,7 @@ export function Profile() {
                                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Country</label>
                                 <select
                                     value={editForm.country}
-                                    onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                                    onChange={(e) => handleEditCountryChange(e.target.value)}
                                     className="input-premium w-full px-5 py-4 rounded-xl font-semibold cursor-pointer"
                                 >
                                     <option value="">Select country...</option>
@@ -589,11 +604,11 @@ Country: ${displayCountry || 'Not provided'}`)}`}
 
             {/* Change Password Modal */}
             {showPasswordChange && (
-                <div className="modal-overlay fixed inset-0" onClick={closePasswordModal}>
-                    <div className="glass-modal p-8 md:p-10 rounded-[32px] w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-8">
-                            <div>
-                                <h2 className="text-2xl font-black uppercase tracking-tight">Change Password</h2>
+                <div className="modal-overlay fixed inset-0 z-50 px-4 md:px-0" onClick={closePasswordModal}>
+                    <div className="glass-modal p-6 md:p-10 rounded-2xl md:rounded-[32px] w-full max-w-md mx-auto my-4 md:my-auto max-h-[95vh] md:max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-start gap-4 mb-6 md:mb-8">
+                            <div className="flex-1 min-w-0">
+                                <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight">Change Password</h2>
                                 <p className="text-sm text-zinc-500 mt-1">
                                     {passwordChangeStep === 'request' && 'We will send a verification code to your email'}
                                     {passwordChangeStep === 'verify' && `Enter the 8-digit code sent to ${displayEmail}`}
@@ -643,9 +658,9 @@ Country: ${displayCountry || 'Not provided'}`)}`}
                                                 {passwordChanging ? (
                                                     <Loader2 className="w-4 h-4 animate-spin" />
                                                 ) : (
-                                                    <Mail className="w-4 h-4" />
+                                                    <Mail className="w-4 h-4 hidden md:block" />
                                                 )}
-                                                {passwordChanging ? 'Sending...' : 'Send Verification Code'}
+                                                {passwordChanging ? 'Sending...' : 'Send Code'}
                                             </button>
                                             <button
                                                 onClick={closePasswordModal}
@@ -664,7 +679,7 @@ Country: ${displayCountry || 'Not provided'}`)}`}
                                             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-4">
                                                 Enter 8-digit Code
                                             </label>
-                                            <div className="flex gap-2 justify-between">
+                                            <div className="flex gap-1.5 md:gap-2 justify-between">
                                                 {otpCode.map((digit, index) => (
                                                     <input
                                                         key={index}
@@ -676,7 +691,7 @@ Country: ${displayCountry || 'Not provided'}`)}`}
                                                         onChange={(e) => handleOtpChange(index, e.target.value)}
                                                         onKeyDown={(e) => handleOtpKeyDown(index, e)}
                                                         onPaste={handleOtpPaste}
-                                                        className="w-10 h-12 text-center text-xl font-bold border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none transition-colors"
+                                                        className="w-9 h-11 md:w-10 md:h-12 text-center text-lg md:text-xl font-bold border-2 border-zinc-200 rounded-lg md:rounded-xl focus:border-black focus:outline-none transition-colors"
                                                     />
                                                 ))}
                                             </div>

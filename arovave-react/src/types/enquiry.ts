@@ -11,5 +11,5 @@ export interface Enquiry {
     user: User;
     products: EnquiryProduct[];
     date: string;
-    status: 'pending' | 'contacted' | 'completed' | 'cancelled';
+    status: 'pending' | 'contacted' | 'completed' | 'completed-win' | 'completed-loss' | 'cancelled';
 }

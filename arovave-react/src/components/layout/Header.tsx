@@ -1,8 +1,16 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Globe, User, ShoppingBag, Menu, X } from 'lucide-react';
+import { Search, Globe, User, ShoppingBag, Menu, X, ChevronDown } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useLanguage, useTranslation, useAuth, useEnquiry } from '../../context';
-import { products } from '../../data';
+import { products, categories } from '../../data';
+import { supabase } from '../../lib/supabase';
+
+// Category type for managed categories
+type Category = {
+    id: string;
+    name: string;
+    subcategories: { id: string; name: string }[];
+};
 
 export function Header() {
     const { language, setLanguage } = useLanguage();
@@ -15,14 +23,24 @@ export function Header() {
     const [searchQuery, setSearchQuery] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [mobileProductsOpen, setMobileProductsOpen] = useState(false);
+    const [expandedMobileCategory, setExpandedMobileCategory] = useState<string | null>(null);
+    const [managedCategories, setManagedCategories] = useState<Category[]>([]);
     const langMenuRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLDivElement>(null);
     const mobileSearchRef = useRef<HTMLDivElement>(null);
 
-    // Get user's enquiry count
-    const userEnquiryCount = allEnquiries.filter(e =>
-        currentUser && e.user.email === currentUser.email
-    ).length;
+    // Get user's enquiry count for current month (resets on 1st of each month)
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+
+    const userEnquiryCount = allEnquiries.filter(e => {
+        if (!currentUser || e.user.email !== currentUser.email) return false;
+        const enquiryDate = new Date(e.date);
+        return enquiryDate.getFullYear() === currentYear &&
+            enquiryDate.getMonth() === currentMonth;
+    }).length;
 
     // Get search suggestions
     const suggestions = searchQuery.trim().length >= 1
@@ -58,10 +76,48 @@ export function Header() {
         };
     }, []);
 
+    // Fetch categories from Supabase
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .order('id');
+
+                if (!error && data && data.length > 0) {
+                    setManagedCategories(data.map((cat: any) => ({
+                        id: cat.id,
+                        name: cat.name,
+                        subcategories: cat.subcategories || []
+                    })));
+                } else {
+                    // Fallback to local categories
+                    setManagedCategories(categories.map(cat => ({
+                        id: cat.id,
+                        name: cat.name,
+                        subcategories: cat.subcategories || []
+                    })));
+                }
+            } catch (err) {
+                console.error('Error fetching categories:', err);
+                // Fallback to local categories
+                setManagedCategories(categories.map(cat => ({
+                    id: cat.id,
+                    name: cat.name,
+                    subcategories: cat.subcategories || []
+                })));
+            }
+        };
+
+        fetchCategories();
+    }, []);
 
     // Close mobile menu on route change
     useEffect(() => {
         setMobileMenuOpen(false);
+        setMobileProductsOpen(false);
+        setExpandedMobileCategory(null);
     }, [location.pathname]);
 
     const languages = [
@@ -259,30 +315,76 @@ export function Header() {
 
                     {/* Mobile Menu Dropdown */}
                     {mobileMenuOpen && (
-                        <div className="mt-4 pt-4 border-t border-zinc-100">
+                        <div className="mt-4 pt-4 border-t border-zinc-100 max-h-[70vh] overflow-y-auto">
                             <div className="space-y-1">
                                 <Link to="/" className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50">Home</Link>
-                                <Link to="/catalog" className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50">All Products</Link>
-                                <Link to="/profile" className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50">Profile</Link>
-                            </div>
 
-                            {/* Categories Section */}
-                            <div className="px-4 py-3 mt-2 border-t border-zinc-100">
-                                <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3">Categories</p>
-                                <div className="space-y-2">
-                                    <Link to="/catalog?category=food" className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 flex items-center gap-3">
-                                        🍯 Processed Food
-                                    </Link>
-                                    <Link to="/catalog?category=pharma" className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 flex items-center gap-3">
-                                        💊 Generic Medicines
-                                    </Link>
-                                    <Link to="/catalog?category=glass" className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 flex items-center gap-3">
-                                        🧪 Glass Bottles
-                                    </Link>
-                                    <Link to="/catalog?category=promo" className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 flex items-center gap-3">
-                                        🎁 Promotional Items
-                                    </Link>
+                                {/* Products Section - Collapsible */}
+                                <div>
+                                    <button
+                                        onClick={() => setMobileProductsOpen(!mobileProductsOpen)}
+                                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50"
+                                    >
+                                        <span>Products</span>
+                                        <ChevronDown className={`w-4 h-4 transition-transform ${mobileProductsOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    {mobileProductsOpen && (
+                                        <div className="ml-2 mt-1 border-l-2 border-zinc-100 pl-4">
+                                            <Link
+                                                to="/catalog"
+                                                className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50"
+                                            >
+                                                All Products
+                                            </Link>
+
+                                            {/* Dynamic Categories with Subcategories */}
+                                            {managedCategories.map(cat => (
+                                                <div key={cat.id}>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (cat.subcategories && cat.subcategories.length > 0) {
+                                                                setExpandedMobileCategory(expandedMobileCategory === cat.id ? null : cat.id);
+                                                            } else {
+                                                                navigate(`/catalog?category=${cat.id}`);
+                                                                setMobileMenuOpen(false);
+                                                            }
+                                                        }}
+                                                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50"
+                                                    >
+                                                        <span>{cat.name}</span>
+                                                        {cat.subcategories && cat.subcategories.length > 0 && (
+                                                            <ChevronDown className={`w-3 h-3 transition-transform ${expandedMobileCategory === cat.id ? 'rotate-180' : ''}`} />
+                                                        )}
+                                                    </button>
+
+                                                    {/* Subcategories */}
+                                                    {expandedMobileCategory === cat.id && cat.subcategories && cat.subcategories.length > 0 && (
+                                                        <div className="ml-3 mt-1 border-l-2 border-zinc-100 pl-3 space-y-1">
+                                                            <Link
+                                                                to={`/catalog?category=${cat.id}`}
+                                                                className="block px-2 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                                                            >
+                                                                All {cat.name}
+                                                            </Link>
+                                                            {cat.subcategories.map(sub => (
+                                                                <Link
+                                                                    key={sub.id}
+                                                                    to={`/catalog?category=${cat.id}&subcategory=${sub.id}`}
+                                                                    className="block px-2 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                                                                >
+                                                                    {sub.name}
+                                                                </Link>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
+
+                                <Link to="/profile" className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50">Profile</Link>
                             </div>
 
                             {/* Language Section */}

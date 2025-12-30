@@ -434,7 +434,6 @@ export function TrustPage() {
                                 ) : (
                                     <div className="bg-zinc-50 rounded-3xl p-12 text-center">
                                         <p className="text-zinc-400 text-lg">No {contentTypes.find(t => t.id === selectedContentType)?.name.toLowerCase()} uploaded yet.</p>
-                                        <p className="text-sm text-zinc-400 mt-2">Content can be added from the Admin panel.</p>
                                     </div>
                                 )}
                             </div>
@@ -454,7 +453,7 @@ export function TrustPage() {
             </div>
 
             {/* CTA Section */}
-            <div className="bg-black text-white py-16">
+            <div className="bg-black text-white py-16 pb-24">
                 <div className="max-w-4xl mx-auto px-6 text-center">
                     <h2 className="text-3xl font-black mb-4">Ready to Source with Confidence?</h2>
                     <p className="text-zinc-400 mb-8">

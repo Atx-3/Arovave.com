@@ -31,36 +31,36 @@ export function Footer() {
     const t = useTranslation();
 
     return (
-        <footer className="bg-zinc-950 text-white py-16">
-            <div className="max-w-7xl mx-auto px-6">
-                <div className="grid md:grid-cols-4 gap-10 mb-12">
+        <footer className="bg-zinc-950 text-white py-10 md:py-16">
+            <div className="max-w-7xl mx-auto px-4 md:px-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 mb-8 md:mb-12">
                     {/* Brand + The Arovave Approach */}
-                    <div className="md:col-span-2 lg:col-span-1">
-                        <div className="flex items-center gap-3 mb-4">
-                            <img src="/logo.png" alt="Arovave Global" className="h-10 w-auto invert" />
+                    <div className="col-span-2 md:col-span-2 lg:col-span-1">
+                        <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                            <img src="/logo.png" alt="Arovave Global" className="h-8 md:h-10 w-auto invert" />
                         </div>
-                        <p className="text-zinc-400 text-sm leading-relaxed mb-4">
+                        <p className="text-zinc-400 text-xs md:text-sm leading-relaxed mb-3 md:mb-4">
                             Arovave Global is not built to move fast at any cost. It is built to move correctly.
                         </p>
-                        <p className="text-zinc-500 text-xs leading-relaxed">
+                        <p className="text-zinc-500 text-[10px] md:text-xs leading-relaxed hidden md:block">
                             By offering direct factory access, verified quality, transparent pricing, and disciplined execution, we help buyers source from India with confidence. This is not shortcut sourcing. This is structured manufacturing access.
                         </p>
                     </div>
 
                     {/* Categories */}
                     <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest mb-5">Categories</h4>
-                        <div className="space-y-2">
-                            <Link to="/catalog?category=food" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                        <h4 className="text-[10px] md:text-xs font-black uppercase tracking-widest mb-3 md:mb-5">Categories</h4>
+                        <div className="space-y-1 md:space-y-2">
+                            <Link to="/catalog?category=food" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
                                 Processed Food
                             </Link>
-                            <Link to="/catalog?category=pharma" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                            <Link to="/catalog?category=pharma" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
                                 Generic Medicines
                             </Link>
-                            <Link to="/catalog?category=glass" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                            <Link to="/catalog?category=glass" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
                                 Glass Bottles
                             </Link>
-                            <Link to="/catalog?category=promo" className="block text-zinc-400 hover:text-white text-sm transition-colors">
+                            <Link to="/catalog?category=promo" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
                                 Promotional Items
                             </Link>
                         </div>
@@ -68,51 +68,51 @@ export function Footer() {
 
                     {/* Why Trust Us */}
                     <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest mb-5">{t('whyTrust')}</h4>
-                        <div className="space-y-2">
-                            <Link to="/trust/middleman" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                Direct Manufacturer Access
+                        <h4 className="text-[10px] md:text-xs font-black uppercase tracking-widest mb-3 md:mb-5">{t('whyTrust')}</h4>
+                        <div className="space-y-1 md:space-y-2">
+                            <Link to="/trust/middleman" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
+                                Direct Manufacturer
                             </Link>
-                            <Link to="/trust/certificate" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                Certificates & Verified Quality
+                            <Link to="/trust/certificate" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
+                                Quality & Certs
                             </Link>
-                            <Link to="/trust/rates" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                Factory Direct Pricing
+                            <Link to="/trust/rates" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
+                                Factory Pricing
                             </Link>
-                            <Link to="/trust/experience" className="block text-zinc-400 hover:text-white text-sm transition-colors">
-                                25+ Years Experience
+                            <Link to="/trust/experience" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
+                                25+ Years Exp.
                             </Link>
                         </div>
                     </div>
 
                     {/* Contact */}
-                    <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest mb-5">Contact Us</h4>
-                        <div className="space-y-3 text-zinc-400 text-sm">
-                            <a href="mailto:export@arovave.com" className="flex items-center gap-3 hover:text-white transition-colors cursor-pointer">
-                                <Mail className="w-4 h-4 text-white" />
+                    <div className="col-span-2 md:col-span-1">
+                        <h4 className="text-[10px] md:text-xs font-black uppercase tracking-widest mb-3 md:mb-5">Contact Us</h4>
+                        <div className="space-y-2 md:space-y-3 text-zinc-400 text-xs md:text-sm">
+                            <a href="mailto:export@arovave.com" className="flex items-center gap-2 md:gap-3 hover:text-white transition-colors cursor-pointer">
+                                <Mail className="w-3 h-3 md:w-4 md:h-4 text-white" />
                                 export@arovave.com
                             </a>
-                            <a href="tel:+919305764815" className="flex items-center gap-3 hover:text-white transition-colors">
-                                <Phone className="w-4 h-4 text-white" />
+                            <a href="tel:+919305764815" className="flex items-center gap-2 md:gap-3 hover:text-white transition-colors">
+                                <Phone className="w-3 h-3 md:w-4 md:h-4 text-white" />
                                 +91 9305764815
                             </a>
-                            <div className="flex items-center gap-3">
-                                <MapPin className="w-4 h-4 text-white" />
-                                MDH 5/25, Sector H, Jankipuram, Lucknow, UP 226021
+                            <div className="flex items-start gap-2 md:gap-3">
+                                <MapPin className="w-3 h-3 md:w-4 md:h-4 text-white flex-shrink-0 mt-0.5" />
+                                <span className="text-[10px] md:text-sm">MDH 5/25, Sector H, Jankipuram, Lucknow, UP 226021</span>
                             </div>
                         </div>
-                        <div className="flex gap-3 mt-4">
-                            <a href="https://www.facebook.com/p/Arovave-Group-of-Companies-61578211982053/" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                        <div className="flex gap-2 md:gap-3 mt-3 md:mt-4">
+                            <a href="https://www.facebook.com/p/Arovave-Group-of-Companies-61578211982053/" target="_blank" rel="noopener noreferrer" className="p-1.5 md:p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
                                 <FacebookIcon />
                             </a>
-                            <a href="https://www.instagram.com/arovave_global?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                            <a href="https://www.instagram.com/arovave_global?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="p-1.5 md:p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
                                 <InstagramIcon />
                             </a>
-                            <a href="https://x.com/ArovaveGlobal/with_replies" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                            <a href="https://x.com/ArovaveGlobal/with_replies" target="_blank" rel="noopener noreferrer" className="p-1.5 md:p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
                                 <XIcon />
                             </a>
-                            <a href="https://www.linkedin.com/company/arovave-global/posts/?feedView=all" target="_blank" rel="noopener noreferrer" className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                            <a href="https://www.linkedin.com/company/arovave-global/posts/?feedView=all" target="_blank" rel="noopener noreferrer" className="p-1.5 md:p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
                                 <LinkedInIcon />
                             </a>
                         </div>
@@ -120,9 +120,9 @@ export function Footer() {
                 </div>
 
                 {/* Bottom */}
-                <div className="border-t border-zinc-800 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-zinc-500 text-sm">© 2026 Arovave Global Exports. All rights reserved.</p>
-                    <div className="flex gap-6 text-sm">
+                <div className="border-t border-zinc-800 pt-4 md:pt-6 flex flex-col md:flex-row justify-between items-center gap-3 md:gap-4">
+                    <p className="text-zinc-500 text-[10px] md:text-sm text-center">© 2026 Arovave Global Exports. All rights reserved.</p>
+                    <div className="flex gap-4 md:gap-6 text-xs md:text-sm">
                         <Link to="/catalog" className="text-zinc-400 hover:text-white transition-colors">Catalog</Link>
                         <Link to="/profile" className="text-zinc-400 hover:text-white transition-colors">My Account</Link>
                     </div>

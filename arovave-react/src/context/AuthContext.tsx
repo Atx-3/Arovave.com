@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 // Admin panel tabs
-export type AdminPermission = 'enquiries' | 'products' | 'users' | 'settings';
+export type AdminPermission = 'enquiries' | 'products' | 'users' | 'settings' | 'quality' | 'categories' | 'support';
 
 // Extended User type with role and permissions
 export interface User {

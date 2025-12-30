@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2, FolderOpen, MessageCircle, Send, Clock } from 'lucide-react';
+import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2, FolderOpen, MessageCircle, Send, Clock, Settings, Filter } from 'lucide-react';
 import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
+import { fetchProducts as fetchProductsFromSupabase, saveProduct as saveProductToSupabase, deleteProduct as deleteProductFromSupabase, getLocalProducts, syncInitialProductsToSupabase } from '../utils/productStorage';
 import type { Product, Enquiry } from '../types';
 import type { AdminPermission } from '../context/AuthContext';
 
@@ -37,9 +38,11 @@ export function Admin() {
     const { hasPermission, isSuperAdmin, currentUser } = useAuth();
     const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins' | 'categories' | 'support'>('enquiries');
     const { allEnquiries, updateEnquiryStatus, isLoadingEnquiries } = useEnquiry();
-    const [products, setProducts] = useState<Product[]>(getStoredProducts);
+    const [products, setProducts] = useState<Product[]>(getLocalProducts);
     const [showProductModal, setShowProductModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+    const [isSavingProduct, setIsSavingProduct] = useState(false);
 
     // Category management state
     const [managedCategories, setManagedCategories] = useState<Category[]>(getStoredCategories);
@@ -85,7 +88,126 @@ export function Admin() {
     const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
     const [supportReply, setSupportReply] = useState('');
     const [loadingSupport, setLoadingSupport] = useState(false);
+    const [sendingReply, setSendingReply] = useState(false);
     const [supportStatusFilter, setSupportStatusFilter] = useState<string>('all');
+    const chatContainerRef = useRef<HTMLDivElement>(null);
+
+    // Toast notification state
+    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    // Admin login state
+    const [adminEmail, setAdminEmail] = useState('');
+    const [adminPassword, setAdminPassword] = useState('');
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [loginError, setLoginError] = useState<string | null>(null);
+
+    // Enquiry filter state
+    const currentDate = new Date();
+    const [showEnquiryFilters, setShowEnquiryFilters] = useState(false);
+    const [enquiryFilterYear, setEnquiryFilterYear] = useState<number>(currentDate.getFullYear());
+    const [enquiryFilterMonth, setEnquiryFilterMonth] = useState<number>(currentDate.getMonth() + 1);
+    const [enquiryFilterType, setEnquiryFilterType] = useState<'month' | 'range' | 'date'>('month');
+    const [enquiryDateFrom, setEnquiryDateFrom] = useState<string>('');
+    const [enquiryDateTo, setEnquiryDateTo] = useState<string>('');
+    const [enquirySingleDate, setEnquirySingleDate] = useState<string>('');
+
+    // Month names for filter
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    // Year options (last 5 years)
+    const yearOptions = [
+        currentDate.getFullYear(),
+        currentDate.getFullYear() - 1,
+        currentDate.getFullYear() - 2,
+        currentDate.getFullYear() - 3,
+        currentDate.getFullYear() - 4
+    ];
+
+    // Filter enquiries based on selected filter type (only when filters are shown)
+    const filteredEnquiries = showEnquiryFilters ? allEnquiries.filter(e => {
+        const enquiryDate = new Date(e.date);
+
+        if (enquiryFilterType === 'month') {
+            return enquiryDate.getFullYear() === enquiryFilterYear &&
+                enquiryDate.getMonth() + 1 === enquiryFilterMonth;
+        } else if (enquiryFilterType === 'range' && enquiryDateFrom && enquiryDateTo) {
+            const from = new Date(enquiryDateFrom);
+            const to = new Date(enquiryDateTo);
+            to.setHours(23, 59, 59, 999);
+            return enquiryDate >= from && enquiryDate <= to;
+        } else if (enquiryFilterType === 'date' && enquirySingleDate) {
+            const selected = new Date(enquirySingleDate);
+            return enquiryDate.toDateString() === selected.toDateString();
+        }
+        return true;
+    }) : allEnquiries;
+
+    // Sort filtered enquiries by date descending
+    const sortedFilteredEnquiries = [...filteredEnquiries].sort((a, b) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    // Show notification helper
+    const showNotification = (message: string, type: 'success' | 'error') => {
+        setNotification({ message, type });
+        // Auto-hide after 4 seconds
+        setTimeout(() => setNotification(null), 4000);
+    };
+
+    // Admin login handler
+    const handleAdminLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoggingIn(true);
+        setLoginError(null);
+
+        try {
+            // Sign in with email and password
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: adminEmail,
+                password: adminPassword
+            });
+
+            if (error) {
+                setLoginError('Invalid email or password');
+                setIsLoggingIn(false);
+                return;
+            }
+
+            // Check if the user is an admin
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', data.user.id)
+                .single();
+
+            if (profileError || !profile) {
+                setLoginError('Access Denied - You are not authorized to access admin panel');
+                await supabase.auth.signOut();
+                setIsLoggingIn(false);
+                return;
+            }
+
+            if (profile.role !== 'admin' && profile.role !== 'superadmin') {
+                setLoginError('Access Denied - You are not authorized to access admin panel');
+                await supabase.auth.signOut();
+                setIsLoggingIn(false);
+                return;
+            }
+
+            // Login successful - page will re-render with admin access
+            setIsLoggingIn(false);
+        } catch (err) {
+            console.error('Login error:', err);
+            setLoginError('An error occurred. Please try again.');
+            setIsLoggingIn(false);
+        }
+    };
+
+    // Check if user is logged in and is admin
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
 
     // Fetch video URL from Supabase
     const fetchVideoUrl = async () => {
@@ -137,7 +259,10 @@ export function Admin() {
         { key: 'enquiries', label: 'Enquiries', icon: Inbox },
         { key: 'products', label: 'Products', icon: Package },
         { key: 'users', label: 'View Users', icon: Users },
-        { key: 'settings', label: 'Settings', icon: Award }
+        { key: 'quality', label: 'Quality Content', icon: Award },
+        { key: 'settings', label: 'Settings', icon: Settings },
+        { key: 'categories', label: 'Categories', icon: FolderOpen },
+        { key: 'support', label: 'Support', icon: MessageCircle }
     ];
 
     // Fetch all users (for superadmin)
@@ -223,8 +348,9 @@ export function Admin() {
     };
 
     const sendSupportReply = async () => {
-        if (!supportReply.trim() || !selectedSupportTicket) return;
+        if (!supportReply.trim() || !selectedSupportTicket || sendingReply) return;
 
+        setSendingReply(true);
         try {
             await supabase.from('support_messages').insert({
                 ticket_id: selectedSupportTicket.id,
@@ -243,6 +369,8 @@ export function Admin() {
             await loadSupportTickets();
         } catch (err) {
             console.error('Error sending reply:', err);
+        } finally {
+            setSendingReply(false);
         }
     };
 
@@ -404,6 +532,23 @@ export function Admin() {
     useEffect(() => {
         window.scrollTo(0, 0);
 
+        // Load products from Supabase
+        const loadProducts = async () => {
+            setIsLoadingProducts(true);
+            try {
+                // First try to sync initial products if table is empty
+                await syncInitialProductsToSupabase();
+                // Then fetch all products
+                const fetchedProducts = await fetchProductsFromSupabase();
+                setProducts(fetchedProducts);
+            } catch (err) {
+                console.error('Error loading products:', err);
+            } finally {
+                setIsLoadingProducts(false);
+            }
+        };
+        loadProducts();
+
         // Load quality uploads from Supabase
         fetchQualityUploadsFromSupabase();
 
@@ -446,11 +591,21 @@ export function Admin() {
         cancelled: 'bg-red-50 text-red-700'
     };
 
-    const deleteProduct = (id: number) => {
+    const handleDeleteProduct = async (id: number) => {
         if (confirm('Delete this product?')) {
-            const updated = products.filter(p => p.id !== id);
-            setProducts(updated);
-            localStorage.setItem('arovaveProducts', JSON.stringify(updated));
+            setIsSavingProduct(true);
+            try {
+                await deleteProductFromSupabase(id);
+                // Refresh products from Supabase
+                const fetchedProducts = await fetchProductsFromSupabase();
+                setProducts(fetchedProducts);
+            } catch (err) {
+                console.error('Error deleting product:', err);
+                // Fallback: update local state
+                setProducts(products.filter(p => p.id !== id));
+            } finally {
+                setIsSavingProduct(false);
+            }
         }
     };
 
@@ -496,526 +651,754 @@ export function Admin() {
 
     return (
         <div className="page-enter max-w-7xl mx-auto px-6 py-12">
-            <Link to="/profile" className="text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-black transition-colors mb-8 inline-flex items-center gap-2">
-                <ArrowLeft className="w-4 h-4" /> Back to Profile
-            </Link>
+            {/* Toast Notification */}
+            {notification && (
+                <div className={`fixed top-6 right-6 z-[9999] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-pulse ${notification.type === 'success'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-red-500 text-white'
+                    }`}>
+                    {notification.type === 'success' ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                    ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    )}
+                    <span className="font-semibold">{notification.message}</span>
+                    <button
+                        onClick={() => setNotification(null)}
+                        className="ml-2 hover:opacity-75"
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
 
-            <h1 className="text-4xl font-black uppercase tracking-tighter mb-4">Admin Panel</h1>
-            <p className="text-zinc-500 mb-8">Manage users, products, enquiries, and quality content</p>
-
-            {/* Tabs - Only show tabs user has permission for */}
-            <div className="flex gap-4 mb-8 border-b border-zinc-100 flex-wrap">
-                {(isSuperAdmin || hasPermission('enquiries')) && (
-                    <button
-                        onClick={() => setTab('enquiries')}
-                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'enquiries' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                    >
-                        <Inbox className="w-4 h-4" /> Enquiries
-                    </button>
-                )}
-                {(isSuperAdmin || hasPermission('products')) && (
-                    <button
-                        onClick={() => setTab('products')}
-                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'products' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                    >
-                        <Package className="w-4 h-4" /> Products
-                    </button>
-                )}
-                {(isSuperAdmin || hasPermission('users')) && (
-                    <button
-                        onClick={() => setTab('users')}
-                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'users' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                    >
-                        <Users className="w-4 h-4" /> Users
-                    </button>
-                )}
-                {isSuperAdmin && (
-                    <button
-                        onClick={() => setTab('quality')}
-                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'quality' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                    >
-                        <Award className="w-4 h-4" /> Quality Content
-                    </button>
-                )}
-                {(isSuperAdmin || hasPermission('settings')) && (
-                    <button
-                        onClick={() => setTab('settings')}
-                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'settings' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                    >
-                        ⚙️ Settings
-                    </button>
-                )}
-                {isSuperAdmin && (
-                    <button
-                        onClick={() => setTab('categories')}
-                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'categories' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                    >
-                        <FolderOpen className="w-4 h-4" /> Categories
-                    </button>
-                )}
-                {isSuperAdmin && (
-                    <button
-                        onClick={() => setTab('admins')}
-                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'admins' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                    >
-                        <Shield className="w-4 h-4" /> Manage Admins
-                    </button>
-                )}
-                {(isSuperAdmin || hasPermission('enquiries')) && (
-                    <button
-                        onClick={() => { setTab('support'); loadSupportTickets(); }}
-                        className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'support' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
-                    >
-                        <MessageCircle className="w-4 h-4" /> Support
-                    </button>
-                )}
-            </div>
-
-            {/* Manage Admins Tab (Super Admin Only) */}
-            {tab === 'admins' && isSuperAdmin && (
-                <div className="space-y-6">
-                    {/* Add New Admin Form */}
-                    <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                        <div className="p-6 border-b border-zinc-100">
-                            <h3 className="font-black uppercase tracking-widest text-sm">Add New Admin</h3>
-                            <p className="text-zinc-500 text-sm mt-2">Enter a registered user's email to promote them to admin or super admin.</p>
+            {/* Admin Login Form - Show if not logged in or not admin */}
+            {!isAdmin ? (
+                <div className="min-h-[60vh] flex items-center justify-center">
+                    <div className="w-full max-w-md">
+                        <div className="text-center mb-8">
+                            <Shield className="w-16 h-16 mx-auto text-zinc-300 mb-4" />
+                            <h1 className="text-3xl font-black uppercase tracking-tighter mb-2">Admin Login</h1>
+                            <p className="text-zinc-500">Enter your admin credentials to continue</p>
                         </div>
-                        <div className="p-6">
-                            <div className="flex flex-wrap gap-4 items-end">
-                                <div className="flex-1 min-w-[200px]">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
-                                        <Mail className="w-3 h-3 inline mr-1" /> User Email
-                                    </label>
-                                    <input
-                                        type="email"
-                                        id="newAdminEmail"
-                                        placeholder="user@example.com"
-                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                                    />
+
+                        <form onSubmit={handleAdminLogin} className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl">
+                            {loginError && (
+                                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm font-semibold flex items-center gap-2">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    {loginError}
                                 </div>
-                                <div className="min-w-[150px]">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
-                                        Role
-                                    </label>
-                                    <select
-                                        id="newAdminRole"
-                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
-                                    >
-                                        <option value="admin">Admin</option>
-                                        <option value="superadmin">Super Admin</option>
-                                    </select>
-                                </div>
-                                <button
-                                    onClick={async () => {
-                                        const emailInput = document.getElementById('newAdminEmail') as HTMLInputElement;
-                                        const roleSelect = document.getElementById('newAdminRole') as HTMLSelectElement;
-                                        const email = emailInput?.value.trim();
-                                        const role = roleSelect?.value as 'admin' | 'superadmin';
+                            )}
 
-                                        if (!email) {
-                                            alert('Please enter an email address');
-                                            return;
-                                        }
-
-                                        // Find user by email
-                                        const user = allUsers.find(u => u.email?.toLowerCase() === email.toLowerCase());
-                                        if (!user) {
-                                            alert('User not found! Make sure they have registered first.');
-                                            return;
-                                        }
-
-                                        if (user.role === 'superadmin' || user.role === 'admin') {
-                                            alert('This user is already an admin!');
-                                            return;
-                                        }
-
-                                        const permissions = role === 'superadmin'
-                                            ? ['enquiries', 'products', 'users', 'settings']
-                                            : ['enquiries'];
-
-                                        await updateUserRole(user.id, role, permissions as AdminPermission[]);
-                                        emailInput.value = '';
-                                        alert(`${user.name || email} is now a ${role === 'superadmin' ? 'Super Admin' : 'Admin'}!`);
-                                    }}
-                                    className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
-                                >
-                                    <UserCog className="w-4 h-4 inline mr-2" />
-                                    Add Admin
-                                </button>
+                            <div className="mb-4">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Email Address</label>
+                                <input
+                                    type="email"
+                                    required
+                                    value={adminEmail}
+                                    onChange={e => setAdminEmail(e.target.value)}
+                                    placeholder="admin@example.com"
+                                    className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                />
                             </div>
-                        </div>
+
+                            <div className="mb-6">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Password</label>
+                                <input
+                                    type="password"
+                                    required
+                                    value={adminPassword}
+                                    onChange={e => setAdminPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isLoggingIn}
+                                className="w-full py-4 bg-black text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isLoggingIn ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Signing In...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Shield className="w-4 h-4" />
+                                        Sign In to Admin
+                                    </>
+                                )}
+                            </button>
+                        </form>
+
+                        <p className="text-center text-zinc-400 text-sm mt-6">
+                            <Link to="/" className="hover:text-black transition-colors">← Back to Home</Link>
+                        </p>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <Link to="/profile" className="text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-black transition-colors mb-8 inline-flex items-center gap-2">
+                        <ArrowLeft className="w-4 h-4" /> Back to Profile
+                    </Link>
+
+                    <h1 className="text-4xl font-black uppercase tracking-tighter mb-4">Admin Panel</h1>
+                    <p className="text-zinc-500 mb-8">Manage users, products, enquiries, and quality content</p>
+
+                    {/* Tabs - Only show tabs user has permission for */}
+                    <div className="flex gap-4 mb-8 border-b border-zinc-100 flex-wrap">
+                        {(isSuperAdmin || hasPermission('enquiries')) && (
+                            <button
+                                onClick={() => setTab('enquiries')}
+                                className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'enquiries' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                            >
+                                <Inbox className="w-4 h-4" /> Enquiries
+                            </button>
+                        )}
+                        {(isSuperAdmin || hasPermission('products')) && (
+                            <button
+                                onClick={() => setTab('products')}
+                                className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'products' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                            >
+                                <Package className="w-4 h-4" /> Products
+                            </button>
+                        )}
+                        {(isSuperAdmin || hasPermission('users')) && (
+                            <button
+                                onClick={() => setTab('users')}
+                                className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'users' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                            >
+                                <Users className="w-4 h-4" /> Users
+                            </button>
+                        )}
+                        {(isSuperAdmin || hasPermission('quality')) && (
+                            <button
+                                onClick={() => setTab('quality')}
+                                className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'quality' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                            >
+                                <Award className="w-4 h-4" /> Quality Content
+                            </button>
+                        )}
+                        {(isSuperAdmin || hasPermission('settings')) && (
+                            <button
+                                onClick={() => setTab('settings')}
+                                className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'settings' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                            >
+                                ⚙️ Settings
+                            </button>
+                        )}
+                        {(isSuperAdmin || hasPermission('categories')) && (
+                            <button
+                                onClick={() => setTab('categories')}
+                                className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'categories' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                            >
+                                <FolderOpen className="w-4 h-4" /> Categories
+                            </button>
+                        )}
+                        {isSuperAdmin && (
+                            <button
+                                onClick={() => setTab('admins')}
+                                className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'admins' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                            >
+                                <Shield className="w-4 h-4" /> Manage Admins
+                            </button>
+                        )}
+                        {(isSuperAdmin || hasPermission('support')) && (
+                            <button
+                                onClick={() => { setTab('support'); loadSupportTickets(); }}
+                                className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'support' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                            >
+                                <MessageCircle className="w-4 h-4" /> Support
+                            </button>
+                        )}
                     </div>
 
-                    {/* Current Admins List */}
-                    <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                        <div className="p-6 border-b border-zinc-100">
-                            <h3 className="font-black uppercase tracking-widest text-sm">
-                                Current Admins ({allUsers.filter(u => u.role === 'admin' || u.role === 'superadmin').length})
-                            </h3>
-                        </div>
-                        {isLoadingUsers ? (
-                            <div className="p-12 text-center">
-                                <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
-                            </div>
-                        ) : (
-                            <div className="divide-y divide-zinc-100">
-                                {allUsers
-                                    .filter(u => (u.role === 'admin' || u.role === 'superadmin') && u.id !== currentUser?.id)
-                                    .map(user => (
-                                        <div key={user.id} className="p-6">
-                                            <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                                                <div>
-                                                    <p className="font-bold text-lg">{user.name || 'No name'}</p>
-                                                    <p className="text-zinc-500 text-sm">{user.email}</p>
-                                                    <span className={`inline-block mt-2 px-3 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                                                        }`}>
-                                                        {user.role === 'superadmin' ? 'Super Admin' : 'Admin'}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    {/* Role Dropdown */}
-                                                    <div className="flex items-center gap-2">
-                                                        <label className="text-xs font-bold uppercase tracking-widest text-zinc-400">Role:</label>
-                                                        <select
-                                                            value={user.role || 'admin'}
-                                                            onChange={(e) => {
-                                                                const newRole = e.target.value as 'admin' | 'superadmin';
-                                                                const newPermissions = newRole === 'superadmin'
-                                                                    ? ['enquiries', 'products', 'users', 'settings']
-                                                                    : user.permissions || ['enquiries'];
-                                                                updateUserRole(user.id, newRole, newPermissions as AdminPermission[]);
-                                                            }}
-                                                            disabled={savingPermissions === user.id}
-                                                            className="px-4 py-2 border-2 border-zinc-200 rounded-lg text-sm font-bold focus:border-black focus:outline-none bg-white disabled:opacity-50"
-                                                        >
-                                                            <option value="admin">Admin</option>
-                                                            <option value="superadmin">Super Admin</option>
-                                                        </select>
-                                                    </div>
-                                                    {/* Remove Admin Button */}
-                                                    <button
-                                                        onClick={() => updateUserRole(user.id, 'user', [])}
-                                                        disabled={savingPermissions === user.id}
-                                                        className="px-4 py-2 bg-red-100 text-red-600 text-xs font-bold uppercase rounded-lg hover:bg-red-200 disabled:opacity-50"
-                                                    >
-                                                        {savingPermissions === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Remove'}
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Permissions checkboxes for admins */}
-                                            {user.role === 'admin' && (
-                                                <div className="bg-zinc-50 rounded-xl p-4">
-                                                    <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3">Admin Tab Access:</p>
-                                                    <div className="flex flex-wrap gap-3">
-                                                        {availablePermissions.map(perm => {
-                                                            const userPerms: AdminPermission[] = user.permissions || [];
-                                                            const hasThisPerm = userPerms.includes(perm.key);
-                                                            return (
-                                                                <button
-                                                                    key={perm.key}
-                                                                    onClick={() => togglePermission(user.id, perm.key, userPerms)}
-                                                                    disabled={savingPermissions === user.id}
-                                                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors ${hasThisPerm
-                                                                        ? 'bg-green-600 text-white'
-                                                                        : 'bg-white border-2 border-zinc-200 text-zinc-500 hover:border-black'
-                                                                        }`}
-                                                                >
-                                                                    {hasThisPerm && <Check className="w-3 h-3" />}
-                                                                    <perm.icon className="w-3 h-3" />
-                                                                    {perm.label}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
+                    {/* Manage Admins Tab (Super Admin Only) */}
+                    {tab === 'admins' && isSuperAdmin && (
+                        <div className="space-y-6">
+                            {/* Add New Admin Form */}
+                            <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                                <div className="p-6 border-b border-zinc-100">
+                                    <h3 className="font-black uppercase tracking-widest text-sm">Add New Admin</h3>
+                                    <p className="text-zinc-500 text-sm mt-2">Enter a registered user's email to promote them to admin or super admin.</p>
+                                </div>
+                                <div className="p-6">
+                                    <div className="flex flex-wrap gap-4 items-end">
+                                        <div className="flex-1 min-w-[200px]">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                                <Mail className="w-3 h-3 inline mr-1" /> User Email
+                                            </label>
+                                            <input
+                                                type="email"
+                                                id="newAdminEmail"
+                                                placeholder="user@example.com"
+                                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                            />
                                         </div>
-                                    ))}
-                                {allUsers.filter(u => (u.role === 'admin' || u.role === 'superadmin') && u.id !== currentUser?.id).length === 0 && (
-                                    <div className="p-12 text-center text-zinc-400">
-                                        <Shield className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                                        <p>No other admins yet. Add one using the form above!</p>
+                                        <div className="min-w-[150px]">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                                Role
+                                            </label>
+                                            <select
+                                                id="newAdminRole"
+                                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
+                                            >
+                                                <option value="admin">Admin</option>
+                                                <option value="superadmin">Super Admin</option>
+                                            </select>
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                const emailInput = document.getElementById('newAdminEmail') as HTMLInputElement;
+                                                const roleSelect = document.getElementById('newAdminRole') as HTMLSelectElement;
+                                                const email = emailInput?.value.trim();
+                                                const role = roleSelect?.value as 'admin' | 'superadmin';
+
+                                                if (!email) {
+                                                    alert('Please enter an email address');
+                                                    return;
+                                                }
+
+                                                // Find user by email
+                                                const user = allUsers.find(u => u.email?.toLowerCase() === email.toLowerCase());
+                                                if (!user) {
+                                                    alert('User not found! Make sure they have registered first.');
+                                                    return;
+                                                }
+
+                                                if (user.role === 'superadmin' || user.role === 'admin') {
+                                                    alert('This user is already an admin!');
+                                                    return;
+                                                }
+
+                                                const permissions = role === 'superadmin'
+                                                    ? ['enquiries', 'products', 'users', 'settings']
+                                                    : ['enquiries'];
+
+                                                await updateUserRole(user.id, role, permissions as AdminPermission[]);
+                                                emailInput.value = '';
+                                                alert(`${user.name || email} is now a ${role === 'superadmin' ? 'Super Admin' : 'Admin'}!`);
+                                            }}
+                                            className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                        >
+                                            <UserCog className="w-4 h-4 inline mr-2" />
+                                            Add Admin
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Current Admins List */}
+                            <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                                <div className="p-6 border-b border-zinc-100">
+                                    <h3 className="font-black uppercase tracking-widest text-sm">
+                                        Current Admins ({allUsers.filter(u => u.role === 'admin' || u.role === 'superadmin').length})
+                                    </h3>
+                                </div>
+                                {isLoadingUsers ? (
+                                    <div className="p-12 text-center">
+                                        <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-zinc-100">
+                                        {allUsers
+                                            .filter(u => (u.role === 'admin' || u.role === 'superadmin') && u.id !== currentUser?.id)
+                                            .map(user => (
+                                                <div key={user.id} className="p-6">
+                                                    <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                                                        <div>
+                                                            <p className="font-bold text-lg">{user.name || 'No name'}</p>
+                                                            <p className="text-zinc-500 text-sm">{user.email}</p>
+                                                            <span className={`inline-block mt-2 px-3 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                                                }`}>
+                                                                {user.role === 'superadmin' ? 'Super Admin' : 'Admin'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            {/* Role Dropdown */}
+                                                            <div className="flex items-center gap-2">
+                                                                <label className="text-xs font-bold uppercase tracking-widest text-zinc-400">Role:</label>
+                                                                <select
+                                                                    value={user.role || 'admin'}
+                                                                    onChange={(e) => {
+                                                                        const newRole = e.target.value as 'admin' | 'superadmin';
+                                                                        const newPermissions = newRole === 'superadmin'
+                                                                            ? ['enquiries', 'products', 'users', 'settings']
+                                                                            : user.permissions || ['enquiries'];
+                                                                        updateUserRole(user.id, newRole, newPermissions as AdminPermission[]);
+                                                                    }}
+                                                                    disabled={savingPermissions === user.id}
+                                                                    className="px-4 py-2 border-2 border-zinc-200 rounded-lg text-sm font-bold focus:border-black focus:outline-none bg-white disabled:opacity-50"
+                                                                >
+                                                                    <option value="admin">Admin</option>
+                                                                    <option value="superadmin">Super Admin</option>
+                                                                </select>
+                                                            </div>
+                                                            {/* Remove Admin Button */}
+                                                            <button
+                                                                onClick={() => updateUserRole(user.id, 'user', [])}
+                                                                disabled={savingPermissions === user.id}
+                                                                className="px-4 py-2 bg-red-100 text-red-600 text-xs font-bold uppercase rounded-lg hover:bg-red-200 disabled:opacity-50"
+                                                            >
+                                                                {savingPermissions === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Remove'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Permissions checkboxes for admins */}
+                                                    {user.role === 'admin' && (
+                                                        <div className="bg-zinc-50 rounded-xl p-4">
+                                                            <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3">Admin Tab Access:</p>
+                                                            <div className="flex flex-wrap gap-3">
+                                                                {availablePermissions.map(perm => {
+                                                                    const userPerms: AdminPermission[] = user.permissions || [];
+                                                                    const hasThisPerm = userPerms.includes(perm.key);
+                                                                    return (
+                                                                        <button
+                                                                            key={perm.key}
+                                                                            onClick={() => togglePermission(user.id, perm.key, userPerms)}
+                                                                            disabled={savingPermissions === user.id}
+                                                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors ${hasThisPerm
+                                                                                ? 'bg-green-600 text-white'
+                                                                                : 'bg-white border-2 border-zinc-200 text-zinc-500 hover:border-black'
+                                                                                }`}
+                                                                        >
+                                                                            {hasThisPerm && <Check className="w-3 h-3" />}
+                                                                            <perm.icon className="w-3 h-3" />
+                                                                            {perm.label}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        {allUsers.filter(u => (u.role === 'admin' || u.role === 'superadmin') && u.id !== currentUser?.id).length === 0 && (
+                                            <div className="p-12 text-center text-zinc-400">
+                                                <Shield className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                                                <p>No other admins yet. Add one using the form above!</p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* Users Tab */}
-            {tab === 'users' && (isSuperAdmin || hasPermission('users')) && (
-                <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                    <div className="p-6 border-b border-zinc-100">
-                        <h3 className="font-black uppercase tracking-widest text-sm">All Registered Users ({allUsers.length})</h3>
-                    </div>
-                    {isLoadingUsers ? (
-                        <div className="p-12 text-center">
-                            <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-zinc-50">
-                                    <tr>
-                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Name</th>
-                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Email</th>
-                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Country</th>
-                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Phone</th>
-                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Role</th>
-                                        <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Joined</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {allUsers.map((user) => (
-                                        <tr key={user.id} className="border-t border-zinc-50">
-                                            <td className="p-4 font-semibold">{user.name || '-'}</td>
-                                            <td className="p-4 text-zinc-600">{user.email}</td>
-                                            <td className="p-4 text-zinc-600">{user.country || '-'}</td>
-                                            <td className="p-4 text-zinc-600">{user.phone || '-'}</td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
-                                                    user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
-                                                        'bg-zinc-100 text-zinc-600'
-                                                    }`}>
-                                                    {user.role}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-zinc-400 text-sm">{user.created_at?.split('T')[0] || '-'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
                         </div>
                     )}
-                </div>
-            )}
 
-            {/* Products Tab */}
-            {tab === 'products' && (isSuperAdmin || hasPermission('products')) && (
-                <div>
-                    <div className="flex justify-end mb-6">
-                        <button
-                            onClick={() => setShowProductModal(true)}
-                            className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
-                        >
-                            <Plus className="w-4 h-4" /> Add Product
-                        </button>
-                    </div>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {products.map(p => (
-                            <div key={p.id} className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                                <div className="aspect-video overflow-hidden">
-                                    <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
+                    {/* Users Tab */}
+                    {tab === 'users' && (isSuperAdmin || hasPermission('users')) && (
+                        <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                            <div className="p-6 border-b border-zinc-100">
+                                <h3 className="font-black uppercase tracking-widest text-sm">All Registered Users ({allUsers.length})</h3>
+                            </div>
+                            {isLoadingUsers ? (
+                                <div className="p-12 text-center">
+                                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
                                 </div>
-                                <div className="p-5">
-                                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">{p.cat}</span>
-                                    <h4 className="font-bold text-lg">{p.name}</h4>
-                                    <p className="text-sm text-black font-bold mb-1">{p.priceRange}</p>
-                                    <p className="text-xs text-zinc-400 mb-4">MOQ: {p.moq} | HSN: {p.hsn}</p>
-                                    <div className="flex gap-2">
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-zinc-50">
+                                            <tr>
+                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Name</th>
+                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Email</th>
+                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Country</th>
+                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Phone</th>
+                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Role</th>
+                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Joined</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {allUsers.map((user) => (
+                                                <tr key={user.id} className="border-t border-zinc-50">
+                                                    <td className="p-4 font-semibold">{user.name || '-'}</td>
+                                                    <td className="p-4 text-zinc-600">{user.email}</td>
+                                                    <td className="p-4 text-zinc-600">{user.country || '-'}</td>
+                                                    <td className="p-4 text-zinc-600">{user.phone || '-'}</td>
+                                                    <td className="p-4">
+                                                        <span className={`px-2 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
+                                                            user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
+                                                                'bg-zinc-100 text-zinc-600'
+                                                            }`}>
+                                                            {user.role}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 text-zinc-400 text-sm">{user.created_at?.split('T')[0] || '-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Products Tab */}
+                    {tab === 'products' && (isSuperAdmin || hasPermission('products')) && (
+                        <div>
+                            <div className="flex justify-end mb-6">
+                                <button
+                                    onClick={() => setShowProductModal(true)}
+                                    className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                >
+                                    <Plus className="w-4 h-4" /> Add Product
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                                {products.map(p => (
+                                    <div key={p.id} className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                                        <div className="aspect-video overflow-hidden">
+                                            <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="p-5">
+                                            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">{p.cat}</span>
+                                            <h4 className="font-bold text-lg">{p.name}</h4>
+                                            <p className="text-sm text-black font-bold mb-1">{p.priceRange}</p>
+                                            <p className="text-xs text-zinc-400 mb-4">MOQ: {p.moq} | HSN: {p.hsn}</p>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => openEditModal(p)}
+                                                    className="flex-1 py-2 border-2 border-zinc-200 rounded-lg text-[9px] font-black uppercase tracking-widest hover:border-black transition-colors flex items-center justify-center gap-1"
+                                                >
+                                                    <Edit className="w-3 h-3" /> Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteProduct(p.id)}
+                                                    className="px-4 py-2 border-2 border-red-200 text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-red-50 transition-colors"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Enquiries Tab */}
+                    {tab === 'enquiries' && (isSuperAdmin || hasPermission('enquiries')) && (
+                        <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                            <div className="p-6 border-b border-zinc-100">
+                                <div className="flex justify-between items-center flex-wrap gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <h3 className="font-black uppercase tracking-widest text-sm">
+                                            Enquiries ({sortedFilteredEnquiries.length}{showEnquiryFilters ? ` of ${allEnquiries.length}` : ''})
+                                        </h3>
                                         <button
-                                            onClick={() => openEditModal(p)}
-                                            className="flex-1 py-2 border-2 border-zinc-200 rounded-lg text-[9px] font-black uppercase tracking-widest hover:border-black transition-colors flex items-center justify-center gap-1"
+                                            onClick={() => setShowEnquiryFilters(!showEnquiryFilters)}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${showEnquiryFilters ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
                                         >
-                                            <Edit className="w-3 h-3" /> Edit
-                                        </button>
-                                        <button
-                                            onClick={() => deleteProduct(p.id)}
-                                            className="px-4 py-2 border-2 border-red-200 text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-red-50 transition-colors"
-                                        >
-                                            <Trash2 className="w-3 h-3" />
+                                            <Filter className="w-3 h-3" />
+                                            Filter
                                         </button>
                                     </div>
+                                    <div className="flex gap-2 flex-wrap">
+                                        <span className="px-3 py-1 bg-yellow-50 text-yellow-700 text-[9px] font-bold rounded-full">
+                                            Pending: {sortedFilteredEnquiries.filter(e => e.status === 'pending').length}
+                                        </span>
+                                        <span className="px-3 py-1 bg-blue-50 text-blue-700 text-[9px] font-bold rounded-full">
+                                            Contacted: {sortedFilteredEnquiries.filter(e => e.status === 'contacted').length}
+                                        </span>
+                                        <span className="px-3 py-1 bg-green-50 text-green-700 text-[9px] font-bold rounded-full">
+                                            Completed: {sortedFilteredEnquiries.filter(e => e.status === 'completed-win' || e.status === 'completed-loss').length}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Filter Panel */}
+                                {showEnquiryFilters && (
+                                    <div className="mt-4 p-4 bg-zinc-50 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                        <div className="flex flex-wrap gap-4 items-center">
+                                            <div className="flex gap-2 bg-white rounded-xl p-1 border border-zinc-200">
+                                                <button
+                                                    onClick={() => setEnquiryFilterType('month')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${enquiryFilterType === 'month' ? 'bg-black text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}
+                                                >
+                                                    Month
+                                                </button>
+                                                <button
+                                                    onClick={() => setEnquiryFilterType('range')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${enquiryFilterType === 'range' ? 'bg-black text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}
+                                                >
+                                                    Date Range
+                                                </button>
+                                                <button
+                                                    onClick={() => setEnquiryFilterType('date')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${enquiryFilterType === 'date' ? 'bg-black text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}
+                                                >
+                                                    Specific Date
+                                                </button>
+                                            </div>
+
+                                            {enquiryFilterType === 'month' && (
+                                                <div className="flex gap-2">
+                                                    <select
+                                                        value={enquiryFilterMonth}
+                                                        onChange={e => setEnquiryFilterMonth(Number(e.target.value))}
+                                                        className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-black cursor-pointer"
+                                                    >
+                                                        {monthNames.map((month, idx) => (
+                                                            <option key={idx + 1} value={idx + 1}>{month}</option>
+                                                        ))}
+                                                    </select>
+                                                    <select
+                                                        value={enquiryFilterYear}
+                                                        onChange={e => setEnquiryFilterYear(Number(e.target.value))}
+                                                        className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-black cursor-pointer"
+                                                    >
+                                                        {yearOptions.map(year => (
+                                                            <option key={year} value={year}>{year}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+
+                                            {enquiryFilterType === 'range' && (
+                                                <div className="flex gap-2 items-center">
+                                                    <input
+                                                        type="date"
+                                                        value={enquiryDateFrom}
+                                                        onChange={e => setEnquiryDateFrom(e.target.value)}
+                                                        className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-black"
+                                                    />
+                                                    <span className="text-zinc-400 text-sm">to</span>
+                                                    <input
+                                                        type="date"
+                                                        value={enquiryDateTo}
+                                                        onChange={e => setEnquiryDateTo(e.target.value)}
+                                                        className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-black"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {enquiryFilterType === 'date' && (
+                                                <input
+                                                    type="date"
+                                                    value={enquirySingleDate}
+                                                    onChange={e => setEnquirySingleDate(e.target.value)}
+                                                    className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-black"
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-zinc-50">
+                                        <tr>
+                                            <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">ID</th>
+                                            <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Customer</th>
+                                            <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Phone</th>
+                                            <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Products</th>
+                                            <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Date</th>
+                                            <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {sortedFilteredEnquiries.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className="p-8 text-center text-zinc-400">
+                                                    No enquiries found for the selected period.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            sortedFilteredEnquiries.map((enq, index) => (
+                                                <tr key={enq.id} className="border-t border-zinc-50 hover:bg-zinc-50">
+                                                    <td className="p-4 font-bold text-zinc-400">#{sortedFilteredEnquiries.length - index}</td>
+                                                    <td className="p-4">
+                                                        <p className="font-bold">{enq.user.name}</p>
+                                                        <p className="text-xs text-zinc-400">{enq.user.email}</p>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {enq.user.phone ? (
+                                                            <a href={`tel:${enq.user.phone}`} className="text-sm font-semibold text-blue-600 hover:underline">
+                                                                {enq.user.phone}
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-xs text-zinc-400">Not provided</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {enq.products.map(p => (
+                                                            <div key={p.id} className="text-sm">{p.name}</div>
+                                                        ))}
+                                                    </td>
+                                                    <td className="p-4 text-zinc-600 text-sm">{enq.date}</td>
+                                                    <td className="p-4">
+                                                        <select
+                                                            value={enq.status}
+                                                            onChange={e => updateEnquiryStatus(enq.id, e.target.value as Enquiry['status'])}
+                                                            className={`px-3 py-1.5 rounded-full text-[10px] font-bold border-0 cursor-pointer ${statusColors[enq.status]}`}
+                                                        >
+                                                            <option value="pending">Pending</option>
+                                                            <option value="contacted">Contacted</option>
+                                                            <option value="completed-win">Complete - WIN</option>
+                                                            <option value="completed-loss">Complete - LOSS</option>
+                                                            <option value="cancelled">Cancelled</option>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Quality Content Tab */}
+                    {tab === 'quality' && (isSuperAdmin || hasPermission('quality')) && (
+                        <div>
+                            <p className="text-zinc-500 mb-6">Upload certificates, plant photos, and product samples for each category and subcategory.</p>
+
+                            {/* Category Selection */}
+                            <div className="mb-6">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Select Category</label>
+                                <div className="flex gap-3 flex-wrap">
+                                    {managedCategories.map(cat => {
+                                        const categoryIcons: Record<string, any> = { food: Utensils, pharma: Pill, glass: FlaskConical, promo: Gift };
+                                        const CatIcon = categoryIcons[cat.id] || Gift;
+                                        return (
+                                            <button
+                                                key={cat.id}
+                                                onClick={() => setSelectedQualityCategory(cat.id)}
+                                                className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest whitespace-nowrap transition-colors ${selectedQualityCategory === cat.id
+                                                    ? 'bg-black text-white'
+                                                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                                    }`}
+                                            >
+                                                <CatIcon className="w-4 h-4" />
+                                                {cat.name}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
-            {/* Enquiries Tab */}
-            {tab === 'enquiries' && (isSuperAdmin || hasPermission('enquiries')) && (
-                <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                    <div className="p-6 border-b border-zinc-100 flex justify-between items-center flex-wrap gap-4">
-                        <h3 className="font-black uppercase tracking-widest text-sm">All Enquiries ({allEnquiries.length})</h3>
-                        <div className="flex gap-2">
-                            <span className="px-3 py-1 bg-yellow-50 text-yellow-700 text-[9px] font-bold rounded-full">
-                                Pending: {allEnquiries.filter(e => e.status === 'pending').length}
-                            </span>
-                            <span className="px-3 py-1 bg-blue-50 text-blue-700 text-[9px] font-bold rounded-full">
-                                Contacted: {allEnquiries.filter(e => e.status === 'contacted').length}
-                            </span>
-                            <span className="px-3 py-1 bg-green-50 text-green-700 text-[9px] font-bold rounded-full">
-                                Completed: {allEnquiries.filter(e => e.status === 'completed').length}
-                            </span>
-                        </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-zinc-50">
-                                <tr>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">ID</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Customer</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Products</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Date</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {allEnquiries.map(enq => (
-                                    <tr key={enq.id} className="border-t border-zinc-50 hover:bg-zinc-50">
-                                        <td className="p-4 font-bold text-zinc-400">#{enq.id}</td>
-                                        <td className="p-4">
-                                            <p className="font-bold">{enq.user.name}</p>
-                                            <p className="text-xs text-zinc-400">{enq.user.email}</p>
-                                            <p className="text-xs text-zinc-500">{enq.user.phone || 'No phone'}</p>
-                                        </td>
-                                        <td className="p-4">
-                                            {enq.products.map(p => (
-                                                <div key={p.id} className="text-sm">{p.name}</div>
-                                            ))}
-                                        </td>
-                                        <td className="p-4 text-zinc-600 text-sm">{enq.date}</td>
-                                        <td className="p-4">
-                                            <select
-                                                value={enq.status}
-                                                onChange={e => updateEnquiryStatus(enq.id, e.target.value as Enquiry['status'])}
-                                                className={`px-3 py-1.5 rounded-full text-[10px] font-bold border-0 cursor-pointer ${statusColors[enq.status]}`}
+                            {/* Subcategory Selection */}
+                            {selectedQualityCategory && (
+                                <div className="mb-6">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Select Subcategory</label>
+                                    <select
+                                        value={qualitySubcategory}
+                                        onChange={(e) => setQualitySubcategory(e.target.value)}
+                                        className="px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                    >
+                                        <option value="">-- Select Subcategory --</option>
+                                        <option value="all">All {managedCategories.find(c => c.id === selectedQualityCategory)?.name}</option>
+                                        {managedCategories.find(c => c.id === selectedQualityCategory)?.subcategories?.map(sub => (
+                                            <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Content Type Selection */}
+                            {qualitySubcategory && (
+                                <div className="mb-6">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Content Type</label>
+                                    <div className="flex gap-3">
+                                        {['certificate', 'plant', 'sample'].map(type => (
+                                            <button
+                                                key={type}
+                                                onClick={() => setQualityContentType(type)}
+                                                className={`px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest ${qualityContentType === type
+                                                    ? type === 'certificate' ? 'bg-green-600 text-white' : type === 'plant' ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'
+                                                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                                    }`}
                                             >
-                                                <option value="pending">Pending</option>
-                                                <option value="contacted">Contacted</option>
-                                                <option value="completed-win">Complete - WIN</option>
-                                                <option value="completed-loss">Complete - LOSS</option>
-                                                <option value="cancelled">Cancelled</option>
-                                            </select>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
+                                                {type === 'certificate' ? 'Certificates' : type === 'plant' ? 'Plant Photos' : 'Product Samples'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
-            {/* Quality Content Tab */}
-            {tab === 'quality' && (
-                <div>
-                    <p className="text-zinc-500 mb-6">Upload certificates, plant photos, and product samples for each category and subcategory.</p>
-
-                    {/* Category Selection */}
-                    <div className="mb-6">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Select Category</label>
-                        <div className="flex gap-3 flex-wrap">
-                            {managedCategories.map(cat => {
-                                const categoryIcons: Record<string, any> = { food: Utensils, pharma: Pill, glass: FlaskConical, promo: Gift };
-                                const CatIcon = categoryIcons[cat.id] || Gift;
-                                return (
+                            {/* Add New Item */}
+                            {qualitySubcategory && qualityContentType && (
+                                <div className="bg-zinc-50 rounded-2xl p-6 mb-8">
+                                    <h3 className="font-bold mb-4">Add New {qualityContentType === 'certificate' ? 'Certificate' : qualityContentType === 'plant' ? 'Plant Photo' : 'Product Sample'}</h3>
+                                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                                        <input
+                                            type="text"
+                                            placeholder="Title"
+                                            id="qualityItemTitle"
+                                            className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
+                                        />
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            id="qualityItemImage"
+                                            className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white"
+                                        />
+                                    </div>
+                                    <textarea
+                                        placeholder="Description (optional - write about this image)"
+                                        id="qualityItemDesc"
+                                        rows={3}
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none resize-none mb-4"
+                                    />
+                                    <p className="text-xs text-zinc-400 mb-4">Max 5MB image file. Supports JPG, PNG, WebP.</p>
                                     <button
-                                        key={cat.id}
-                                        onClick={() => setSelectedQualityCategory(cat.id)}
-                                        className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest whitespace-nowrap transition-colors ${selectedQualityCategory === cat.id
-                                            ? 'bg-black text-white'
-                                            : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                                            }`}
-                                    >
-                                        <CatIcon className="w-4 h-4" />
-                                        {cat.name}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
+                                        onClick={async () => {
+                                            const title = (document.getElementById('qualityItemTitle') as HTMLInputElement)?.value;
+                                            const fileInput = document.getElementById('qualityItemImage') as HTMLInputElement;
+                                            const description = (document.getElementById('qualityItemDesc') as HTMLTextAreaElement)?.value;
+                                            const file = fileInput?.files?.[0];
 
-                    {/* Subcategory Selection */}
-                    {selectedQualityCategory && (
-                        <div className="mb-6">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Select Subcategory</label>
-                            <select
-                                value={qualitySubcategory}
-                                onChange={(e) => setQualitySubcategory(e.target.value)}
-                                className="px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                            >
-                                <option value="">-- Select Subcategory --</option>
-                                <option value="all">All {managedCategories.find(c => c.id === selectedQualityCategory)?.name}</option>
-                                {managedCategories.find(c => c.id === selectedQualityCategory)?.subcategories?.map(sub => (
-                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+                                            if (!title) return alert('Please enter a title');
+                                            if (!file) return alert('Please select an image file');
+                                            if (file.size > 5 * 1024 * 1024) return alert('Image too large! Max 5MB.');
 
-                    {/* Content Type Selection */}
-                    {qualitySubcategory && (
-                        <div className="mb-6">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Content Type</label>
-                            <div className="flex gap-3">
-                                {['certificate', 'plant', 'sample'].map(type => (
-                                    <button
-                                        key={type}
-                                        onClick={() => setQualityContentType(type)}
-                                        className={`px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest ${qualityContentType === type
-                                            ? type === 'certificate' ? 'bg-green-600 text-white' : type === 'plant' ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'
-                                            : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                                            }`}
-                                    >
-                                        {type === 'certificate' ? 'Certificates' : type === 'plant' ? 'Plant Photos' : 'Product Samples'}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                                            try {
+                                                // Upload image to Supabase Storage
+                                                const fileName = `quality/${selectedQualityCategory}/${qualitySubcategory}/${qualityContentType}/${Date.now()}_${file.name}`;
+                                                const { data: uploadData, error: uploadError } = await supabase.storage
+                                                    .from('quality-images')
+                                                    .upload(fileName, file, { cacheControl: '3600', upsert: false });
 
-                    {/* Add New Item */}
-                    {qualitySubcategory && qualityContentType && (
-                        <div className="bg-zinc-50 rounded-2xl p-6 mb-8">
-                            <h3 className="font-bold mb-4">Add New {qualityContentType === 'certificate' ? 'Certificate' : qualityContentType === 'plant' ? 'Plant Photo' : 'Product Sample'}</h3>
-                            <div className="grid md:grid-cols-2 gap-4 mb-4">
-                                <input
-                                    type="text"
-                                    placeholder="Title"
-                                    id="qualityItemTitle"
-                                    className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none"
-                                />
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    id="qualityItemImage"
-                                    className="px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white"
-                                />
-                            </div>
-                            <textarea
-                                placeholder="Description (optional - write about this image)"
-                                id="qualityItemDesc"
-                                rows={3}
-                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none resize-none mb-4"
-                            />
-                            <p className="text-xs text-zinc-400 mb-4">Max 5MB image file. Supports JPG, PNG, WebP.</p>
-                            <button
-                                onClick={async () => {
-                                    const title = (document.getElementById('qualityItemTitle') as HTMLInputElement)?.value;
-                                    const fileInput = document.getElementById('qualityItemImage') as HTMLInputElement;
-                                    const description = (document.getElementById('qualityItemDesc') as HTMLTextAreaElement)?.value;
-                                    const file = fileInput?.files?.[0];
+                                                if (uploadError) {
+                                                    // If bucket doesn't exist, use base64 as fallback
+                                                    console.warn('Storage upload failed, using base64 fallback:', uploadError);
+                                                    const reader = new FileReader();
+                                                    reader.onload = async () => {
+                                                        const imageUrl = reader.result as string;
+                                                        const saved = await saveQualityUploadToSupabase(
+                                                            selectedQualityCategory,
+                                                            qualitySubcategory,
+                                                            qualityContentType,
+                                                            title,
+                                                            imageUrl,
+                                                            description
+                                                        );
+                                                        if (saved) {
+                                                            await fetchQualityUploadsFromSupabase();
+                                                            (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
+                                                            (document.getElementById('qualityItemDesc') as HTMLTextAreaElement).value = '';
+                                                            fileInput.value = '';
+                                                            alert('✅ Item added!');
+                                                        }
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                    return;
+                                                }
 
-                                    if (!title) return alert('Please enter a title');
-                                    if (!file) return alert('Please select an image file');
-                                    if (file.size > 5 * 1024 * 1024) return alert('Image too large! Max 5MB.');
+                                                // Get public URL
+                                                const { data: urlData } = supabase.storage.from('quality-images').getPublicUrl(fileName);
+                                                const imageUrl = urlData.publicUrl;
 
-                                    try {
-                                        // Upload image to Supabase Storage
-                                        const fileName = `quality/${selectedQualityCategory}/${qualitySubcategory}/${qualityContentType}/${Date.now()}_${file.name}`;
-                                        const { data: uploadData, error: uploadError } = await supabase.storage
-                                            .from('quality-images')
-                                            .upload(fileName, file, { cacheControl: '3600', upsert: false });
-
-                                        if (uploadError) {
-                                            // If bucket doesn't exist, use base64 as fallback
-                                            console.warn('Storage upload failed, using base64 fallback:', uploadError);
-                                            const reader = new FileReader();
-                                            reader.onload = async () => {
-                                                const imageUrl = reader.result as string;
+                                                // Save to database
                                                 const saved = await saveQualityUploadToSupabase(
                                                     selectedQualityCategory,
                                                     qualitySubcategory,
@@ -1024,6 +1407,7 @@ export function Admin() {
                                                     imageUrl,
                                                     description
                                                 );
+
                                                 if (saved) {
                                                     await fetchQualityUploadsFromSupabase();
                                                     (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
@@ -1031,315 +1415,257 @@ export function Admin() {
                                                     fileInput.value = '';
                                                     alert('✅ Item added!');
                                                 }
-                                            };
-                                            reader.readAsDataURL(file);
-                                            return;
-                                        }
-
-                                        // Get public URL
-                                        const { data: urlData } = supabase.storage.from('quality-images').getPublicUrl(fileName);
-                                        const imageUrl = urlData.publicUrl;
-
-                                        // Save to database
-                                        const saved = await saveQualityUploadToSupabase(
-                                            selectedQualityCategory,
-                                            qualitySubcategory,
-                                            qualityContentType,
-                                            title,
-                                            imageUrl,
-                                            description
-                                        );
-
-                                        if (saved) {
-                                            await fetchQualityUploadsFromSupabase();
-                                            (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
-                                            (document.getElementById('qualityItemDesc') as HTMLTextAreaElement).value = '';
-                                            fileInput.value = '';
-                                            alert('✅ Item added!');
-                                        }
-                                    } catch (err) {
-                                        console.error('Error adding item:', err);
-                                        alert('Failed to add item. Please try again.');
-                                    }
-                                }}
-                                className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
-                            >
-                                Add Item
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Display Current Items */}
-                    {qualitySubcategory && qualityContentType && (
-                        <div>
-                            <h3 className="font-bold mb-4">Current Items ({selectedQualityCategory} / {qualitySubcategory} / {qualityContentType})</h3>
-                            {(() => {
-                                const key = `${selectedQualityCategory}_${qualitySubcategory}_${qualityContentType}`;
-                                const items = qualityContent[key] || [];
-                                return items.length > 0 ? (
-                                    <div className="grid md:grid-cols-3 gap-6">
-                                        {items.map((item: any) => (
-                                            <div key={item.id} className="bg-white rounded-2xl border border-zinc-100 overflow-hidden group">
-                                                <div className="aspect-video overflow-hidden relative">
-                                                    <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
-                                                    <button
-                                                        onClick={async () => {
-                                                            if (!confirm('Delete this item?')) return;
-                                                            await deleteQualityUploadFromSupabase(item.id);
-                                                            await fetchQualityUploadsFromSupabase();
-                                                        }}
-                                                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                                <div className="p-4">
-                                                    <h4 className="font-bold">{item.title}</h4>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-12 bg-zinc-50 rounded-2xl">
-                                        <p className="text-zinc-400">No items added yet. Add your first item above.</p>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Product Modal */}
-            {showProductModal && (
-                <ProductModal
-                    product={editingProduct}
-                    onClose={closeModal}
-                    managedCategories={managedCategories}
-                    onSave={(product) => {
-                        if (editingProduct) {
-                            const updated = products.map(p => p.id === product.id ? product : p);
-                            setProducts(updated);
-                            localStorage.setItem('arovaveProducts', JSON.stringify(updated));
-                            // Save trending products to localStorage
-                            const trendingIds = updated.filter(p => p.isTrending).map(p => p.id);
-                            localStorage.setItem('arovaveTrendingProducts', JSON.stringify(trendingIds));
-                        } else {
-                            const newId = Math.max(...products.map(p => p.id)) + 1;
-                            const newProduct = { ...product, id: newId };
-                            const updated = [...products, newProduct];
-                            setProducts(updated);
-                            localStorage.setItem('arovaveProducts', JSON.stringify(updated));
-                            // Save trending products to localStorage
-                            const trendingIds = updated.filter(p => p.isTrending).map(p => p.id);
-                            localStorage.setItem('arovaveTrendingProducts', JSON.stringify(trendingIds));
-                        }
-                        closeModal();
-                    }}
-                />
-            )}
-
-            {/* Settings Tab */}
-            {tab === 'settings' && (
-                <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                    <div className="p-6 border-b border-zinc-100">
-                        <h3 className="font-black uppercase tracking-widest text-sm">Website Settings</h3>
-                    </div>
-                    <div className="p-6 space-y-6">
-                        <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
-                                Landing Page Background Video
-                            </label>
-
-                            {/* File Upload - Upload to Supabase Storage */}
-                            <input
-                                type="file"
-                                accept="video/mp4,video/webm,video/ogg"
-                                onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                        // Max 50MB for Supabase Storage
-                                        if (file.size > 50 * 1024 * 1024) {
-                                            alert('Video file too large! Maximum 50MB allowed.');
-                                            return;
-                                        }
-
-                                        setIsSavingVideo(true);
-                                        try {
-                                            // Generate unique filename
-                                            const filename = `background_${Date.now()}.${file.name.split('.').pop()}`;
-
-                                            // Upload to Supabase Storage
-                                            const { data: uploadData, error: uploadError } = await supabase.storage
-                                                .from('videos')
-                                                .upload(filename, file, {
-                                                    cacheControl: '3600',
-                                                    upsert: true
-                                                });
-
-                                            if (uploadError) {
-                                                console.error('Upload error:', uploadError);
-                                                alert('Failed to upload video: ' + uploadError.message);
-                                                return;
+                                            } catch (err) {
+                                                console.error('Error adding item:', err);
+                                                alert('Failed to add item. Please try again.');
                                             }
-
-                                            // Get public URL
-                                            const { data: urlData } = supabase.storage
-                                                .from('videos')
-                                                .getPublicUrl(filename);
-
-                                            const publicUrl = urlData.publicUrl;
-
-                                            // Save URL to site_settings
-                                            await saveVideoUrl(publicUrl);
-                                            setVideoUrl(publicUrl);
-
-                                        } catch (err) {
-                                            console.error('Upload error:', err);
-                                            alert('Failed to upload video. Please try again.');
-                                        } finally {
-                                            setIsSavingVideo(false);
-                                        }
-                                    }
-                                }}
-                                disabled={isSavingVideo}
-                                className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white file:cursor-pointer disabled:opacity-50"
-                            />
-                            <p className="text-xs text-zinc-400 mt-2">
-                                {isSavingVideo ? 'Uploading video...' : 'Upload .mp4, .webm or .ogg video (max 50MB). Short looping video recommended.'}
-                            </p>
-
-                            {/* Or URL Input */}
-                            <div className="mt-4 pt-4 border-t border-zinc-100">
-                                <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Or enter video URL</p>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="url"
-                                        value={videoUrl.startsWith('data:') ? '' : videoUrl}
-                                        onChange={(e) => setVideoUrl(e.target.value)}
-                                        placeholder="https://example.com/video.mp4"
-                                        className="flex-1 px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none text-sm"
-                                    />
-                                    <button
-                                        onClick={() => saveVideoUrl(videoUrl)}
-                                        disabled={isSavingVideo}
-                                        className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                                        }}
+                                        className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
                                     >
-                                        {isSavingVideo ? 'Saving...' : 'Save URL'}
+                                        Add Item
                                     </button>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Preview */}
-                            {videoUrl && (
-                                <div className="mt-4 pt-4 border-t border-zinc-100">
-                                    <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Current Video Preview</p>
-                                    <video
-                                        src={videoUrl}
-                                        className="w-full max-w-md rounded-xl"
-                                        controls
-                                        muted
-                                    />
+                            {/* Display Current Items */}
+                            {qualitySubcategory && qualityContentType && (
+                                <div>
+                                    <h3 className="font-bold mb-4">Current Items ({selectedQualityCategory} / {qualitySubcategory} / {qualityContentType})</h3>
+                                    {(() => {
+                                        const key = `${selectedQualityCategory}_${qualitySubcategory}_${qualityContentType}`;
+                                        const items = qualityContent[key] || [];
+                                        return items.length > 0 ? (
+                                            <div className="grid md:grid-cols-3 gap-6">
+                                                {items.map((item: any) => (
+                                                    <div key={item.id} className="bg-white rounded-2xl border border-zinc-100 overflow-hidden group">
+                                                        <div className="aspect-video overflow-hidden relative">
+                                                            <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (!confirm('Delete this item?')) return;
+                                                                    await deleteQualityUploadFromSupabase(item.id);
+                                                                    await fetchQualityUploadsFromSupabase();
+                                                                }}
+                                                                className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                        <div className="p-4">
+                                                            <h4 className="font-bold">{item.title}</h4>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-12 bg-zinc-50 rounded-2xl">
+                                                <p className="text-zinc-400">No items added yet. Add your first item above.</p>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             )}
                         </div>
-                    </div>
-                </div>
-            )}
+                    )}
 
-            {/* Categories Tab (Super Admin Only) */}
-            {tab === 'categories' && isSuperAdmin && (
-                <div className="space-y-6">
-                    <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                        <div className="p-6 border-b border-zinc-100">
-                            <h3 className="font-black uppercase tracking-widest text-sm">Manage Subcategories</h3>
-                            <p className="text-zinc-500 text-sm mt-2">Add or remove subcategories for each product category.</p>
-                        </div>
-                        <div className="p-6">
-                            {/* Category Selector */}
-                            <div className="mb-6">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Select Category</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {managedCategories.map(cat => (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => setSelectedCategoryForSubcat(cat.id)}
-                                            className={`px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-widest transition-colors ${selectedCategoryForSubcat === cat.id
-                                                ? 'bg-black text-white'
-                                                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                                                }`}
-                                        >
-                                            {cat.name}
-                                        </button>
-                                    ))}
-                                </div>
+                    {/* Product Modal */}
+                    {showProductModal && (
+                        <ProductModal
+                            product={editingProduct}
+                            onClose={closeModal}
+                            managedCategories={managedCategories}
+                            isSaving={isSavingProduct}
+                            onSave={async (product) => {
+                                setIsSavingProduct(true);
+                                try {
+                                    const isNew = !editingProduct;
+                                    const result = await saveProductToSupabase(product, isNew);
+
+                                    if (result.success && result.product) {
+                                        // Refresh products from Supabase
+                                        const fetchedProducts = await fetchProductsFromSupabase();
+                                        setProducts(fetchedProducts);
+                                        closeModal();
+                                        // Show success notification
+                                        showNotification(
+                                            isNew ? `Product "${product.name}" added successfully!` : `Product "${product.name}" updated successfully!`,
+                                            'success'
+                                        );
+                                    } else if (result.error) {
+                                        // Show error message (e.g., duplicate product name)
+                                        showNotification(result.error, 'error');
+                                        // Don't close modal so user can fix the issue
+                                    }
+                                } catch (err) {
+                                    console.error('Error saving product:', err);
+                                    showNotification('Failed to save product. Please try again.', 'error');
+                                } finally {
+                                    setIsSavingProduct(false);
+                                }
+                            }}
+                        />
+                    )}
+
+                    {/* Settings Tab */}
+                    {tab === 'settings' && (
+                        <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                            <div className="p-6 border-b border-zinc-100">
+                                <h3 className="font-black uppercase tracking-widest text-sm">Website Settings</h3>
                             </div>
+                            <div className="p-6 space-y-6">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                        Landing Page Background Video
+                                    </label>
 
-                            {/* Add New Subcategory */}
-                            <div className="mb-6 p-4 bg-zinc-50 rounded-xl">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Add New Subcategory</label>
-                                <div className="flex gap-2">
+                                    {/* File Upload - Upload to Supabase Storage */}
                                     <input
-                                        type="text"
-                                        value={newSubcategoryName}
-                                        onChange={e => setNewSubcategoryName(e.target.value)}
-                                        placeholder="e.g., Organic Products"
-                                        className="flex-1 px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                                    />
-                                    <button
-                                        onClick={() => {
-                                            if (!newSubcategoryName.trim()) return;
-                                            const updatedCategories = managedCategories.map(cat => {
-                                                if (cat.id === selectedCategoryForSubcat) {
-                                                    const newId = newSubcategoryName.toLowerCase().replace(/\s+/g, '-');
-                                                    if (cat.subcategories.some(s => s.id === newId)) {
-                                                        alert('Subcategory already exists!');
-                                                        return cat;
-                                                    }
-                                                    return {
-                                                        ...cat,
-                                                        subcategories: [...cat.subcategories, { id: newId, name: newSubcategoryName.trim() }]
-                                                    };
+                                        type="file"
+                                        accept="video/mp4,video/webm,video/ogg"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                // Max 50MB for Supabase Storage
+                                                if (file.size > 50 * 1024 * 1024) {
+                                                    alert('Video file too large! Maximum 50MB allowed.');
+                                                    return;
                                                 }
-                                                return cat;
-                                            });
-                                            setManagedCategories(updatedCategories);
-                                            localStorage.setItem('arovaveCategories', JSON.stringify(updatedCategories));
-                                            // Save to Supabase for persistence
-                                            const updatedCat = updatedCategories.find(c => c.id === selectedCategoryForSubcat);
-                                            if (updatedCat) {
-                                                saveCategoryToSupabase(updatedCat.id, updatedCat.subcategories);
+
+                                                setIsSavingVideo(true);
+                                                try {
+                                                    // Generate unique filename
+                                                    const filename = `background_${Date.now()}.${file.name.split('.').pop()}`;
+
+                                                    // Upload to Supabase Storage
+                                                    const { data: uploadData, error: uploadError } = await supabase.storage
+                                                        .from('videos')
+                                                        .upload(filename, file, {
+                                                            cacheControl: '3600',
+                                                            upsert: true
+                                                        });
+
+                                                    if (uploadError) {
+                                                        console.error('Upload error:', uploadError);
+                                                        alert('Failed to upload video: ' + uploadError.message);
+                                                        return;
+                                                    }
+
+                                                    // Get public URL
+                                                    const { data: urlData } = supabase.storage
+                                                        .from('videos')
+                                                        .getPublicUrl(filename);
+
+                                                    const publicUrl = urlData.publicUrl;
+
+                                                    // Save URL to site_settings
+                                                    await saveVideoUrl(publicUrl);
+                                                    setVideoUrl(publicUrl);
+
+                                                } catch (err) {
+                                                    console.error('Upload error:', err);
+                                                    alert('Failed to upload video. Please try again.');
+                                                } finally {
+                                                    setIsSavingVideo(false);
+                                                }
                                             }
-                                            setNewSubcategoryName('');
                                         }}
-                                        className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors flex items-center gap-2"
-                                    >
-                                        <Plus className="w-4 h-4" /> Add
-                                    </button>
+                                        disabled={isSavingVideo}
+                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white file:cursor-pointer disabled:opacity-50"
+                                    />
+                                    <p className="text-xs text-zinc-400 mt-2">
+                                        {isSavingVideo ? 'Uploading video...' : 'Upload .mp4, .webm or .ogg video (max 50MB). Short looping video recommended.'}
+                                    </p>
+
+                                    {/* Or URL Input */}
+                                    <div className="mt-4 pt-4 border-t border-zinc-100">
+                                        <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Or enter video URL</p>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="url"
+                                                value={videoUrl.startsWith('data:') ? '' : videoUrl}
+                                                onChange={(e) => setVideoUrl(e.target.value)}
+                                                placeholder="https://example.com/video.mp4"
+                                                className="flex-1 px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none text-sm"
+                                            />
+                                            <button
+                                                onClick={() => saveVideoUrl(videoUrl)}
+                                                disabled={isSavingVideo}
+                                                className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                                            >
+                                                {isSavingVideo ? 'Saving...' : 'Save URL'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Preview */}
+                                    {videoUrl && (
+                                        <div className="mt-4 pt-4 border-t border-zinc-100">
+                                            <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Current Video Preview</p>
+                                            <video
+                                                src={videoUrl}
+                                                className="w-full max-w-md rounded-xl"
+                                                controls
+                                                muted
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
+                        </div>
+                    )}
 
-                            {/* Subcategory List */}
-                            <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-3">
-                                    Current Subcategories ({managedCategories.find(c => c.id === selectedCategoryForSubcat)?.subcategories.length || 0})
-                                </label>
-                                <div className="space-y-2">
-                                    {managedCategories.find(c => c.id === selectedCategoryForSubcat)?.subcategories.map((subcat, idx) => (
-                                        <div key={subcat.id} className="flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-xl">
-                                            <div className="flex items-center gap-3">
-                                                <span className="w-6 h-6 bg-zinc-100 rounded-full flex items-center justify-center text-xs font-bold text-zinc-500">{idx + 1}</span>
-                                                <span className="font-semibold">{subcat.name}</span>
-                                                <span className="text-xs text-zinc-400">({subcat.id})</span>
-                                            </div>
+                    {/* Categories Tab */}
+                    {tab === 'categories' && (isSuperAdmin || hasPermission('categories')) && (
+                        <div className="space-y-6">
+                            <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                                <div className="p-6 border-b border-zinc-100">
+                                    <h3 className="font-black uppercase tracking-widest text-sm">Manage Subcategories</h3>
+                                    <p className="text-zinc-500 text-sm mt-2">Add or remove subcategories for each product category.</p>
+                                </div>
+                                <div className="p-6">
+                                    {/* Category Selector */}
+                                    <div className="mb-6">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Select Category</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {managedCategories.map(cat => (
+                                                <button
+                                                    key={cat.id}
+                                                    onClick={() => setSelectedCategoryForSubcat(cat.id)}
+                                                    className={`px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-widest transition-colors ${selectedCategoryForSubcat === cat.id
+                                                        ? 'bg-black text-white'
+                                                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                                        }`}
+                                                >
+                                                    {cat.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Add New Subcategory */}
+                                    <div className="mb-6 p-4 bg-zinc-50 rounded-xl">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Add New Subcategory</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={newSubcategoryName}
+                                                onChange={e => setNewSubcategoryName(e.target.value)}
+                                                placeholder="e.g., Organic Products"
+                                                className="flex-1 px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                            />
                                             <button
-                                                onClick={async () => {
-                                                    if (!confirm(`Delete subcategory "${subcat.name}"?`)) return;
+                                                onClick={() => {
+                                                    if (!newSubcategoryName.trim()) return;
                                                     const updatedCategories = managedCategories.map(cat => {
                                                         if (cat.id === selectedCategoryForSubcat) {
+                                                            const newId = newSubcategoryName.toLowerCase().replace(/\s+/g, '-');
+                                                            if (cat.subcategories.some(s => s.id === newId)) {
+                                                                alert('Subcategory already exists!');
+                                                                return cat;
+                                                            }
                                                             return {
                                                                 ...cat,
-                                                                subcategories: cat.subcategories.filter(s => s.id !== subcat.id)
+                                                                subcategories: [...cat.subcategories, { id: newId, name: newSubcategoryName.trim() }]
                                                             };
                                                         }
                                                         return cat;
@@ -1349,172 +1675,225 @@ export function Admin() {
                                                     // Save to Supabase for persistence
                                                     const updatedCat = updatedCategories.find(c => c.id === selectedCategoryForSubcat);
                                                     if (updatedCat) {
-                                                        try {
-                                                            await saveCategoryToSupabase(updatedCat.id, updatedCat.subcategories);
-                                                            alert('✅ Subcategory deleted!');
-                                                        } catch (err) {
-                                                            console.error('Error saving to Supabase:', err);
-                                                            alert('Deleted locally but failed to sync to database');
-                                                        }
+                                                        saveCategoryToSupabase(updatedCat.id, updatedCat.subcategories);
                                                     }
+                                                    setNewSubcategoryName('');
                                                 }}
-                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors flex items-center gap-2"
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                <Plus className="w-4 h-4" /> Add
                                             </button>
                                         </div>
-                                    ))}
-                                    {managedCategories.find(c => c.id === selectedCategoryForSubcat)?.subcategories.length === 0 && (
-                                        <p className="text-zinc-400 text-sm text-center py-4">No subcategories yet. Add one above.</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Support Tab */}
-            {tab === 'support' && (isSuperAdmin || hasPermission('enquiries')) && (
-                <div className="space-y-6">
-                    {/* Header with filter */}
-                    <div className="flex items-center justify-between">
-                        <h3 className="font-black uppercase tracking-widest text-sm">Support Tickets</h3>
-                        <div className="flex gap-2">
-                            {['all', 'open', 'in_progress', 'resolved', 'closed'].map(status => (
-                                <button
-                                    key={status}
-                                    onClick={() => setSupportStatusFilter(status)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest ${supportStatusFilter === status
-                                        ? 'bg-black text-white'
-                                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                                        }`}
-                                >
-                                    {status === 'all' ? 'All' : status.replace('_', ' ')}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Selected Ticket View */}
-                    {selectedSupportTicket ? (
-                        <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                            {/* Ticket Header */}
-                            <div className="p-6 border-b border-zinc-100">
-                                <button
-                                    onClick={() => { setSelectedSupportTicket(null); setSupportMessages([]); }}
-                                    className="text-sm text-zinc-400 hover:text-black mb-4 flex items-center gap-2"
-                                >
-                                    ← Back to Tickets
-                                </button>
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <h2 className="text-xl font-black mb-1">{selectedSupportTicket.subject}</h2>
-                                        <p className="text-sm text-zinc-400">
-                                            From: {selectedSupportTicket.user_name} ({selectedSupportTicket.user_email})
-                                        </p>
-                                        <p className="text-sm text-zinc-400">
-                                            {problemTypeLabels[selectedSupportTicket.problem_type] || selectedSupportTicket.problem_type} • {new Date(selectedSupportTicket.created_at).toLocaleDateString()}
-                                        </p>
                                     </div>
-                                    <select
-                                        value={selectedSupportTicket.status}
-                                        onChange={e => updateTicketStatus(selectedSupportTicket.id, e.target.value)}
-                                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase ${supportStatusConfig[selectedSupportTicket.status]?.color}`}
-                                    >
-                                        <option value="open">Open</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="resolved">Resolved</option>
-                                        <option value="closed">Closed</option>
-                                    </select>
-                                </div>
-                            </div>
 
-                            {/* Messages */}
-                            <div className="p-6 max-h-96 overflow-y-auto space-y-4 bg-zinc-50">
-                                {supportMessages.map(msg => (
-                                    <div
-                                        key={msg.id}
-                                        className={`flex ${msg.sender_type === 'admin' ? 'justify-end' : 'justify-start'}`}
-                                    >
-                                        <div className={`max-w-[75%] rounded-2xl p-4 ${msg.sender_type === 'admin'
-                                            ? 'bg-black text-white'
-                                            : 'bg-white border-2 border-zinc-200'
-                                            }`}>
-                                            <p className={`text-xs font-bold mb-1 ${msg.sender_type === 'admin' ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                                                {msg.sender_name} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
-                                            <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                                    {/* Subcategory List */}
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-3">
+                                            Current Subcategories ({managedCategories.find(c => c.id === selectedCategoryForSubcat)?.subcategories.length || 0})
+                                        </label>
+                                        <div className="space-y-2">
+                                            {managedCategories.find(c => c.id === selectedCategoryForSubcat)?.subcategories.map((subcat, idx) => (
+                                                <div key={subcat.id} className="flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-xl">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="w-6 h-6 bg-zinc-100 rounded-full flex items-center justify-center text-xs font-bold text-zinc-500">{idx + 1}</span>
+                                                        <span className="font-semibold">{subcat.name}</span>
+                                                        <span className="text-xs text-zinc-400">({subcat.id})</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (!confirm(`Delete subcategory "${subcat.name}"?`)) return;
+                                                            const updatedCategories = managedCategories.map(cat => {
+                                                                if (cat.id === selectedCategoryForSubcat) {
+                                                                    return {
+                                                                        ...cat,
+                                                                        subcategories: cat.subcategories.filter(s => s.id !== subcat.id)
+                                                                    };
+                                                                }
+                                                                return cat;
+                                                            });
+                                                            setManagedCategories(updatedCategories);
+                                                            localStorage.setItem('arovaveCategories', JSON.stringify(updatedCategories));
+                                                            // Save to Supabase for persistence
+                                                            const updatedCat = updatedCategories.find(c => c.id === selectedCategoryForSubcat);
+                                                            if (updatedCat) {
+                                                                try {
+                                                                    await saveCategoryToSupabase(updatedCat.id, updatedCat.subcategories);
+                                                                    alert('✅ Subcategory deleted!');
+                                                                } catch (err) {
+                                                                    console.error('Error saving to Supabase:', err);
+                                                                    alert('Deleted locally but failed to sync to database');
+                                                                }
+                                                            }
+                                                        }}
+                                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {managedCategories.find(c => c.id === selectedCategoryForSubcat)?.subcategories.length === 0 && (
+                                                <p className="text-zinc-400 text-sm text-center py-4">No subcategories yet. Add one above.</p>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
-                                {supportMessages.length === 0 && (
-                                    <p className="text-center text-zinc-400 py-8">No messages yet.</p>
-                                )}
-                            </div>
-
-                            {/* Reply Input */}
-                            <div className="p-4 border-t border-zinc-100 flex gap-3">
-                                <input
-                                    type="text"
-                                    value={supportReply}
-                                    onChange={e => setSupportReply(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && sendSupportReply()}
-                                    placeholder="Type your reply..."
-                                    className="flex-1 px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
-                                />
-                                <button
-                                    onClick={sendSupportReply}
-                                    disabled={!supportReply.trim()}
-                                    className="px-6 py-3 bg-black text-white rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
-                                >
-                                    <Send className="w-5 h-5" />
-                                </button>
+                                </div>
                             </div>
                         </div>
-                    ) : (
-                        /* Ticket List */
-                        <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                            {loadingSupport ? (
-                                <div className="p-12 text-center">
-                                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
+                    )}
+
+                    {/* Support Tab */}
+                    {tab === 'support' && (isSuperAdmin || hasPermission('enquiries')) && (
+                        <div className="space-y-6">
+                            {/* Header with filter */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <h3 className="font-black uppercase tracking-widest text-sm">Support Tickets</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {['all', 'open', 'in_progress', 'resolved', 'closed'].map(status => (
+                                        <button
+                                            key={status}
+                                            onClick={() => setSupportStatusFilter(status)}
+                                            className={`px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest ${supportStatusFilter === status
+                                                ? 'bg-black text-white'
+                                                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                                }`}
+                                        >
+                                            {status === 'all' ? 'All' : status.replace('_', ' ')}
+                                        </button>
+                                    ))}
                                 </div>
-                            ) : supportTickets.filter(t => supportStatusFilter === 'all' || t.status === supportStatusFilter).length === 0 ? (
-                                <div className="p-12 text-center">
-                                    <MessageCircle className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
-                                    <p className="text-zinc-400">No support tickets found.</p>
+                            </div>
+
+                            {/* Selected Ticket View */}
+                            {selectedSupportTicket ? (
+                                <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                                    {/* Ticket Header */}
+                                    <div className="p-4 md:p-6 border-b border-zinc-100">
+                                        <button
+                                            onClick={() => { setSelectedSupportTicket(null); setSupportMessages([]); }}
+                                            className="text-sm text-zinc-400 hover:text-black mb-4 flex items-center gap-2"
+                                        >
+                                            ← Back to Tickets
+                                        </button>
+                                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <h2 className="text-lg md:text-xl font-black mb-1 break-words">{selectedSupportTicket.subject}</h2>
+                                                <p className="text-xs md:text-sm text-zinc-400 break-words">
+                                                    From: {selectedSupportTicket.user_name} ({selectedSupportTicket.user_email})
+                                                </p>
+                                                <p className="text-xs md:text-sm text-zinc-400">
+                                                    {problemTypeLabels[selectedSupportTicket.problem_type] || selectedSupportTicket.problem_type} • {new Date(selectedSupportTicket.created_at).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                            <select
+                                                value={selectedSupportTicket.status}
+                                                onChange={e => updateTicketStatus(selectedSupportTicket.id, e.target.value)}
+                                                className={`self-start px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase ${supportStatusConfig[selectedSupportTicket.status]?.color}`}
+                                            >
+                                                <option value="open">Open</option>
+                                                <option value="in_progress">In Progress</option>
+                                                <option value="resolved">Resolved</option>
+                                                <option value="closed">Closed</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Messages */}
+                                    <div
+                                        ref={chatContainerRef}
+                                        onWheel={(e) => {
+                                            e.stopPropagation();
+                                            const container = chatContainerRef.current;
+                                            if (container) {
+                                                container.scrollTop += e.deltaY;
+                                            }
+                                        }}
+                                        className="p-4 md:p-6 h-[50vh] md:h-[60vh] max-h-[500px] min-h-[200px] overflow-y-scroll overscroll-contain space-y-3 md:space-y-4 bg-zinc-50"
+                                    >
+                                        {supportMessages.map(msg => (
+                                            <div
+                                                key={msg.id}
+                                                className={`flex ${msg.sender_type === 'admin' ? 'justify-end' : 'justify-start'}`}
+                                            >
+                                                <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-3 md:p-4 ${msg.sender_type === 'admin'
+                                                    ? 'bg-black text-white'
+                                                    : 'bg-white border-2 border-zinc-200'
+                                                    }`}>
+                                                    <p className={`text-[10px] md:text-xs font-bold mb-1 truncate ${msg.sender_type === 'admin' ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                                        {msg.sender_name} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </p>
+                                                    <p className="leading-relaxed whitespace-pre-wrap break-words text-sm md:text-base">{msg.message}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {supportMessages.length === 0 && (
+                                            <p className="text-center text-zinc-400 py-8">No messages yet.</p>
+                                        )}
+                                    </div>
+
+                                    {/* Reply Input */}
+                                    <div className="p-3 md:p-4 border-t border-zinc-100 flex gap-2 md:gap-3">
+                                        <input
+                                            type="text"
+                                            value={supportReply}
+                                            onChange={e => setSupportReply(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && sendSupportReply()}
+                                            placeholder="Type your reply..."
+                                            className="flex-1 min-w-0 px-3 md:px-4 py-2.5 md:py-3 border-2 border-zinc-200 rounded-xl font-semibold text-sm focus:border-black focus:outline-none"
+                                        />
+                                        <button
+                                            onClick={sendSupportReply}
+                                            disabled={!supportReply.trim() || sendingReply}
+                                            className="px-4 md:px-6 py-2.5 md:py-3 bg-black text-white rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50 flex-shrink-0"
+                                        >
+                                            {sendingReply ? <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" /> : <Send className="w-4 h-4 md:w-5 md:h-5" />}
+                                        </button>
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-zinc-100">
-                                    {supportTickets
-                                        .filter(t => supportStatusFilter === 'all' || t.status === supportStatusFilter)
-                                        .map(ticket => (
-                                            <button
-                                                key={ticket.id}
-                                                onClick={() => { setSelectedSupportTicket(ticket); loadSupportMessages(ticket.id); }}
-                                                className="w-full flex items-center justify-between p-5 hover:bg-zinc-50 transition-colors text-left"
-                                            >
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${supportStatusConfig[ticket.status]?.color}`}>
-                                                        <MessageCircle className="w-5 h-5" />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold">{ticket.subject}</h3>
-                                                        <p className="text-sm text-zinc-400">
-                                                            {ticket.user_name} • {problemTypeLabels[ticket.problem_type] || ticket.problem_type} • {new Date(ticket.created_at).toLocaleDateString()}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase ${supportStatusConfig[ticket.status]?.color}`}>
-                                                    {supportStatusConfig[ticket.status]?.label}
-                                                </span>
-                                            </button>
-                                        ))}
+                                /* Ticket List */
+                                <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
+                                    {loadingSupport ? (
+                                        <div className="p-8 md:p-12 text-center">
+                                            <Loader2 className="w-8 h-8 animate-spin mx-auto text-zinc-400" />
+                                        </div>
+                                    ) : supportTickets.filter(t => supportStatusFilter === 'all' || t.status === supportStatusFilter).length === 0 ? (
+                                        <div className="p-8 md:p-12 text-center">
+                                            <MessageCircle className="w-10 h-10 md:w-12 md:h-12 text-zinc-300 mx-auto mb-4" />
+                                            <p className="text-zinc-400 text-sm md:text-base">No support tickets found.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="divide-y divide-zinc-100">
+                                            {supportTickets
+                                                .filter(t => supportStatusFilter === 'all' || t.status === supportStatusFilter)
+                                                .map(ticket => (
+                                                    <button
+                                                        key={ticket.id}
+                                                        onClick={() => { setSelectedSupportTicket(ticket); loadSupportMessages(ticket.id); }}
+                                                        className="w-full flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 hover:bg-zinc-50 transition-colors text-left gap-3"
+                                                    >
+                                                        <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+                                                            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${supportStatusConfig[ticket.status]?.color}`}>
+                                                                <MessageCircle className="w-4 h-4 md:w-5 md:h-5" />
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <h3 className="font-bold text-sm md:text-base truncate">{ticket.subject}</h3>
+                                                                <p className="text-xs md:text-sm text-zinc-400 truncate">
+                                                                    {ticket.user_name} • {problemTypeLabels[ticket.problem_type] || ticket.problem_type} • {new Date(ticket.created_at).toLocaleDateString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <span className={`self-start md:self-center px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[10px] md:text-xs font-bold uppercase whitespace-nowrap flex-shrink-0 ${supportStatusConfig[ticket.status]?.color}`}>
+                                                            {supportStatusConfig[ticket.status]?.label}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
                     )}
-                </div>
+                </>
             )}
         </div>
     );
@@ -1526,9 +1905,10 @@ interface ProductModalProps {
     onClose: () => void;
     onSave: (product: Product) => void;
     managedCategories: { id: string; name: string; subcategories: { id: string; name: string }[] }[];
+    isSaving?: boolean;
 }
 
-function ProductModal({ product, onClose, onSave, managedCategories }: ProductModalProps) {
+function ProductModal({ product, onClose, onSave, managedCategories, isSaving }: ProductModalProps) {
     // Find default image index (0 if not set)
     const initialDefaultIndex = product?.images?.findIndex(img => img === product?.thumbnail) ?? 0;
 
@@ -1538,7 +1918,8 @@ function ProductModal({ product, onClose, onSave, managedCategories }: ProductMo
         subcategory: product?.subcategory || '',
         hsn: product?.hsn || '',
         moq: product?.moq || '',
-        priceRange: product?.priceRange || '',
+        price: product?.priceRange?.replace(/[^0-9.-]/g, '') || '',
+        priceUnit: product?.priceRange?.includes('/') ? product?.priceRange?.split('/')[1]?.trim() : 'kg',
         description: product?.description || '',
         certifications: product?.certifications.join(', ') || '',
         images: product?.images || [],
@@ -1606,7 +1987,7 @@ function ProductModal({ product, onClose, onSave, managedCategories }: ProductMo
             subcategory: formData.subcategory || undefined,
             hsn: formData.hsn,
             moq: formData.moq,
-            priceRange: formData.priceRange,
+            priceRange: `${formData.price}/${formData.priceUnit}`,
             description: formData.description,
             certifications: formData.certifications.split(',').map(s => s.trim()).filter(Boolean),
             images: orderedImages,
@@ -1625,10 +2006,10 @@ function ProductModal({ product, onClose, onSave, managedCategories }: ProductMo
     };
 
     return (
-        <div className="modal-overlay fixed inset-0" onClick={onClose}>
-            <div data-lenis-prevent className="bg-white p-8 rounded-[32px] w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-8">
-                    <h3 className="text-2xl font-black uppercase tracking-tighter">
+        <div className="modal-overlay fixed inset-0 z-50 px-4 md:px-0" onClick={onClose}>
+            <div data-lenis-prevent className="bg-white p-4 md:p-8 rounded-2xl md:rounded-[32px] w-full max-w-2xl shadow-2xl max-h-[95vh] md:max-h-[90vh] overflow-y-auto mx-auto my-4 md:my-auto" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-6 md:mb-8">
+                    <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter">
                         {product ? 'Edit Product' : 'Add New Product'}
                     </h3>
                     <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-full">
@@ -1637,7 +2018,7 @@ function ProductModal({ product, onClose, onSave, managedCategories }: ProductMo
                 </div>
 
                 <form onSubmit={handleSubmit}>
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Product Name*</label>
                             <input
@@ -1696,13 +2077,30 @@ function ProductModal({ product, onClose, onSave, managedCategories }: ProductMo
                                 className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
                             />
                         </div>
-                        <div className="md:col-span-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Price Range*</label>
+                        <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Price (Number Only)*</label>
+                            <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-zinc-500">$</span>
+                                <input
+                                    type="number"
+                                    required
+                                    min="0"
+                                    step="0.01"
+                                    value={formData.price}
+                                    onChange={e => setFormData({ ...formData, price: e.target.value })}
+                                    placeholder="e.g. 100"
+                                    className="w-full pl-8 pr-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Unit*</label>
                             <input
                                 type="text"
                                 required
-                                value={formData.priceRange}
-                                onChange={e => setFormData({ ...formData, priceRange: e.target.value })}
+                                value={formData.priceUnit}
+                                onChange={e => setFormData({ ...formData, priceUnit: e.target.value })}
+                                placeholder="e.g. kg, piece, box, ton"
                                 className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
                             />
                         </div>
@@ -1781,9 +2179,9 @@ function ProductModal({ product, onClose, onSave, managedCategories }: ProductMo
                             {formData.specs.length === 0 ? (
                                 <p className="text-xs text-zinc-500 text-center py-4 border-2 border-dashed border-zinc-200 rounded-xl">No specs added. Click "Add" to add one.</p>
                             ) : (
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     {formData.specs.map((spec, idx) => (
-                                        <div key={idx} className="flex gap-2 items-center">
+                                        <div key={idx} className="flex flex-col sm:flex-row gap-2 p-3 bg-zinc-50 rounded-xl">
                                             <input
                                                 type="text"
                                                 value={spec.key}
@@ -1793,7 +2191,7 @@ function ProductModal({ product, onClose, onSave, managedCategories }: ProductMo
                                                     setFormData({ ...formData, specs: newSpecs });
                                                 }}
                                                 placeholder="Key (e.g., Weight)"
-                                                className="flex-1 px-3 py-2 border-2 border-zinc-200 rounded-lg font-semibold focus:border-black focus:outline-none text-sm"
+                                                className="flex-1 px-3 py-2 border-2 border-zinc-200 rounded-lg font-semibold focus:border-black focus:outline-none text-sm bg-white"
                                             />
                                             <input
                                                 type="text"
@@ -1804,7 +2202,7 @@ function ProductModal({ product, onClose, onSave, managedCategories }: ProductMo
                                                     setFormData({ ...formData, specs: newSpecs });
                                                 }}
                                                 placeholder="Value (e.g., 500g)"
-                                                className="flex-1 px-3 py-2 border-2 border-zinc-200 rounded-lg font-semibold focus:border-black focus:outline-none text-sm"
+                                                className="flex-1 px-3 py-2 border-2 border-zinc-200 rounded-lg font-semibold focus:border-black focus:outline-none text-sm bg-white"
                                             />
                                             <button
                                                 type="button"
@@ -1812,7 +2210,7 @@ function ProductModal({ product, onClose, onSave, managedCategories }: ProductMo
                                                     const newSpecs = formData.specs.filter((_, i) => i !== idx);
                                                     setFormData({ ...formData, specs: newSpecs });
                                                 }}
-                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors self-end sm:self-center"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -1904,12 +2302,12 @@ function ProductModal({ product, onClose, onSave, managedCategories }: ProductMo
                             </div>
                         </div>
                     </div>
-                    <div className="flex gap-4 mt-8">
-                        <button type="button" onClick={onClose} className="flex-1 py-4 border-2 border-zinc-200 font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:border-black transition-colors">
+                    <div className="flex flex-col sm:flex-row gap-3 mt-6 md:mt-8">
+                        <button type="button" onClick={onClose} disabled={isSaving} className="flex-1 py-3 md:py-4 border-2 border-zinc-200 font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:border-black transition-colors disabled:opacity-50">
                             Cancel
                         </button>
-                        <button type="submit" className="flex-1 py-4 bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-zinc-800 transition-colors">
-                            {product ? 'Update Product' : 'Add Product'}
+                        <button type="submit" disabled={isSaving} className="flex-1 py-3 md:py-4 bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                            {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : (product ? 'Update Product' : 'Add Product')}
                         </button>
                     </div>
                 </form>

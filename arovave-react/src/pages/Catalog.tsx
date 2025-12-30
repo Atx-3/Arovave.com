@@ -5,6 +5,7 @@ import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products as initialProducts, categories } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
 import { supabase } from '../lib/supabase';
+import { fetchProducts as fetchProductsFromSupabase, getLocalProducts } from '../utils/productStorage';
 import type { Product } from '../types';
 
 // Category type for managed categories
@@ -99,17 +100,26 @@ export function Catalog() {
             }
         };
 
-        const checkData = () => {
-            setProducts(getStoredProducts());
-            // Re-fetch categories from Supabase every interval
-            fetchCategoriesFromSupabase();
+        const fetchAllData = async () => {
+            // Fetch products from Supabase
+            try {
+                const fetchedProducts = await fetchProductsFromSupabase();
+                setProducts(fetchedProducts);
+            } catch (err) {
+                console.error('Error fetching products:', err);
+                // Fallback to local
+                setProducts(getLocalProducts());
+            }
+
+            // Fetch categories from Supabase
+            await fetchCategoriesFromSupabase();
         };
 
         // Initial fetch
-        fetchCategoriesFromSupabase();
+        fetchAllData();
 
-        // Check every 5 seconds for updates
-        const interval = setInterval(checkData, 5000);
+        // Refresh data every 30 seconds (reduced from 5 to avoid excessive calls)
+        const interval = setInterval(fetchAllData, 30000);
         return () => clearInterval(interval);
     }, []);
 
@@ -150,7 +160,9 @@ export function Catalog() {
 
     if (filterType === 'trending') {
         const trendingIds = JSON.parse(localStorage.getItem('arovaveTrendingProducts') || '[]');
-        filteredProducts = filteredProducts.filter(p => p.isTrending || trendingIds.includes(p.id));
+        const trending = filteredProducts.filter(p => p.isTrending || trendingIds.includes(p.id));
+        // If no trending products found, show all products
+        filteredProducts = trending.length > 0 ? trending : products;
     }
 
     if (selectedCategory) {
@@ -205,7 +217,57 @@ export function Catalog() {
 
             {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
 
-            {/* Category Navigation - Hidden on mobile (in hamburger) and when trending filter */}
+            {/* Mobile Category Navigation */}
+            {filterType !== 'trending' && (
+                <div className="md:hidden sticky top-[73px] z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-100 shadow-sm">
+                    <div className="px-4 py-3">
+                        {/* Category Chips - Scrollable */}
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                            <button
+                                onClick={() => { setSearchParams({}); setExpandedCategory(null); }}
+                                className={`flex-shrink-0 px-3 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-colors whitespace-nowrap ${!selectedCategory ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600'}`}
+                            >
+                                All
+                            </button>
+                            {managedCategories.map(cat => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => {
+                                        setSearchParams({ category: cat.id });
+                                        setExpandedCategory(cat.id);
+                                    }}
+                                    className={`flex-shrink-0 px-3 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-colors whitespace-nowrap ${selectedCategory === cat.id ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600'}`}
+                                >
+                                    {cat.name}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Subcategory Chips - Show when category selected */}
+                        {currentCategory && currentCategory.subcategories && currentCategory.subcategories.length > 0 && (
+                            <div className="flex gap-2 overflow-x-auto pt-2 scrollbar-hide border-t border-zinc-100 mt-2">
+                                <button
+                                    onClick={() => setSearchParams({ category: currentCategory.id })}
+                                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-colors whitespace-nowrap ${!selectedSubcategory ? 'bg-zinc-800 text-white' : 'bg-zinc-50 text-zinc-600'}`}
+                                >
+                                    All {currentCategory.name}
+                                </button>
+                                {currentCategory.subcategories.map(sub => (
+                                    <button
+                                        key={sub.id}
+                                        onClick={() => setSearchParams({ category: currentCategory.id, subcategory: sub.id })}
+                                        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-colors whitespace-nowrap ${selectedSubcategory === sub.id ? 'bg-zinc-800 text-white' : 'bg-zinc-50 text-zinc-600'}`}
+                                    >
+                                        {sub.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Desktop Category Navigation */}
             {filterType !== 'trending' && (
                 <div className={`hidden md:block sticky top-[73px] z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-100 shadow-sm transition-all duration-300 ${showSubcategoryNav ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'}`}>
                     <div className="max-w-7xl mx-auto px-6 py-4">
@@ -264,9 +326,9 @@ export function Catalog() {
             )}
 
             {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-6 py-8">
-                <div className="flex items-center justify-between mb-8">
-                    <h1 className="text-3xl font-black uppercase tracking-tighter">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
+                <div className="flex items-center justify-between mb-6 md:mb-8">
+                    <h1 className="text-xl md:text-3xl font-black uppercase tracking-tighter">
                         {filterType === 'trending'
                             ? 'Trending Products'
                             : selectedSubcategory
@@ -275,36 +337,36 @@ export function Catalog() {
                                     ? categories.find(c => c.id === selectedCategory)?.name
                                     : 'All Products'}
                     </h1>
-                    <span className="text-sm text-zinc-400 font-bold">
+                    <span className="text-xs md:text-sm text-zinc-400 font-bold whitespace-nowrap">
                         {filteredProducts.length} products
                     </span>
                 </div>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
                     {filteredProducts.map(product => (
-                        <div key={product.id} className="bg-white rounded-3xl border border-zinc-100 overflow-hidden group hover:shadow-lg transition-shadow">
+                        <div key={product.id} className="bg-white rounded-2xl md:rounded-3xl border border-zinc-100 overflow-hidden group hover:shadow-lg transition-shadow">
                             <Link to={`/product/${product.id}`}>
                                 <div className="aspect-[4/3] overflow-hidden">
                                     <img src={product.thumbnail || product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                 </div>
                             </Link>
-                            <div className="p-6">
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
+                            <div className="p-3 md:p-6">
+                                <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-zinc-400">
                                     {categories.find(c => c.id === product.cat)?.name || product.cat}
                                 </span>
-                                <h3 className="font-bold text-xl mt-2 mb-2">{product.name}</h3>
-                                <p className="text-sm text-zinc-500 mb-4 line-clamp-2">{product.description}</p>
-                                <div className="flex items-center justify-between mb-4">
-                                    <p className="font-bold text-black">{product.priceRange}</p>
-                                    <p className="text-xs text-zinc-400">MOQ: {product.moq}</p>
+                                <h3 className="font-bold text-sm md:text-xl mt-1 md:mt-2 mb-1 md:mb-2 line-clamp-2">{product.name}</h3>
+                                <p className="text-xs md:text-sm text-zinc-500 mb-2 md:mb-4 line-clamp-2 hidden md:block">{product.description}</p>
+                                <div className="flex items-center justify-between mb-2 md:mb-4">
+                                    <p className="font-bold text-xs md:text-base text-black">{product.priceRange}</p>
+                                    <p className="text-[10px] md:text-xs text-zinc-400">MOQ: {product.moq}</p>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Link to={`/product/${product.id}`} className="flex-1 py-3 border-2 border-zinc-200 rounded-xl text-center text-xs font-bold uppercase tracking-widest hover:border-black transition-colors">
+                                <div className="flex flex-col md:flex-row gap-2">
+                                    <Link to={`/product/${product.id}`} className="flex-1 py-2 md:py-3 border-2 border-zinc-200 rounded-lg md:rounded-xl text-center text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-black transition-colors">
                                         {t('viewDetails')}
                                     </Link>
                                     <button
                                         onClick={() => handleEnquire(product)}
-                                        className="px-5 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                        className="md:px-5 py-2 md:py-3 bg-black text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
                                     >
                                         Enquire
                                     </button>
@@ -315,8 +377,8 @@ export function Catalog() {
                 </div>
 
                 {filteredProducts.length === 0 && (
-                    <div className="text-center py-20">
-                        <p className="text-zinc-400 text-lg">No products found</p>
+                    <div className="text-center py-12 md:py-20">
+                        <p className="text-zinc-400 text-base md:text-lg">No products found</p>
                     </div>
                 )}
             </div>
