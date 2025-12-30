@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { User as UserIcon, Settings, LogOut, Save, Edit2, X, Mail, Phone, MapPin, Calendar, HelpCircle, MessageSquare, FileText, Shield, ChevronRight, Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
-import { useAuth, useTranslation } from '../context';
+import { useAuth, useTranslation, useEnquiry } from '../context';
 import { useState, useEffect, useRef } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 import { countries, getCountryCode } from '../data';
@@ -35,11 +35,31 @@ export function Profile() {
     const [passwordSuccess, setPasswordSuccess] = useState(false);
     const [otpCode, setOtpCode] = useState(['', '', '', '', '', '', '', '']);
     const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+    const { submitProductEnquiry } = useEnquiry();
 
     // Debug log
     useEffect(() => {
         console.log('🖼️ Profile render - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
     }, [isLoading, isAuthenticated]);
+
+    // Handle pending enquiry after login
+    useEffect(() => {
+        if (isAuthenticated) {
+            const pendingProduct = localStorage.getItem('pendingEnquiryProduct');
+            if (pendingProduct) {
+                try {
+                    const product = JSON.parse(pendingProduct);
+                    submitProductEnquiry(product);
+                    localStorage.removeItem('pendingEnquiryProduct');
+                    // Redirect to enquiries page
+                    navigate('/enquiries');
+                } catch (e) {
+                    console.error('Failed to process pending enquiry:', e);
+                    localStorage.removeItem('pendingEnquiryProduct');
+                }
+            }
+        }
+    }, [isAuthenticated]);
 
     // Get display values with fallbacks
     const displayName = currentUser?.name || supabaseUser?.user_metadata?.full_name || supabaseUser?.user_metadata?.name || 'User';

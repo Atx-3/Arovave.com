@@ -45,7 +45,7 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
                 .from('enquiries')
                 .select(`
                     *,
-                    profiles:user_id (id, name, email, country)
+                    profiles:user_id (id, name, email, country, phone)
                 `)
                 .order('created_at', { ascending: false });
 
@@ -71,12 +71,14 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
                     name: e.profiles.name || '',
                     email: e.profiles.email || '',
                     country: e.profiles.country || '',
+                    phone: e.profiles.phone || '',
                     role: 'user' as const
                 } : {
                     id: e.user_id,
                     name: 'Unknown',
                     email: '',
                     country: '',
+                    phone: '',
                     role: 'user' as const
                 },
                 products: e.products || [],
