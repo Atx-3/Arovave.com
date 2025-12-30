@@ -74,13 +74,13 @@ export function Footer() {
                                 Direct Manufacturer
                             </Link>
                             <Link to="/trust/certificate" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
-                                Quality & Certs
+                                Quality & Certification
                             </Link>
                             <Link to="/trust/rates" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
                                 Factory Pricing
                             </Link>
                             <Link to="/trust/history" className="block text-zinc-400 hover:text-white text-xs md:text-sm transition-colors">
-                                25+ Years Exp.
+                                25+ Years Experience
                             </Link>
                         </div>
                     </div>
