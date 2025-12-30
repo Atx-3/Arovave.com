@@ -53,6 +53,7 @@ export function Admin() {
     const [allUsers, setAllUsers] = useState<any[]>([]);
     const [isLoadingUsers, setIsLoadingUsers] = useState(false);
     const [savingPermissions, setSavingPermissions] = useState<string | null>(null);
+    const [userSearchQuery, setUserSearchQuery] = useState('');
 
     // Quality content state
     const [qualityContent, setQualityContent] = useState<Record<string, any[]>>({});
@@ -792,7 +793,7 @@ export function Admin() {
                                 onClick={() => setTab('settings')}
                                 className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'settings' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
                             >
-                                ⚙️ Settings
+                                <Settings className="w-4 h-4" /> Settings
                             </button>
                         )}
                         {(isSuperAdmin || hasPermission('categories')) && (
@@ -997,8 +998,22 @@ export function Admin() {
                     {/* Users Tab */}
                     {tab === 'users' && (isSuperAdmin || hasPermission('users')) && (
                         <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                            <div className="p-6 border-b border-zinc-100">
-                                <h3 className="font-black uppercase tracking-widest text-sm">All Registered Users ({allUsers.length})</h3>
+                            <div className="p-4 sm:p-6 border-b border-zinc-100">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                    <h3 className="font-black uppercase tracking-widest text-sm">All Registered Users ({allUsers.length})</h3>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Search by name, email or phone..."
+                                            value={userSearchQuery}
+                                            onChange={(e) => setUserSearchQuery(e.target.value)}
+                                            className="w-full sm:w-64 px-4 py-2 pl-10 border-2 border-zinc-200 rounded-xl text-sm focus:border-black focus:outline-none"
+                                        />
+                                        <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                    </div>
+                                </div>
                             </div>
                             {isLoadingUsers ? (
                                 <div className="p-12 text-center">
@@ -1011,30 +1026,40 @@ export function Admin() {
                                             <tr>
                                                 <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Name</th>
                                                 <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Email</th>
-                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Country</th>
+                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Country</th>
                                                 <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Phone</th>
                                                 <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Role</th>
-                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Joined</th>
+                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Joined</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {allUsers.map((user) => (
-                                                <tr key={user.id} className="border-t border-zinc-50">
-                                                    <td className="p-4 font-semibold">{user.name || '-'}</td>
-                                                    <td className="p-4 text-zinc-600">{user.email}</td>
-                                                    <td className="p-4 text-zinc-600">{user.country || '-'}</td>
-                                                    <td className="p-4 text-zinc-600">{user.phone || '-'}</td>
-                                                    <td className="p-4">
-                                                        <span className={`px-2 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
-                                                            user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
-                                                                'bg-zinc-100 text-zinc-600'
-                                                            }`}>
-                                                            {user.role}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-4 text-zinc-400 text-sm">{user.created_at?.split('T')[0] || '-'}</td>
-                                                </tr>
-                                            ))}
+                                            {allUsers
+                                                .filter(user => {
+                                                    if (!userSearchQuery.trim()) return true;
+                                                    const query = userSearchQuery.toLowerCase();
+                                                    return (
+                                                        (user.name?.toLowerCase() || '').includes(query) ||
+                                                        (user.email?.toLowerCase() || '').includes(query) ||
+                                                        (user.phone?.toLowerCase() || '').includes(query)
+                                                    );
+                                                })
+                                                .map((user) => (
+                                                    <tr key={user.id} className="border-t border-zinc-50">
+                                                        <td className="p-4 font-semibold text-sm">{user.name || '-'}</td>
+                                                        <td className="p-4 text-zinc-600 text-sm truncate max-w-[120px] sm:max-w-none">{user.email}</td>
+                                                        <td className="p-4 text-zinc-600 hidden sm:table-cell">{user.country || '-'}</td>
+                                                        <td className="p-4 text-zinc-600 text-sm">{user.phone || '-'}</td>
+                                                        <td className="p-4">
+                                                            <span className={`px-2 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
+                                                                user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
+                                                                    'bg-zinc-100 text-zinc-600'
+                                                                }`}>
+                                                                {user.role}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 text-zinc-400 text-sm hidden sm:table-cell">{user.created_at?.split('T')[0] || '-'}</td>
+                                                    </tr>
+                                                ))}
                                         </tbody>
                                     </table>
                                 </div>
@@ -1308,12 +1333,12 @@ export function Admin() {
                             {qualitySubcategory && (
                                 <div className="mb-6">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Content Type</label>
-                                    <div className="flex gap-3">
+                                    <div className="flex flex-wrap gap-2 sm:gap-3">
                                         {['certificate', 'plant', 'sample'].map(type => (
                                             <button
                                                 key={type}
                                                 onClick={() => setQualityContentType(type)}
-                                                className={`px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest ${qualityContentType === type
+                                                className={`px-4 sm:px-5 py-2 sm:py-3 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest ${qualityContentType === type
                                                     ? type === 'certificate' ? 'bg-green-600 text-white' : type === 'plant' ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'
                                                     : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                                                     }`}
@@ -1645,7 +1670,7 @@ export function Admin() {
                                     {/* Add New Subcategory */}
                                     <div className="mb-6 p-4 bg-zinc-50 rounded-xl">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Add New Subcategory</label>
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-col sm:flex-row gap-2">
                                             <input
                                                 type="text"
                                                 value={newSubcategoryName}
@@ -1693,11 +1718,11 @@ export function Admin() {
                                         </label>
                                         <div className="space-y-2">
                                             {managedCategories.find(c => c.id === selectedCategoryForSubcat)?.subcategories.map((subcat, idx) => (
-                                                <div key={subcat.id} className="flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-xl">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="w-6 h-6 bg-zinc-100 rounded-full flex items-center justify-center text-xs font-bold text-zinc-500">{idx + 1}</span>
-                                                        <span className="font-semibold">{subcat.name}</span>
-                                                        <span className="text-xs text-zinc-400">({subcat.id})</span>
+                                                <div key={subcat.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-white border border-zinc-200 rounded-xl gap-2">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <span className="w-6 h-6 bg-zinc-100 rounded-full flex items-center justify-center text-xs font-bold text-zinc-500 flex-shrink-0">{idx + 1}</span>
+                                                        <span className="font-semibold truncate">{subcat.name}</span>
+                                                        <span className="text-xs text-zinc-400 hidden sm:inline">({subcat.id})</span>
                                                     </div>
                                                     <button
                                                         onClick={async () => {
