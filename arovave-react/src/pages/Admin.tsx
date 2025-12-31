@@ -266,9 +266,9 @@ export function Admin() {
         { key: 'support', label: 'Support', icon: MessageCircle }
     ];
 
-    // Fetch all users (for superadmin)
+    // Fetch all users (for superadmin or admins with users permission)
     const fetchAllUsers = async () => {
-        if (!isSuperAdmin) return;
+        if (!isSuperAdmin && !hasPermission('users')) return;
 
         setIsLoadingUsers(true);
         try {
@@ -559,11 +559,11 @@ export function Admin() {
         // Load categories from Supabase
         fetchCategoriesFromSupabase();
 
-        // Load users for superadmin
-        if (isSuperAdmin) {
+        // Load users for superadmin or admins with users permission
+        if (isSuperAdmin || hasPermission('users')) {
             fetchAllUsers();
         }
-    }, [isSuperAdmin]);
+    }, [isSuperAdmin, hasPermission]);
 
     // Set initial tab based on permissions
     useEffect(() => {
