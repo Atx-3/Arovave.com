@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 import { countries, getCountryCode } from '../data';
 import { supabase } from '../lib/supabase';
+import { sendPasswordChangedEmail } from '../utils/email';
 
 export function Profile() {
     const { currentUser, supabaseUser, isAuthenticated, isLoading, isAdmin, logout, updateProfile } = useAuth();
@@ -45,6 +46,7 @@ export function Profile() {
     // Handle pending enquiry after login
     useEffect(() => {
         if (isAuthenticated) {
+            // Check for pending product enquiry
             const pendingProduct = localStorage.getItem('pendingEnquiryProduct');
             if (pendingProduct) {
                 try {
@@ -53,10 +55,19 @@ export function Profile() {
                     localStorage.removeItem('pendingEnquiryProduct');
                     // Redirect to enquiries page
                     navigate('/enquiries');
+                    return;
                 } catch (e) {
                     console.error('Failed to process pending enquiry:', e);
                     localStorage.removeItem('pendingEnquiryProduct');
                 }
+            }
+
+            // Check for pending general enquiry (Contact Us)
+            const pendingGeneral = localStorage.getItem('pendingGeneralEnquiry');
+            if (pendingGeneral) {
+                localStorage.removeItem('pendingGeneralEnquiry');
+                // Navigate to support page for general enquiry
+                navigate('/support');
             }
         }
     }, [isAuthenticated]);
@@ -220,6 +231,10 @@ export function Profile() {
             if (error) {
                 setPasswordError(error.message);
             } else {
+                // Send password changed confirmation email
+                if (displayEmail) {
+                    sendPasswordChangedEmail(displayEmail, displayName);
+                }
                 setPasswordSuccess(true);
                 setPasswordForm({ newPassword: '', confirmPassword: '' });
                 setTimeout(() => {
@@ -330,45 +345,46 @@ export function Profile() {
                     backgroundSize: '40px 40px'
                 }}></div>
 
-                <div className="relative z-10 flex flex-col md:flex-row items-start gap-4 md:gap-6">
-                    <div className="flex items-center gap-4 md:gap-6 w-full md:w-auto">
-                        {/* Premium Avatar - B&W */}
-                        <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl bg-white flex items-center justify-center shadow-2xl flex-shrink-0">
-                            <span className="text-2xl md:text-4xl font-black text-black">{initials}</span>
-                        </div>
-
-                        {/* User Info */}
-                        <div className="space-y-1 md:space-y-2 flex-1 min-w-0">
-                            <h2 className="text-xl md:text-3xl font-black tracking-tight truncate">{displayName}</h2>
-                            <div className="flex items-center gap-2 text-zinc-400 text-xs md:text-sm">
-                                <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                                    <Mail className="w-2.5 h-2.5 md:w-3 md:h-3" />
-                                </div>
-                                <span className="truncate">{displayEmail}</span>
-                            </div>
-                            {displayPhone && (
-                                <div className="flex items-center gap-2 text-zinc-400 text-xs md:text-sm">
-                                    <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                                        <Phone className="w-2.5 h-2.5 md:w-3 md:h-3" />
-                                    </div>
-                                    <span>{displayPhone}</span>
-                                </div>
-                            )}
-                            {displayCountry && (
-                                <div className="flex items-center gap-2 text-zinc-400 text-xs md:text-sm">
-                                    <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                                        <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
-                                    </div>
-                                    <span>{displayCountry}</span>
-                                </div>
-                            )}
-                        </div>
+                {/* User Info Section */}
+                <div className="relative z-10 flex items-center gap-4 md:gap-6">
+                    {/* Premium Avatar - B&W */}
+                    <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl bg-white flex items-center justify-center shadow-2xl flex-shrink-0">
+                        <span className="text-2xl md:text-4xl font-black text-black">{initials}</span>
                     </div>
 
-                    {/* Edit Button - Full width on mobile */}
+                    {/* User Info */}
+                    <div className="space-y-1 md:space-y-2 flex-1 min-w-0">
+                        <h2 className="text-xl md:text-3xl font-black tracking-tight truncate">{displayName}</h2>
+                        <div className="flex items-center gap-2 text-zinc-400 text-xs md:text-sm">
+                            <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                                <Mail className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                            </div>
+                            <span className="truncate">{displayEmail}</span>
+                        </div>
+                        {displayPhone && (
+                            <div className="flex items-center gap-2 text-zinc-400 text-xs md:text-sm">
+                                <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                                    <Phone className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                                </div>
+                                <span>{displayPhone}</span>
+                            </div>
+                        )}
+                        {displayCountry && (
+                            <div className="flex items-center gap-2 text-zinc-400 text-xs md:text-sm">
+                                <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                                    <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                                </div>
+                                <span>{displayCountry}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Edit Profile Button - Full width below user info */}
+                <div className="relative z-10 mt-6">
                     <button
                         onClick={() => setIsEditing(true)}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-zinc-100 transition-all duration-300 group mt-2 md:mt-0"
+                        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-white text-black rounded-2xl text-sm font-bold hover:bg-zinc-100 transition-all duration-300 group border-2 border-white"
                     >
                         <Edit2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                         Edit Profile

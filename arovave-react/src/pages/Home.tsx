@@ -65,16 +65,20 @@ export function Home() {
         }
     }, [isAuthenticated, pendingProduct]);
 
-    // Refresh trending products from Supabase
+    // Refresh trending products from Supabase with real-time updates
     useEffect(() => {
         const fetchTrending = async () => {
             try {
+                // Clear cache first for fresh data
+                localStorage.removeItem('arovaveProducts');
+
                 // Fetch products from Supabase
                 const allProducts = await fetchProductsFromSupabase();
 
                 // Filter trending products
                 const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
                 setTrendingProducts(trending.length > 0 ? trending : allProducts.slice(0, 4));
+                console.log('🏠 Home: Trending products refreshed, count:', trending.length);
             } catch (err) {
                 console.error('Error fetching trending products:', err);
                 // Fallback to initial products
@@ -85,9 +89,26 @@ export function Home() {
 
         fetchTrending();
 
-        // Refresh every 30 seconds
-        const interval = setInterval(fetchTrending, 30000);
-        return () => clearInterval(interval);
+        // Subscribe to real-time changes on the products table
+        const subscription = supabase
+            .channel('home-products-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'products' },
+                (payload) => {
+                    console.log('🏠 Home: Real-time product change detected:', payload.eventType);
+                    fetchTrending();
+                }
+            )
+            .subscribe((status) => {
+                console.log('📡 Home subscription status:', status);
+            });
+
+        // Cleanup subscription on unmount
+        return () => {
+            console.log('📡 Cleaning up home subscription');
+            subscription.unsubscribe();
+        };
     }, []);
 
 
@@ -168,7 +189,9 @@ export function Home() {
 
     const handleContactUs = () => {
         if (!isAuthenticated) {
-            setShowAuthModal(true);
+            // Store flag that user wants to contact
+            localStorage.setItem('pendingGeneralEnquiry', 'true');
+            navigate('/login');
             return;
         }
         submitGeneralEnquiry();
@@ -181,8 +204,9 @@ export function Home() {
         if (!product) return;
 
         if (!isAuthenticated) {
-            setPendingProduct(productId);
-            setShowAuthModal(true);
+            // Store pending product in localStorage so it can be submitted after login
+            localStorage.setItem('pendingEnquiryProduct', JSON.stringify(product));
+            navigate('/login');
             return;
         }
         submitProductEnquiry(product);

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Product, Enquiry } from '../types';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
+import { sendEnquiryEmail, sendEnquiryUpdateEmail } from '../utils/email';
 
 interface EnquiryContextType {
     cart: Product[];
@@ -193,13 +194,15 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
         console.log('📤 Submitting product enquiry for user:', userId, 'Product:', product.name);
         const products = [{ id: product.id, name: product.name, qty: product.moq }];
 
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('enquiries')
             .insert({
                 user_id: userId,
                 products: products,
                 status: 'pending'
-            });
+            })
+            .select('id')
+            .single();
 
         if (error) {
             console.error('❌ Error submitting product enquiry:', error);
@@ -207,10 +210,21 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
         }
 
         console.log('✅ Product enquiry submitted:', product.name);
+
+        // Send enquiry confirmation email
+        const userEmail = currentUser?.email || supabaseUser?.email;
+        const userName = currentUser?.name || supabaseUser?.user_metadata?.full_name || 'there';
+        if (userEmail && data?.id) {
+            sendEnquiryEmail(userEmail, userName, product.name, data.id);
+        }
+
         await fetchEnquiries();
     };
 
     const updateEnquiryStatus = async (id: number, status: Enquiry['status']) => {
+        // First get the enquiry details for the email
+        const enquiryToUpdate = allEnquiries.find(e => e.id === id);
+
         const { error } = await supabase
             .from('enquiries')
             .update({ status, updated_at: new Date().toISOString() })
@@ -222,6 +236,19 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
         }
 
         console.log('✅ Enquiry status updated:', id, status);
+
+        // Send status update email to user
+        if (enquiryToUpdate && enquiryToUpdate.user?.email) {
+            const productName = enquiryToUpdate.products?.[0]?.name || 'Your Enquiry';
+            sendEnquiryUpdateEmail(
+                enquiryToUpdate.user.email,
+                enquiryToUpdate.user.name || 'there',
+                productName,
+                id,
+                status
+            );
+        }
+
         await fetchEnquiries();
     };
 

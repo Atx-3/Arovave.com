@@ -4,6 +4,7 @@ import { Loader2, AlertCircle, User, Phone, Mail, Lock, Eye, EyeOff, ArrowLeft, 
 import { supabase } from '../lib/supabase';
 import { countries } from '../data';
 import { useAuth } from '../context';
+import { sendWelcomeEmail } from '../utils/email';
 
 export function AuthPage() {
     const navigate = useNavigate();
@@ -230,6 +231,9 @@ export function AuthPage() {
                     country: pendingSignupData.country,
                     role: 'user'
                 });
+
+                // Send welcome email
+                sendWelcomeEmail(pendingSignupData.email, pendingSignupData.name);
 
                 // Navigate to profile
                 navigate('/profile');

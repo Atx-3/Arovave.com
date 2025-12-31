@@ -12,15 +12,19 @@ const TRENDING_STORAGE_KEY = 'arovaveTrendingProducts';
  */
 export const fetchProducts = async (): Promise<Product[]> => {
     try {
+        console.log('📦 Fetching products from Supabase...');
+
         const { data, error } = await supabase
             .from('products')
             .select('*')
             .order('id');
 
         if (error) {
-            console.error('Error fetching products from Supabase:', error);
+            console.error('❌ Error fetching products from Supabase:', error);
             return getLocalProducts();
         }
+
+        console.log('📦 Products fetched from Supabase:', data?.length || 0);
 
         if (data && data.length > 0) {
             // Transform Supabase data to Product type
@@ -56,10 +60,14 @@ export const fetchProducts = async (): Promise<Product[]> => {
             return products;
         }
 
-        // No data in Supabase, check localStorage or use initial products
-        return getLocalProducts();
+        // No data in Supabase - auto-sync initial products (products.ts is empty, so nothing uploads)
+        console.log('📦 No products in Supabase, checking for initial sync...');
+        await syncInitialProductsToSupabase();
+
+        // Return initial products after sync (will be empty array)
+        return [...initialProducts];
     } catch (err) {
-        console.error('Error connecting to Supabase:', err);
+        console.error('❌ Error connecting to Supabase:', err);
         return getLocalProducts();
     }
 };
@@ -202,27 +210,41 @@ export const saveProduct = async (product: Product, isNew: boolean = false): Pro
  */
 export const deleteProduct = async (productId: number): Promise<{ success: boolean; error?: string }> => {
     try {
-        const { error } = await supabase
+        console.log('🗑️ Starting product deletion:', productId);
+        console.log('🗑️ Product ID type:', typeof productId);
+
+        // Clear localStorage cache FIRST to prevent stale data
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        localStorage.removeItem(TRENDING_STORAGE_KEY);
+        console.log('🗑️ Cleared localStorage cache');
+
+        const { data, error } = await supabase
             .from('products')
             .delete()
-            .eq('id', productId);
+            .eq('id', productId)
+            .select();
+
+        console.log('🗑️ Supabase delete response - data:', data, 'error:', error);
 
         if (error) {
-            console.error('Error deleting product from Supabase:', error);
-            // Fallback to localStorage deletion
-            deleteFromLocalStorage(productId);
-            return { success: true };
+            console.error('❌ Error deleting product from Supabase:', error);
+            console.error('❌ Error details:', JSON.stringify(error, null, 2));
+            return { success: false, error: error.message };
         }
 
-        // Update localStorage cache
+        // Immediately remove from localStorage as backup
+        deleteFromLocalStorage(productId);
+
+        // Refresh cache from Supabase to ensure consistency
+        console.log('🗑️ Refreshing local cache after delete...');
         await refreshLocalCache();
 
-        console.log('Product deleted from Supabase:', productId);
+        console.log('✅ Product deleted successfully:', productId);
         return { success: true };
-    } catch (err) {
-        console.error('Error deleting product:', err);
-        deleteFromLocalStorage(productId);
-        return { success: true };
+    } catch (err: any) {
+        console.error('❌ Error deleting product:', err);
+        console.error('❌ Error stack:', err.stack);
+        return { success: false, error: err.message || 'Failed to delete product' };
     }
 };
 

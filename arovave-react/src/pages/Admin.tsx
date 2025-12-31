@@ -596,14 +596,21 @@ export function Admin() {
         if (confirm('Delete this product?')) {
             setIsSavingProduct(true);
             try {
-                await deleteProductFromSupabase(id);
+                const result = await deleteProductFromSupabase(id);
+
+                if (!result.success) {
+                    showNotification(result.error || 'Failed to delete product', 'error');
+                    setIsSavingProduct(false);
+                    return;
+                }
+
                 // Refresh products from Supabase
                 const fetchedProducts = await fetchProductsFromSupabase();
                 setProducts(fetchedProducts);
-            } catch (err) {
+                showNotification('Product deleted successfully', 'success');
+            } catch (err: any) {
                 console.error('Error deleting product:', err);
-                // Fallback: update local state
-                setProducts(products.filter(p => p.id !== id));
+                showNotification(err.message || 'Failed to delete product', 'error');
             } finally {
                 setIsSavingProduct(false);
             }

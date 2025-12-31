@@ -67,7 +67,9 @@ export function ProductDetail() {
         if (!product) return;
 
         if (!isAuthenticated) {
-            setShowAuthModal(true);
+            // Store pending product in localStorage so it can be submitted after login
+            localStorage.setItem('pendingEnquiryProduct', JSON.stringify(product));
+            navigate('/login');
             return;
         }
         submitProductEnquiry(product);

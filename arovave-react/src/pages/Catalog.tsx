@@ -101,10 +101,14 @@ export function Catalog() {
         };
 
         const fetchAllData = async () => {
+            // Clear localStorage cache first to ensure fresh data
+            localStorage.removeItem('arovaveProducts');
+
             // Fetch products from Supabase
             try {
                 const fetchedProducts = await fetchProductsFromSupabase();
                 setProducts(fetchedProducts);
+                console.log('📦 Catalog: Products refreshed, count:', fetchedProducts.length);
             } catch (err) {
                 console.error('Error fetching products:', err);
                 // Fallback to local
@@ -118,9 +122,27 @@ export function Catalog() {
         // Initial fetch
         fetchAllData();
 
-        // Refresh data every 30 seconds (reduced from 5 to avoid excessive calls)
-        const interval = setInterval(fetchAllData, 30000);
-        return () => clearInterval(interval);
+        // Subscribe to real-time changes on the products table
+        const subscription = supabase
+            .channel('catalog-products-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'products' },
+                (payload) => {
+                    console.log('📦 Real-time product change detected:', payload.eventType);
+                    // Refresh all products on any change
+                    fetchAllData();
+                }
+            )
+            .subscribe((status) => {
+                console.log('📡 Catalog subscription status:', status);
+            });
+
+        // Cleanup subscription on unmount
+        return () => {
+            console.log('📡 Cleaning up catalog subscription');
+            subscription.unsubscribe();
+        };
     }, []);
 
     useEffect(() => {
