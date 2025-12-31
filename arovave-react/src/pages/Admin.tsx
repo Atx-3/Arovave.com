@@ -560,8 +560,22 @@ export function Admin() {
         fetchCategoriesFromSupabase();
 
         // Load users for superadmin or admins with users permission
+        // And set up real-time subscription for profile updates
         if (isSuperAdmin || hasPermission('users')) {
             fetchAllUsers();
+
+            // Subscribe to profile changes for real-time updates
+            const profilesSubscription = supabase
+                .channel('admin-profiles-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+                    console.log('📡 Profile updated, refreshing users list...');
+                    fetchAllUsers();
+                })
+                .subscribe();
+
+            return () => {
+                profilesSubscription.unsubscribe();
+            };
         }
     }, [isSuperAdmin, hasPermission]);
 
@@ -1055,7 +1069,7 @@ export function Admin() {
                                                         <td className="p-4 font-semibold text-sm">{user.name || '-'}</td>
                                                         <td className="p-4 text-zinc-600 text-sm truncate max-w-[120px] sm:max-w-none">{user.email}</td>
                                                         <td className="p-4 text-zinc-600 hidden sm:table-cell">{user.country || '-'}</td>
-                                                        <td className="p-4 text-zinc-600 text-sm">{user.phone || '-'}</td>
+                                                        <td className="p-4 text-amber-600 text-sm font-semibold">{user.phone || '-'}</td>
                                                         <td className="p-4">
                                                             <span className={`px-2 py-1 text-xs font-bold rounded-full ${user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
                                                                 user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
@@ -1990,6 +2004,17 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
         });
     };
 
+    const handleDeleteImage = (indexToDelete: number) => {
+        setImagePreviews(prev => prev.filter((_, idx) => idx !== indexToDelete));
+        setFormData(prev => ({ ...prev, images: prev.images.filter((_, idx) => idx !== indexToDelete) }));
+        // Adjust default image index if needed
+        if (defaultImageIndex === indexToDelete) {
+            setDefaultImageIndex(0);
+        } else if (defaultImageIndex > indexToDelete) {
+            setDefaultImageIndex(prev => prev - 1);
+        }
+    };
+
     const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -2005,8 +2030,26 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Reorder images so default is first
-        const orderedImages = formData.images.length ? [...formData.images] : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800'];
+        // Validate all required fields (everything except video is mandatory)
+        const missingFields: string[] = [];
+        if (!formData.name.trim()) missingFields.push('Product Name');
+        if (!formData.cat) missingFields.push('Category');
+        if (!formData.subcategory) missingFields.push('Subcategory');
+        if (!formData.hsn.trim()) missingFields.push('HSN Code');
+        if (!formData.moq.trim()) missingFields.push('MOQ');
+        if (!formData.price.trim()) missingFields.push('Price');
+        if (!formData.priceUnit.trim()) missingFields.push('Unit');
+        if (!formData.description.trim()) missingFields.push('Description');
+        if (formData.images.length === 0) missingFields.push('At least one Image');
+        if (!formData.certifications.trim()) missingFields.push('Certifications');
+
+        if (missingFields.length > 0) {
+            alert(`Please fill in the following required fields:\n\n• ${missingFields.join('\n• ')}`);
+            return;
+        }
+
+        // Reorder images so default is first (no placeholder fallback)
+        const orderedImages = formData.images.length ? [...formData.images] : [];
         if (defaultImageIndex > 0 && defaultImageIndex < orderedImages.length) {
             const defaultImg = orderedImages.splice(defaultImageIndex, 1)[0];
             orderedImages.unshift(defaultImg);
@@ -2170,8 +2213,23 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
                             {imagePreviews.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-3">
                                     {imagePreviews.map((img, idx) => (
-                                        <div key={idx} className="w-16 h-16 rounded-lg overflow-hidden border-2 border-zinc-200">
-                                            <img src={img} className="w-full h-full object-cover" />
+                                        <div key={idx} className="relative group">
+                                            <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-zinc-200">
+                                                <img src={img} className="w-full h-full object-cover" />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteImage(idx); }}
+                                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600 transition-colors shadow-lg"
+                                                title="Remove image"
+                                            >
+                                                ×
+                                            </button>
+                                            {idx === defaultImageIndex && (
+                                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 py-0.5 bg-black text-white text-[8px] font-bold rounded">
+                                                    Default
+                                                </span>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
