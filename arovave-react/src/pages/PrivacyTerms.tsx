@@ -35,7 +35,7 @@ export function PrivacyTerms() {
                         Privacy & Terms
                     </h1>
                     <p className="text-lg text-zinc-300">
-                        Your data security and privacy are our highest priority. Last updated: December 2024
+                        Your data security and privacy are our highest priority. Last updated: January 2026
                     </p>
                 </div>
             </div>
