@@ -7,7 +7,7 @@ import { AuthModal } from '../components/auth/AuthModal';
 import { fetchProducts as fetchProductsFromSupabase, getLocalProducts } from '../utils/productStorage';
 import type { Product } from '../types';
 
-type TabType = 'description' | 'specifications' | 'advantage' | 'benefit';
+type TabType = 'description' | 'benefit' | 'advantage';
 
 export function ProductDetail() {
     const { id } = useParams();
@@ -283,44 +283,52 @@ export function ProductDetail() {
                     {/* Tabs Navigation */}
                     <div className="border-b border-zinc-200 mb-6 md:mb-8 overflow-x-auto">
                         <div className="flex gap-4 md:gap-8 min-w-max">
-                            {(['description', 'specifications', 'advantage', 'benefit'] as TabType[]).map((tab) => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`pb-2 md:pb-3 text-xs md:text-sm font-bold capitalize transition-colors relative whitespace-nowrap ${activeTab === tab
-                                        ? 'text-black'
-                                        : 'text-zinc-400 hover:text-zinc-600'
-                                        }`}
-                                >
-                                    {tab}
-                                    {activeTab === tab && (
-                                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black"></div>
-                                    )}
-                                </button>
-                            ))}
+                            {(['description', 'benefit', 'advantage'] as TabType[]).map((tab) => {
+                                const tabLabels: Record<TabType, string> = {
+                                    'description': 'Description and Specification',
+                                    'benefit': 'Benefit',
+                                    'advantage': 'Advantage'
+                                };
+                                return (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`pb-2 md:pb-3 text-xs md:text-sm font-bold transition-colors relative whitespace-nowrap ${activeTab === tab
+                                                ? 'text-black'
+                                                : 'text-zinc-400 hover:text-zinc-600'
+                                            }`}
+                                    >
+                                        {tabLabels[tab]}
+                                        {activeTab === tab && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black"></div>
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
                     {/* Tab Content */}
                     <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-8 min-h-[150px] md:min-h-[200px] border border-zinc-100">
                         {activeTab === 'description' && (
-                            <p className="text-zinc-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
-                                {product.tabDescription || product.description || 'No description available.'}
-                            </p>
+                            <div className="text-zinc-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base space-y-4">
+                                <p>{product.tabDescription || product.description || 'No description available.'}</p>
+                                {product.tabSpecifications && (
+                                    <div className="mt-4 pt-4 border-t border-zinc-200">
+                                        <h4 className="font-bold text-black mb-2">Specifications</h4>
+                                        <p>{product.tabSpecifications}</p>
+                                    </div>
+                                )}
+                            </div>
                         )}
-                        {activeTab === 'specifications' && (
+                        {activeTab === 'benefit' && (
                             <p className="text-zinc-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
-                                {product.tabSpecifications || 'No specifications details available.'}
+                                {product.tabBenefit || 'No benefit details available.'}
                             </p>
                         )}
                         {activeTab === 'advantage' && (
                             <p className="text-zinc-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
                                 {product.tabAdvantage || 'No advantage details available.'}
-                            </p>
-                        )}
-                        {activeTab === 'benefit' && (
-                            <p className="text-zinc-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
-                                {product.tabBenefit || 'No benefit details available.'}
                             </p>
                         )}
                     </div>

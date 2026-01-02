@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle, User, Phone, Mail, Lock, Eye, EyeOff, ArrowLeft, CheckCircle, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { countries } from '../data';
+import { countries, countryData } from '../data';
 import { useAuth } from '../context';
 import { sendWelcomeEmail } from '../utils/email';
 
@@ -142,13 +142,17 @@ export function AuthPage() {
             }
 
             // If we get here, user doesn't exist - now create them
+            // Get country code for the selected country
+            const selectedCountryData = countryData.find(c => c.name === formData.country);
+            const fullPhone = selectedCountryData?.code ? `${selectedCountryData.code}${formData.phone.replace(/\s/g, '')}` : formData.phone;
+
             const { error: signUpError } = await supabase.auth.signInWithOtp({
                 email: formData.email.trim(),
                 options: {
                     shouldCreateUser: true,
                     data: {
                         full_name: formData.name,
-                        phone: formData.phone,
+                        phone: fullPhone,
                         country: formData.country
                     }
                 }
@@ -164,12 +168,14 @@ export function AuthPage() {
                 return;
             }
 
-            // Store signup data for after verification
+            // Store signup data for after verification (with full phone)
+            const selectedCountryData2 = countryData.find(c => c.name === formData.country);
+            const fullPhone2 = selectedCountryData2?.code ? `${selectedCountryData2.code}${formData.phone.replace(/\s/g, '')}` : formData.phone;
             setPendingSignupData({
                 email: formData.email,
                 password: formData.password,
                 name: formData.name,
-                phone: formData.phone,
+                phone: fullPhone2,
                 country: formData.country
             });
 
@@ -877,13 +883,27 @@ export function AuthPage() {
                                     <label className="text-xs font-black uppercase tracking-widest text-zinc-400 block mb-2">
                                         <Phone className="w-3 h-3 inline mr-1" /> Phone *
                                     </label>
-                                    <input
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full px-4 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors"
-                                        placeholder="+91 98765 43210"
-                                    />
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={formData.country}
+                                            onChange={e => {
+                                                const selectedCountry = countryData.find(c => c.name === e.target.value);
+                                                setFormData({ ...formData, country: e.target.value });
+                                            }}
+                                            className="w-24 px-2 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors bg-white cursor-pointer text-sm"
+                                        >
+                                            {countryData.map(c => (
+                                                <option key={c.name} value={c.name}>{c.code || c.name}</option>
+                                            ))}
+                                        </select>
+                                        <input
+                                            type="tel"
+                                            value={formData.phone}
+                                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                            className="flex-1 px-4 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors"
+                                            placeholder="98765 43210"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                             <div>

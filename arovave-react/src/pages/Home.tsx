@@ -75,15 +75,15 @@ export function Home() {
                 // Fetch products from Supabase
                 const allProducts = await fetchProductsFromSupabase();
 
-                // Filter trending products
+                // Filter trending products - only show actually trending ones
                 const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
-                setTrendingProducts(trending.length > 0 ? trending : allProducts.slice(0, 4));
+                setTrendingProducts(trending); // No fallback to non-trending products
                 console.log('🏠 Home: Trending products refreshed, count:', trending.length);
             } catch (err) {
                 console.error('Error fetching trending products:', err);
-                // Fallback to initial products
+                // Fallback to initial trending products only
                 const trending = products.filter(p => p.isTrending).slice(0, 4);
-                setTrendingProducts(trending.length > 0 ? trending : products.slice(0, 4));
+                setTrendingProducts(trending); // No fallback to non-trending
             }
         };
 
@@ -214,7 +214,8 @@ export function Home() {
         setTimeout(() => navigate('/enquiries'), 2000);
     };
 
-    const displayProducts = trendingProducts.length > 0 ? trendingProducts : products.slice(0, 4);
+    // Only show trending products, hide section if empty
+    const displayProducts = trendingProducts;
 
     return (
         <div className="page-enter">

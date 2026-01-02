@@ -286,6 +286,33 @@ export function Admin() {
         }
     };
 
+    // Delete a user
+    const deleteUser = async (userId: string, userRole: string) => {
+        // Prevent deleting superadmins
+        if (userRole === 'superadmin') {
+            showNotification('Cannot delete superadmin users', 'error');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .delete()
+                .eq('id', userId);
+
+            if (error) throw error;
+            showNotification('User deleted successfully', 'success');
+            await fetchAllUsers();
+        } catch (err) {
+            console.error('Error deleting user:', err);
+            showNotification('Failed to delete user', 'error');
+        }
+    };
+
     // Update user role and permissions
     const updateUserRole = async (userId: string, newRole: 'user' | 'admin' | 'superadmin', permissions: AdminPermission[]) => {
         setSavingPermissions(userId);
@@ -1051,6 +1078,7 @@ export function Admin() {
                                                 <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Phone</th>
                                                 <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Role</th>
                                                 <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Joined</th>
+                                                <th className="text-left p-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1079,6 +1107,17 @@ export function Admin() {
                                                             </span>
                                                         </td>
                                                         <td className="p-4 text-zinc-400 text-sm hidden sm:table-cell">{user.created_at?.split('T')[0] || '-'}</td>
+                                                        <td className="p-4">
+                                                            {user.role !== 'superadmin' && (
+                                                                <button
+                                                                    onClick={() => deleteUser(user.id, user.role)}
+                                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                                    title="Delete user"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            )}
+                                                        </td>
                                                     </tr>
                                                 ))}
                                         </tbody>
@@ -1971,11 +2010,8 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
         images: product?.images || [],
         video: product?.video || '',
         isTrending: product?.isTrending || false,
-        // Specs as array of key-value pairs
-        specs: [
-            ...(product?.specs?.map(s => ({ key: s.label, value: s.value })) || []),
-            ...(product?.keySpecs?.map(s => ({ key: s.key, value: s.value })) || [])
-        ] as { key: string; value: string }[],
+        // Specs as array of key-value pairs - only use keySpecs to prevent duplication
+        specs: (product?.keySpecs?.map(s => ({ key: s.key, value: s.value })) || []) as { key: string; value: string }[],
         // Tab contents
         tabDescription: product?.tabDescription || '',
         tabSpecifications: product?.tabSpecifications || '',
@@ -2068,7 +2104,8 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
             images: orderedImages,
             thumbnail: orderedImages[0], // First image is both thumbnail and default
             video: formData.video || undefined,
-            specs: formData.specs.filter(s => s.key && s.value).map(s => ({ label: s.key, value: s.value })),
+            specs: [], // Empty - use keySpecs only to prevent duplication
+            keySpecs: formData.specs.filter(s => s.key && s.value).map(s => ({ key: s.key, value: s.value })),
             isTrending: formData.isTrending,
             // Tab contents
             tabDescription: formData.tabDescription || undefined,
@@ -2191,7 +2228,7 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
                             </label>
                         </div>
                         <div className="md:col-span-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Description*</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Short Description*</label>
                             <textarea
                                 required
                                 rows={3}
@@ -2254,7 +2291,7 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
                         {/* Specifications - Dynamic Key-Value Inputs */}
                         <div className="md:col-span-2">
                             <div className="flex justify-between items-center mb-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Specifications</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Technical Specification</label>
                                 <button
                                     type="button"
                                     onClick={() => setFormData(prev => ({
@@ -2350,23 +2387,13 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
                             <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4">Tab Contents (for product detail page)</h4>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Description Tab</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Description and Specification Tab</label>
                                     <textarea
-                                        rows={3}
+                                        rows={5}
                                         value={formData.tabDescription}
                                         onChange={e => setFormData({ ...formData, tabDescription: e.target.value })}
                                         className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none resize-none bg-white"
-                                        placeholder="Detailed description for the Description tab..."
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Specifications Tab</label>
-                                    <textarea
-                                        rows={3}
-                                        value={formData.tabSpecifications}
-                                        onChange={e => setFormData({ ...formData, tabSpecifications: e.target.value })}
-                                        className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none resize-none bg-white"
-                                        placeholder="Technical specifications for the Specifications tab..."
+                                        placeholder="Detailed description and specifications for the product..."
                                     />
                                 </div>
                                 <div>
