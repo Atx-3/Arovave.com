@@ -100,20 +100,21 @@ export function Catalog() {
             }
         };
 
-        // Fetch products from Supabase
-        const loadProducts = async () => {
-            console.log('📦 Catalog: Loading products...');
-            try {
-                const fetchedProducts = await fetchProductsFromSupabase();
-                console.log('📦 Catalog: Got', fetchedProducts.length, 'products');
-                setProducts(fetchedProducts);
-            } catch (err) {
-                console.error('Error loading products:', err);
-            }
-        };
+        // FAST LOAD: Show cached products INSTANTLY, then refresh in background
+        const cachedProducts = getLocalProducts();
+        if (cachedProducts.length > 0) {
+            console.log('📦 Catalog: Showing', cachedProducts.length, 'cached products instantly');
+            setProducts(cachedProducts);
+        }
 
-        // Load data on mount
-        loadProducts();
+        // Background refresh from Supabase
+        fetchProductsFromSupabase().then(freshProducts => {
+            if (freshProducts.length > 0) {
+                console.log('📦 Catalog: Got', freshProducts.length, 'fresh products');
+                setProducts(freshProducts);
+            }
+        });
+
         fetchCategoriesFromSupabase();
 
         // Subscribe to real-time changes
@@ -123,8 +124,8 @@ export function Catalog() {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'products' },
                 () => {
-                    console.log('📦 Real-time update - reloading products');
-                    loadProducts();
+                    console.log('📦 Real-time update - refreshing products');
+                    fetchProductsFromSupabase().then(setProducts);
                 }
             )
             .subscribe();

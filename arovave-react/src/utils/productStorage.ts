@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { Product } from '../types';
 
 // =============================================================================
-// PRODUCT STORAGE - Handles all product data operations with Supabase
+// FAST PRODUCT LOADING - Shows cached data instantly, fetches fresh in background
 // =============================================================================
 
 const CACHE_KEY = 'arovaveProducts';
@@ -71,12 +71,12 @@ function saveToCache(products: Product[]): void {
         const trendingIds = products.filter(p => p.isTrending).map(p => p.id);
         localStorage.setItem(TRENDING_CACHE_KEY, JSON.stringify(trendingIds));
     } catch (e) {
-        console.warn('Failed to save to cache:', e);
+        console.warn('Cache save failed:', e);
     }
 }
 
 /**
- * Get products from localStorage cache
+ * Get products from localStorage cache (INSTANT - no network)
  */
 function getFromCache(): Product[] {
     try {
@@ -85,7 +85,7 @@ function getFromCache(): Product[] {
             return JSON.parse(cached);
         }
     } catch (e) {
-        console.warn('Failed to read from cache:', e);
+        console.warn('Cache read failed:', e);
     }
     return [];
 }
@@ -95,12 +95,16 @@ function getFromCache(): Product[] {
 // =============================================================================
 
 /**
- * Fetch all products from Supabase
- * This is the main function to get products for display
+ * Get cached products instantly (synchronous - no loading time)
  */
-export async function fetchProducts(): Promise<Product[]> {
-    console.log('📦 fetchProducts: Starting...');
+export function getLocalProducts(): Product[] {
+    return getFromCache();
+}
 
+/**
+ * Fetch products from Supabase (for background refresh)
+ */
+async function fetchFromSupabase(): Promise<Product[]> {
     try {
         const { data, error } = await supabase
             .from('products')
@@ -108,42 +112,77 @@ export async function fetchProducts(): Promise<Product[]> {
             .order('id', { ascending: true });
 
         if (error) {
-            console.error('📦 fetchProducts: Supabase error:', error.message);
-            // Return cached data on error
-            const cached = getFromCache();
-            console.log('📦 fetchProducts: Returning', cached.length, 'cached products');
-            return cached;
-        }
-
-        if (!data || data.length === 0) {
-            console.log('📦 fetchProducts: No products in database');
-            saveToCache([]);
+            console.error('📦 Supabase error:', error.message);
             return [];
         }
 
-        // Convert to Product format
-        const products = data.map(dbToProduct);
-        console.log('📦 fetchProducts: Got', products.length, 'products from Supabase');
+        if (!data || data.length === 0) {
+            return [];
+        }
 
-        // Update cache
-        saveToCache(products);
-
-        return products;
-
+        return data.map(dbToProduct);
     } catch (err: any) {
-        console.error('📦 fetchProducts: Error:', err.message);
-        // Return cached data on error
-        const cached = getFromCache();
-        console.log('📦 fetchProducts: Returning', cached.length, 'cached products (error fallback)');
-        return cached;
+        console.error('📦 Fetch error:', err.message);
+        return [];
     }
 }
 
 /**
- * Get products from localStorage cache (synchronous)
+ * FAST FETCH: Returns cached data immediately, then fetches fresh data
+ * Use the callback to get updated products when they arrive
  */
-export function getLocalProducts(): Product[] {
-    return getFromCache();
+export async function fetchProducts(onUpdate?: (products: Product[]) => void): Promise<Product[]> {
+    // STEP 1: Return cached data IMMEDIATELY (no waiting)
+    const cached = getFromCache();
+    if (cached.length > 0) {
+        console.log('📦 Instant: Showing', cached.length, 'cached products');
+    }
+
+    // STEP 2: Fetch fresh data in background
+    console.log('📦 Background: Fetching fresh products from Supabase...');
+    const fresh = await fetchFromSupabase();
+
+    if (fresh.length > 0) {
+        console.log('📦 Fresh: Got', fresh.length, 'products from Supabase');
+        saveToCache(fresh);
+
+        // If callback provided, update the UI with fresh data
+        if (onUpdate) {
+            onUpdate(fresh);
+        }
+        return fresh;
+    }
+
+    // If Supabase returned empty but we have cache, keep using cache
+    if (cached.length > 0 && fresh.length === 0) {
+        console.log('📦 Keeping cached data (Supabase returned empty)');
+        return cached;
+    }
+
+    return fresh;
+}
+
+/**
+ * FASTEST FETCH: Just returns cache, starts background refresh
+ * Perfect for initial page load
+ */
+export function fetchProductsFast(onUpdate: (products: Product[]) => void): Product[] {
+    // Return cache immediately
+    const cached = getFromCache();
+    console.log('📦 Fast: Returning', cached.length, 'cached products instantly');
+
+    // Start background refresh (don't await)
+    fetchFromSupabase().then(fresh => {
+        if (fresh.length > 0) {
+            console.log('📦 Background refresh: Got', fresh.length, 'products');
+            saveToCache(fresh);
+            onUpdate(fresh);
+        }
+    }).catch(err => {
+        console.error('📦 Background refresh failed:', err);
+    });
+
+    return cached;
 }
 
 /**
@@ -153,7 +192,7 @@ export async function saveProduct(
     product: Product,
     isNew: boolean = false
 ): Promise<{ success: boolean; product?: Product; error?: string }> {
-    console.log('📦 saveProduct:', isNew ? 'Creating new' : 'Updating', product.name);
+    console.log('📦 Saving product:', product.name);
 
     try {
         // Check for duplicate name when creating new
@@ -172,7 +211,6 @@ export async function saveProduct(
         let result;
 
         if (isNew) {
-            // Create new product
             const { data, error } = await supabase
                 .from('products')
                 .insert([dbData])
@@ -180,12 +218,10 @@ export async function saveProduct(
                 .single();
 
             if (error) {
-                console.error('📦 saveProduct: Insert error:', error.message);
                 return { success: false, error: error.message };
             }
             result = data;
         } else {
-            // Update existing product
             const { data, error } = await supabase
                 .from('products')
                 .update(dbData)
@@ -194,19 +230,17 @@ export async function saveProduct(
                 .single();
 
             if (error) {
-                console.error('📦 saveProduct: Update error:', error.message);
                 return { success: false, error: error.message };
             }
             result = data;
         }
 
         const savedProduct = dbToProduct(result);
-        console.log('📦 saveProduct: Success, ID:', savedProduct.id);
+        console.log('📦 Product saved, ID:', savedProduct.id);
 
         return { success: true, product: savedProduct };
 
     } catch (err: any) {
-        console.error('📦 saveProduct: Error:', err.message);
         return { success: false, error: err.message };
     }
 }
@@ -214,10 +248,8 @@ export async function saveProduct(
 /**
  * Delete a product from Supabase
  */
-export async function deleteProduct(
-    productId: number
-): Promise<{ success: boolean; error?: string }> {
-    console.log('📦 deleteProduct: Deleting ID', productId);
+export async function deleteProduct(productId: number): Promise<{ success: boolean; error?: string }> {
+    console.log('📦 Deleting product:', productId);
 
     try {
         const { error } = await supabase
@@ -226,15 +258,13 @@ export async function deleteProduct(
             .eq('id', productId);
 
         if (error) {
-            console.error('📦 deleteProduct: Error:', error.message);
             return { success: false, error: error.message };
         }
 
-        console.log('📦 deleteProduct: Success');
+        console.log('📦 Product deleted');
         return { success: true };
 
     } catch (err: any) {
-        console.error('📦 deleteProduct: Error:', err.message);
         return { success: false, error: err.message };
     }
 }
@@ -243,46 +273,27 @@ export async function deleteProduct(
  * Refresh the local cache from Supabase
  */
 export async function refreshLocalCache(): Promise<void> {
-    console.log('📦 refreshLocalCache: Refreshing...');
-    await fetchProducts();
+    const products = await fetchFromSupabase();
+    if (products.length > 0) {
+        saveToCache(products);
+    }
 }
 
 /**
  * Clear the local cache
  */
 export function clearLocalCache(): void {
-    console.log('📦 clearLocalCache: Clearing...');
     try {
         localStorage.removeItem(CACHE_KEY);
         localStorage.removeItem(TRENDING_CACHE_KEY);
     } catch (e) {
-        console.warn('Failed to clear cache:', e);
+        console.warn('Cache clear failed:', e);
     }
 }
 
 /**
- * Sync initial products to Supabase (only used for initial setup)
+ * Sync initial products (placeholder for backward compatibility)
  */
 export async function syncInitialProductsToSupabase(): Promise<{ success: boolean; error?: string }> {
-    console.log('📦 syncInitialProductsToSupabase: Checking...');
-
-    try {
-        // Check if products already exist
-        const { data: existing } = await supabase
-            .from('products')
-            .select('id')
-            .limit(1);
-
-        if (existing && existing.length > 0) {
-            console.log('📦 syncInitialProductsToSupabase: Products already exist');
-            return { success: true };
-        }
-
-        console.log('📦 syncInitialProductsToSupabase: No products found');
-        return { success: true };
-
-    } catch (err: any) {
-        console.error('📦 syncInitialProductsToSupabase: Error:', err.message);
-        return { success: false, error: err.message };
-    }
+    return { success: true };
 }
