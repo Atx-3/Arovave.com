@@ -5,7 +5,7 @@ import { products, categories } from '../data';
 import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 import { supabase } from '../lib/supabase';
-import { fetchProducts as fetchProductsFromSupabase } from '../utils/productStorage';
+import { fetchProducts as fetchProductsFromSupabase, getLocalProducts } from '../utils/productStorage';
 
 export function Home() {
     const t = useTranslation();
@@ -67,19 +67,22 @@ export function Home() {
 
     // Refresh trending products from Supabase
     useEffect(() => {
-        const fetchTrending = async () => {
-            console.log('🏠 Home: Loading trending products...');
-            try {
-                const allProducts = await fetchProductsFromSupabase();
-                const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
-                setTrendingProducts(trending);
-                console.log('🏠 Home: Got', trending.length, 'trending products');
-            } catch (err) {
-                console.error('Error fetching trending:', err);
-            }
-        };
+        // FAST LOAD: Show cached trending products INSTANTLY
+        const cachedProducts = getLocalProducts();
+        const cachedTrending = cachedProducts.filter((p: any) => p.isTrending).slice(0, 4);
+        if (cachedTrending.length > 0) {
+            console.log('🏠 Home: Showing', cachedTrending.length, 'cached trending products instantly');
+            setTrendingProducts(cachedTrending);
+        }
 
-        fetchTrending();
+        // Background refresh from Supabase
+        fetchProductsFromSupabase().then(allProducts => {
+            const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
+            if (trending.length > 0) {
+                console.log('🏠 Home: Got', trending.length, 'fresh trending products');
+                setTrendingProducts(trending);
+            }
+        });
 
         // Subscribe to real-time changes
         const subscription = supabase
@@ -89,7 +92,10 @@ export function Home() {
                 { event: '*', schema: 'public', table: 'products' },
                 () => {
                     console.log('🏠 Home: Real-time update');
-                    fetchTrending();
+                    fetchProductsFromSupabase().then(allProducts => {
+                        const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
+                        setTrendingProducts(trending);
+                    });
                 }
             )
             .subscribe();
