@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, LanguageProvider, EnquiryProvider } from './context';
 import { Layout, ScrollToTop } from './components/layout';
 import { Home, Catalog, ProductDetail, Profile, Admin, Enquiries, TrustPage, TrustManufacturer, TrustPricing, TrustExperience, AuthPage, About, PrivacyTerms, Support } from './pages';
+import { TestProducts } from './pages/TestProducts';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
               <Route element={<Layout><About /></Layout>} path="/about" />
               <Route element={<Layout><PrivacyTerms /></Layout>} path="/privacy" />
               <Route element={<Layout><Support /></Layout>} path="/support" />
+              <Route element={<TestProducts />} path="/test" />
               <Route element={<Layout><Profile /></Layout>} path="/profile" />
               <Route
                 path="/admin/dashboard"
