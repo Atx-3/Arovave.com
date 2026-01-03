@@ -5,61 +5,9 @@ import type { Product } from '../types';
 // Fallback to localStorage if Supabase is not available
 const LOCAL_STORAGE_KEY = 'arovaveProducts';
 const TRENDING_STORAGE_KEY = 'arovaveTrendingProducts';
-const CACHE_TIMESTAMP_KEY = 'arovaveProductsCacheTime';
 
 // Flag to prevent concurrent fetch requests
 let isFetching = false;
-let lastFetchTime = 0;
-const FETCH_DEBOUNCE_MS = 2000; // Minimum 2 seconds between fetches
-const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // Cache considered "fresh" for 5 minutes
-
-/**
- * Check if cache is still fresh (less than 5 minutes old)
- */
-const isCacheFresh = (): boolean => {
-    const cacheTime = localStorage.getItem(CACHE_TIMESTAMP_KEY);
-    if (!cacheTime) return false;
-    const age = Date.now() - parseInt(cacheTime, 10);
-    return age < CACHE_MAX_AGE_MS;
-};
-
-/**
- * Update cache timestamp
- */
-const updateCacheTimestamp = (): void => {
-    localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
-};
-
-/**
- * Fetch products from Supabase with retry logic
- */
-const fetchFromSupabaseWithRetry = async (retries = 3): Promise<{ data: any[] | null; error: any }> => {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-            const { data, error } = await supabase
-                .from('products')
-                .select('*')
-                .order('id');
-
-            if (!error) {
-                return { data, error: null };
-            }
-
-            console.warn(`⚠️ Supabase fetch attempt ${attempt}/${retries} failed:`, error.message);
-
-            if (attempt < retries) {
-                // Exponential backoff: wait 1s, 2s, 4s...
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
-            }
-        } catch (err) {
-            console.warn(`⚠️ Supabase fetch attempt ${attempt}/${retries} threw error:`, err);
-            if (attempt < retries) {
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
-            }
-        }
-    }
-    return { data: null, error: new Error('All retry attempts failed') };
-};
 
 /**
  * Transform Supabase data to Product type
@@ -90,43 +38,32 @@ const transformSupabaseProducts = (data: any[]): Product[] => {
 
 /**
  * Fetch all products from Supabase
- * Uses stale-while-revalidate pattern:
- * 1. Returns cached data immediately if available
- * 2. Fetches fresh data in background
- * 3. Updates cache silently
- * Falls back to localStorage if Supabase fails
+ * Always tries to fetch fresh data from Supabase first
+ * Falls back to localStorage cache only on error
  */
 export const fetchProducts = async (): Promise<Product[]> => {
-    const now = Date.now();
-
-    // Debounce: prevent rapid repeated fetches
-    if (now - lastFetchTime < FETCH_DEBOUNCE_MS) {
-        console.log('📦 Fetch debounced, returning cached data...');
-        return getLocalProducts();
-    }
-
-    // Prevent concurrent fetch requests that can cause race conditions
+    // If already fetching, wait a bit and return cached data
     if (isFetching) {
         console.log('📦 Fetch already in progress, returning cached data...');
         return getLocalProducts();
     }
 
     isFetching = true;
-    lastFetchTime = now;
-
-    // Get current cached data FIRST - we'll return this on error
-    const cachedProducts = getLocalProducts();
 
     try {
         console.log('📦 Fetching products from Supabase...');
 
-        const { data, error } = await fetchFromSupabaseWithRetry(3);
+        const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            .order('id');
 
         if (error) {
-            console.error('❌ Error fetching products from Supabase after retries:', error);
+            console.error('❌ Error fetching products from Supabase:', error);
             isFetching = false;
-            // Return cached data instead of empty array
-            return cachedProducts.length > 0 ? cachedProducts : [];
+            // Fallback to cache on error
+            const cached = getLocalProducts();
+            return cached.length > 0 ? cached : [];
         }
 
         console.log('📦 Products fetched from Supabase:', data?.length || 0);
@@ -137,7 +74,6 @@ export const fetchProducts = async (): Promise<Product[]> => {
 
             // Cache to localStorage for offline access
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
-            updateCacheTimestamp();
 
             // Update trending products cache
             const trendingIds = products.filter(p => p.isTrending).map(p => p.id);
@@ -147,34 +83,20 @@ export const fetchProducts = async (): Promise<Product[]> => {
             return products;
         }
 
-        // Supabase returned empty data
-        // This could mean: database is actually empty OR there was a silent error
-        // IMPORTANT: If we have cached products, prefer those over empty response
-        if (cachedProducts.length > 0 && isCacheFresh()) {
-            console.log('📦 Supabase returned empty but cache is fresh, keeping cached data...');
-            isFetching = false;
-            return cachedProducts;
-        }
-
-        // No data in Supabase - check if we have cached data first
-        if (cachedProducts.length > 0) {
-            console.log('📦 No products in Supabase but cache exists, returning cached data...');
-            isFetching = false;
-            return cachedProducts;
-        }
-
-        // No cached data either - try to sync initial products
-        console.log('📦 No products in Supabase, checking for initial sync...');
-        await syncInitialProductsToSupabase();
-
-        // Return initial products after sync (will be empty array)
+        // Supabase returned empty - this is valid (no products yet)
+        console.log('📦 No products in Supabase database');
         isFetching = false;
-        return [...initialProducts];
+
+        // Clear cache since database is empty
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([]));
+        return [];
+
     } catch (err) {
         console.error('❌ Error connecting to Supabase:', err);
         isFetching = false;
-        // Return cached data instead of empty array on error
-        return cachedProducts.length > 0 ? cachedProducts : [];
+        // Fallback to cache on error
+        const cached = getLocalProducts();
+        return cached.length > 0 ? cached : [];
     }
 };
 
