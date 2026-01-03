@@ -4,6 +4,7 @@ import { Utensils, Pill, FlaskConical, Gift, ChevronDown, Check } from 'lucide-r
 import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products as initialProducts, categories } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
+import { ProductLoader } from '../components/ProductLoader';
 import { supabase } from '../lib/supabase';
 import { fetchProducts as fetchProductsFromSupabase, getLocalProducts } from '../utils/productStorage';
 import type { Product } from '../types';
@@ -55,6 +56,7 @@ export function Catalog() {
     const [showPopup, setShowPopup] = useState(false);
     const [showSubcategoryNav, setShowSubcategoryNav] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
+    const [isLoading, setIsLoading] = useState(true);
 
     // Scroll detection for subcategory nav
     useEffect(() => {
@@ -105,6 +107,7 @@ export function Catalog() {
         if (cachedProducts.length > 0) {
             console.log('📦 Catalog: Showing', cachedProducts.length, 'cached products instantly');
             setProducts(cachedProducts);
+            setIsLoading(false); // Have cached data, no loading needed
         }
 
         // Background refresh from Supabase
@@ -113,6 +116,9 @@ export function Catalog() {
                 console.log('📦 Catalog: Got', freshProducts.length, 'fresh products');
                 setProducts(freshProducts);
             }
+            setIsLoading(false); // Done loading
+        }).catch(() => {
+            setIsLoading(false); // Error, stop loading
         });
 
         fetchCategoriesFromSupabase();
@@ -376,43 +382,46 @@ export function Catalog() {
                     </span>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
-                    {filteredProducts.map(product => (
-                        <div key={product.id} className="bg-white rounded-2xl md:rounded-3xl border border-zinc-100 overflow-hidden group hover:shadow-lg transition-shadow">
-                            <Link to={`/product/${product.id}`}>
-                                <div className="aspect-[4/3] overflow-hidden">
-                                    <img src={product.thumbnail || product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                </div>
-                            </Link>
-                            <div className="p-3 md:p-6">
-                                <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-                                    {categories.find(c => c.id === product.cat)?.name || product.cat}
-                                </span>
-                                <h3 className="font-bold text-sm md:text-xl mt-1 md:mt-2 mb-1 md:mb-2 line-clamp-2">{product.name}</h3>
-                                <p className="text-xs md:text-sm text-zinc-500 mb-2 md:mb-4 line-clamp-2 hidden md:block">{product.description}</p>
-                                <div className="flex items-center justify-between mb-2 md:mb-4">
-                                    <p className="font-bold text-xs md:text-base text-black">{product.priceRange}</p>
-                                    <p className="text-[10px] md:text-xs text-zinc-400">MOQ: {product.moq}</p>
-                                </div>
-                                <div className="flex flex-col md:flex-row gap-2">
-                                    <Link to={`/product/${product.id}`} className="flex-1 py-2 md:py-3 border-2 border-zinc-200 rounded-lg md:rounded-xl text-center text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-black transition-colors">
-                                        {t('viewDetails')}
-                                    </Link>
-                                    <button
-                                        onClick={() => handleEnquire(product)}
-                                        className="md:px-5 py-2 md:py-3 bg-black text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
-                                    >
-                                        Enquire
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {filteredProducts.length === 0 && (
+                {/* Show loader while loading and no products yet */}
+                {isLoading && filteredProducts.length === 0 ? (
+                    <ProductLoader message="Loading products..." />
+                ) : filteredProducts.length === 0 ? (
                     <div className="text-center py-12 md:py-20">
                         <p className="text-zinc-400 text-base md:text-lg">No products found</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
+                        {filteredProducts.map(product => (
+                            <div key={product.id} className="bg-white rounded-2xl md:rounded-3xl border border-zinc-100 overflow-hidden group hover:shadow-lg transition-shadow">
+                                <Link to={`/product/${product.id}`}>
+                                    <div className="aspect-[4/3] overflow-hidden">
+                                        <img src={product.thumbnail || product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                    </div>
+                                </Link>
+                                <div className="p-3 md:p-6">
+                                    <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-zinc-400">
+                                        {categories.find(c => c.id === product.cat)?.name || product.cat}
+                                    </span>
+                                    <h3 className="font-bold text-sm md:text-xl mt-1 md:mt-2 mb-1 md:mb-2 line-clamp-2">{product.name}</h3>
+                                    <p className="text-xs md:text-sm text-zinc-500 mb-2 md:mb-4 line-clamp-2 hidden md:block">{product.description}</p>
+                                    <div className="flex items-center justify-between mb-2 md:mb-4">
+                                        <p className="font-bold text-xs md:text-base text-black">{product.priceRange}</p>
+                                        <p className="text-[10px] md:text-xs text-zinc-400">MOQ: {product.moq}</p>
+                                    </div>
+                                    <div className="flex flex-col md:flex-row gap-2">
+                                        <Link to={`/product/${product.id}`} className="flex-1 py-2 md:py-3 border-2 border-zinc-200 rounded-lg md:rounded-xl text-center text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-black transition-colors">
+                                            {t('viewDetails')}
+                                        </Link>
+                                        <button
+                                            onClick={() => handleEnquire(product)}
+                                            className="md:px-5 py-2 md:py-3 bg-black text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                        >
+                                            Enquire
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
