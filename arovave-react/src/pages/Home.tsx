@@ -65,49 +65,36 @@ export function Home() {
         }
     }, [isAuthenticated, pendingProduct]);
 
-    // Refresh trending products from Supabase with real-time updates
+    // Refresh trending products from Supabase
     useEffect(() => {
         const fetchTrending = async () => {
+            console.log('🏠 Home: Loading trending products...');
             try {
-                // DON'T clear cache - keep existing data while fetching
-                // This prevents products from "disappearing" during slow fetches
-
-                // Fetch products from Supabase
                 const allProducts = await fetchProductsFromSupabase();
-
-                // Filter trending products - only show actually trending ones
                 const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
-                // Only update if we got valid results
-                if (allProducts && allProducts.length >= 0) {
-                    setTrendingProducts(trending);
-                    console.log('🏠 Home: Trending products refreshed, count:', trending.length);
-                }
+                setTrendingProducts(trending);
+                console.log('🏠 Home: Got', trending.length, 'trending products');
             } catch (err) {
-                console.error('Error fetching trending products:', err);
-                // Keep existing trending products on error - don't reset to empty
+                console.error('Error fetching trending:', err);
             }
         };
 
         fetchTrending();
 
-        // Subscribe to real-time changes on the products table
+        // Subscribe to real-time changes
         const subscription = supabase
             .channel('home-products-changes')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'products' },
-                (payload) => {
-                    console.log('🏠 Home: Real-time product change detected:', payload.eventType);
+                () => {
+                    console.log('🏠 Home: Real-time update');
                     fetchTrending();
                 }
             )
-            .subscribe((status) => {
-                console.log('📡 Home subscription status:', status);
-            });
+            .subscribe();
 
-        // Cleanup subscription on unmount
         return () => {
-            console.log('📡 Cleaning up home subscription');
             subscription.unsubscribe();
         };
     }, []);

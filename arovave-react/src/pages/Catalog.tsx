@@ -100,53 +100,36 @@ export function Catalog() {
             }
         };
 
-        const fetchAllData = async () => {
-            console.log('🔍 DEBUG Catalog: fetchAllData called');
-            // DON'T clear localStorage cache - keep existing data while fetching
-            // This prevents products from "disappearing" during slow fetches
-
-            // Fetch products from Supabase
+        // Fetch products from Supabase
+        const loadProducts = async () => {
+            console.log('📦 Catalog: Loading products...');
             try {
-                console.log('🔍 DEBUG Catalog: Calling fetchProductsFromSupabase...');
                 const fetchedProducts = await fetchProductsFromSupabase();
-                console.log('🔍 DEBUG Catalog: Got products from fetch:', fetchedProducts?.length);
-                // Only update state if we got valid data
-                if (fetchedProducts && fetchedProducts.length >= 0) {
-                    setProducts(fetchedProducts);
-                    console.log('📦 Catalog: Products refreshed, count:', fetchedProducts.length);
-                }
+                console.log('📦 Catalog: Got', fetchedProducts.length, 'products');
+                setProducts(fetchedProducts);
             } catch (err) {
-                console.error('Error fetching products:', err);
-                // Keep existing products on error - don't clear state
+                console.error('Error loading products:', err);
             }
-
-            // Fetch categories from Supabase
-            await fetchCategoriesFromSupabase();
         };
 
-        // Initial fetch
-        console.log('🔍 DEBUG Catalog: useEffect running, about to call fetchAllData');
-        fetchAllData();
+        // Load data on mount
+        loadProducts();
+        fetchCategoriesFromSupabase();
 
-        // Subscribe to real-time changes on the products table
+        // Subscribe to real-time changes
         const subscription = supabase
             .channel('catalog-products-changes')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'products' },
-                (payload) => {
-                    console.log('📦 Real-time product change detected:', payload.eventType);
-                    // Refresh all products on any change
-                    fetchAllData();
+                () => {
+                    console.log('📦 Real-time update - reloading products');
+                    loadProducts();
                 }
             )
-            .subscribe((status) => {
-                console.log('📡 Catalog subscription status:', status);
-            });
+            .subscribe();
 
-        // Cleanup subscription on unmount
         return () => {
-            console.log('📡 Cleaning up catalog subscription');
             subscription.unsubscribe();
         };
     }, []);
