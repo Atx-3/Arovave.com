@@ -42,13 +42,18 @@ const transformSupabaseProducts = (data: any[]): Product[] => {
  * Falls back to localStorage cache only on error
  */
 export const fetchProducts = async (): Promise<Product[]> => {
+    console.log('🔍 DEBUG: fetchProducts called, isFetching:', isFetching);
+
     // If already fetching, wait a bit and return cached data
     if (isFetching) {
         console.log('📦 Fetch already in progress, returning cached data...');
-        return getLocalProducts();
+        const cached = getLocalProducts();
+        console.log('🔍 DEBUG: Returning cached products count:', cached.length);
+        return cached;
     }
 
     isFetching = true;
+    console.log('🔍 DEBUG: Set isFetching = true, starting Supabase fetch...');
 
     try {
         console.log('📦 Fetching products from Supabase...');
@@ -58,11 +63,14 @@ export const fetchProducts = async (): Promise<Product[]> => {
             .select('*')
             .order('id');
 
+        console.log('🔍 DEBUG: Supabase response - error:', error, 'data length:', data?.length);
+
         if (error) {
             console.error('❌ Error fetching products from Supabase:', error);
             isFetching = false;
             // Fallback to cache on error
             const cached = getLocalProducts();
+            console.log('🔍 DEBUG: Error occurred, returning cached count:', cached.length);
             return cached.length > 0 ? cached : [];
         }
 
@@ -71,15 +79,18 @@ export const fetchProducts = async (): Promise<Product[]> => {
         if (data && data.length > 0) {
             // Transform Supabase data to Product type
             const products = transformSupabaseProducts(data);
+            console.log('🔍 DEBUG: Transformed products count:', products.length);
 
             // Cache to localStorage for offline access
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
+            console.log('🔍 DEBUG: Saved to localStorage');
 
             // Update trending products cache
             const trendingIds = products.filter(p => p.isTrending).map(p => p.id);
             localStorage.setItem(TRENDING_STORAGE_KEY, JSON.stringify(trendingIds));
 
             isFetching = false;
+            console.log('🔍 DEBUG: Set isFetching = false, returning', products.length, 'products');
             return products;
         }
 
@@ -89,6 +100,7 @@ export const fetchProducts = async (): Promise<Product[]> => {
 
         // Clear cache since database is empty
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([]));
+        console.log('🔍 DEBUG: Database empty, set isFetching = false, returning []');
         return [];
 
     } catch (err) {
@@ -96,6 +108,7 @@ export const fetchProducts = async (): Promise<Product[]> => {
         isFetching = false;
         // Fallback to cache on error
         const cached = getLocalProducts();
+        console.log('🔍 DEBUG: Catch block, returning cached count:', cached.length);
         return cached.length > 0 ? cached : [];
     }
 };

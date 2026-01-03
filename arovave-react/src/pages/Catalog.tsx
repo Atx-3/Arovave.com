@@ -101,12 +101,15 @@ export function Catalog() {
         };
 
         const fetchAllData = async () => {
+            console.log('🔍 DEBUG Catalog: fetchAllData called');
             // DON'T clear localStorage cache - keep existing data while fetching
             // This prevents products from "disappearing" during slow fetches
 
             // Fetch products from Supabase
             try {
+                console.log('🔍 DEBUG Catalog: Calling fetchProductsFromSupabase...');
                 const fetchedProducts = await fetchProductsFromSupabase();
+                console.log('🔍 DEBUG Catalog: Got products from fetch:', fetchedProducts?.length);
                 // Only update state if we got valid data
                 if (fetchedProducts && fetchedProducts.length >= 0) {
                     setProducts(fetchedProducts);
@@ -122,6 +125,7 @@ export function Catalog() {
         };
 
         // Initial fetch
+        console.log('🔍 DEBUG Catalog: useEffect running, about to call fetchAllData');
         fetchAllData();
 
         // Subscribe to real-time changes on the products table
