@@ -69,21 +69,22 @@ export function Home() {
     useEffect(() => {
         const fetchTrending = async () => {
             try {
-                // Clear cache first for fresh data
-                localStorage.removeItem('arovaveProducts');
+                // DON'T clear cache - keep existing data while fetching
+                // This prevents products from "disappearing" during slow fetches
 
                 // Fetch products from Supabase
                 const allProducts = await fetchProductsFromSupabase();
 
                 // Filter trending products - only show actually trending ones
                 const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
-                setTrendingProducts(trending); // No fallback to non-trending products
-                console.log('🏠 Home: Trending products refreshed, count:', trending.length);
+                // Only update if we got valid results
+                if (allProducts && allProducts.length >= 0) {
+                    setTrendingProducts(trending);
+                    console.log('🏠 Home: Trending products refreshed, count:', trending.length);
+                }
             } catch (err) {
                 console.error('Error fetching trending products:', err);
-                // Fallback to initial trending products only
-                const trending = products.filter(p => p.isTrending).slice(0, 4);
-                setTrendingProducts(trending); // No fallback to non-trending
+                // Keep existing trending products on error - don't reset to empty
             }
         };
 

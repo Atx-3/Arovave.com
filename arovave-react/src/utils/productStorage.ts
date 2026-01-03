@@ -6,11 +6,25 @@ import type { Product } from '../types';
 const LOCAL_STORAGE_KEY = 'arovaveProducts';
 const TRENDING_STORAGE_KEY = 'arovaveTrendingProducts';
 
+// Flag to prevent concurrent fetch requests
+let isFetching = false;
+
 /**
  * Fetch all products from Supabase
  * Falls back to localStorage if Supabase fails or has no data
  */
 export const fetchProducts = async (): Promise<Product[]> => {
+    // Prevent concurrent fetch requests that can cause race conditions
+    if (isFetching) {
+        console.log('📦 Fetch already in progress, returning cached data...');
+        return getLocalProducts();
+    }
+
+    isFetching = true;
+
+    // Get current cached data FIRST - we'll return this on error
+    const cachedProducts = getLocalProducts();
+
     try {
         console.log('📦 Fetching products from Supabase...');
 
@@ -21,7 +35,9 @@ export const fetchProducts = async (): Promise<Product[]> => {
 
         if (error) {
             console.error('❌ Error fetching products from Supabase:', error);
-            return getLocalProducts();
+            isFetching = false;
+            // Return cached data instead of empty array
+            return cachedProducts.length > 0 ? cachedProducts : [];
         }
 
         console.log('📦 Products fetched from Supabase:', data?.length || 0);
@@ -57,18 +73,29 @@ export const fetchProducts = async (): Promise<Product[]> => {
             const trendingIds = products.filter(p => p.isTrending).map(p => p.id);
             localStorage.setItem(TRENDING_STORAGE_KEY, JSON.stringify(trendingIds));
 
+            isFetching = false;
             return products;
         }
 
-        // No data in Supabase - auto-sync initial products (products.ts is empty, so nothing uploads)
+        // No data in Supabase - check if we have cached data first
+        if (cachedProducts.length > 0) {
+            console.log('📦 No products in Supabase but cache exists, returning cached data...');
+            isFetching = false;
+            return cachedProducts;
+        }
+
+        // No cached data either - try to sync initial products
         console.log('📦 No products in Supabase, checking for initial sync...');
         await syncInitialProductsToSupabase();
 
         // Return initial products after sync (will be empty array)
+        isFetching = false;
         return [...initialProducts];
     } catch (err) {
         console.error('❌ Error connecting to Supabase:', err);
-        return getLocalProducts();
+        isFetching = false;
+        // Return cached data instead of empty array on error
+        return cachedProducts.length > 0 ? cachedProducts : [];
     }
 };
 
@@ -213,10 +240,8 @@ export const deleteProduct = async (productId: number): Promise<{ success: boole
         console.log('🗑️ Starting product deletion:', productId);
         console.log('🗑️ Product ID type:', typeof productId);
 
-        // Clear localStorage cache FIRST to prevent stale data
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-        localStorage.removeItem(TRENDING_STORAGE_KEY);
-        console.log('🗑️ Cleared localStorage cache');
+        // DON'T clear cache before delete - only after success
+        // This prevents race conditions where products disappear temporarily
 
         const { data, error } = await supabase
             .from('products')
@@ -232,7 +257,10 @@ export const deleteProduct = async (productId: number): Promise<{ success: boole
             return { success: false, error: error.message };
         }
 
-        // Immediately remove from localStorage as backup
+        // Only clear and refresh cache AFTER successful deletion
+        console.log('🗑️ Delete successful, now refreshing cache...');
+
+        // Immediately remove from localStorage
         deleteFromLocalStorage(productId);
 
         // Refresh cache from Supabase to ensure consistency

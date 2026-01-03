@@ -101,18 +101,20 @@ export function Catalog() {
         };
 
         const fetchAllData = async () => {
-            // Clear localStorage cache first to ensure fresh data
-            localStorage.removeItem('arovaveProducts');
+            // DON'T clear localStorage cache - keep existing data while fetching
+            // This prevents products from "disappearing" during slow fetches
 
             // Fetch products from Supabase
             try {
                 const fetchedProducts = await fetchProductsFromSupabase();
-                setProducts(fetchedProducts);
-                console.log('📦 Catalog: Products refreshed, count:', fetchedProducts.length);
+                // Only update state if we got valid data
+                if (fetchedProducts && fetchedProducts.length >= 0) {
+                    setProducts(fetchedProducts);
+                    console.log('📦 Catalog: Products refreshed, count:', fetchedProducts.length);
+                }
             } catch (err) {
                 console.error('Error fetching products:', err);
-                // Fallback to local
-                setProducts(getLocalProducts());
+                // Keep existing products on error - don't clear state
             }
 
             // Fetch categories from Supabase
