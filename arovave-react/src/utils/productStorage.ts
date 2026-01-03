@@ -1,98 +1,162 @@
 import { supabase } from '../lib/supabase';
-import { products as initialProducts } from '../data';
 import type { Product } from '../types';
 
-// Storage keys
-const LOCAL_STORAGE_KEY = 'arovaveProducts';
-const TRENDING_STORAGE_KEY = 'arovaveTrendingProducts';
+// =============================================================================
+// PRODUCT STORAGE - Handles all product data operations with Supabase
+// =============================================================================
+
+const CACHE_KEY = 'arovaveProducts';
+const TRENDING_CACHE_KEY = 'arovaveTrendingProducts';
 
 /**
- * Fetch all products from Supabase database
- * This is the main function to get products for display
+ * Convert database product format to app Product format
  */
-export const fetchProducts = async (): Promise<Product[]> => {
+function dbToProduct(dbProduct: any): Product {
+    return {
+        id: dbProduct.id,
+        name: dbProduct.name,
+        cat: dbProduct.cat,
+        subcategory: dbProduct.subcategory || undefined,
+        images: dbProduct.images || [],
+        thumbnail: dbProduct.thumbnail || undefined,
+        video: dbProduct.video || undefined,
+        description: dbProduct.description || '',
+        specs: dbProduct.specs || [],
+        keySpecs: dbProduct.key_specs || [],
+        moq: dbProduct.moq || '',
+        priceRange: dbProduct.price_range || '',
+        hsn: dbProduct.hsn || '',
+        certifications: dbProduct.certifications || [],
+        isTrending: dbProduct.is_trending || false,
+        tabDescription: dbProduct.tab_description || undefined,
+        tabSpecifications: dbProduct.tab_specifications || undefined,
+        tabAdvantage: dbProduct.tab_advantage || undefined,
+        tabBenefit: dbProduct.tab_benefit || undefined
+    };
+}
+
+/**
+ * Convert app Product format to database format
+ */
+function productToDb(product: Product): any {
+    return {
+        name: product.name?.trim() || '',
+        cat: product.cat || '',
+        subcategory: product.subcategory || null,
+        images: product.images || [],
+        thumbnail: product.thumbnail || null,
+        video: product.video || null,
+        description: product.description || '',
+        specs: product.specs || [],
+        key_specs: product.keySpecs || [],
+        moq: product.moq || '',
+        price_range: product.priceRange || '',
+        hsn: product.hsn || '',
+        certifications: product.certifications || [],
+        is_trending: product.isTrending || false,
+        tab_description: product.tabDescription || null,
+        tab_specifications: product.tabSpecifications || null,
+        tab_advantage: product.tabAdvantage || null,
+        tab_benefit: product.tabBenefit || null,
+        updated_at: new Date().toISOString()
+    };
+}
+
+/**
+ * Save products to localStorage cache
+ */
+function saveToCache(products: Product[]): void {
     try {
-        console.log('📦 Fetching products from Supabase...');
-
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .order('id');
-
-        if (error) {
-            console.error('❌ Supabase error:', error.message);
-            // Return cached data on error
-            return getLocalProducts();
-        }
-
-        if (!data || data.length === 0) {
-            console.log('📦 No products found in database');
-            return [];
-        }
-
-        console.log('✅ Got', data.length, 'products from Supabase');
-
-        // Transform database format to app format
-        const products: Product[] = data.map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            cat: item.cat,
-            subcategory: item.subcategory,
-            images: item.images || [],
-            thumbnail: item.thumbnail,
-            video: item.video,
-            description: item.description,
-            specs: item.specs || [],
-            keySpecs: item.key_specs || [],
-            moq: item.moq,
-            priceRange: item.price_range,
-            hsn: item.hsn,
-            certifications: item.certifications || [],
-            isTrending: item.is_trending || false,
-            tabDescription: item.tab_description,
-            tabSpecifications: item.tab_specifications,
-            tabAdvantage: item.tab_advantage,
-            tabBenefit: item.tab_benefit
-        }));
-
-        // Save to localStorage cache
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
-
-        // Update trending cache
+        localStorage.setItem(CACHE_KEY, JSON.stringify(products));
         const trendingIds = products.filter(p => p.isTrending).map(p => p.id);
-        localStorage.setItem(TRENDING_STORAGE_KEY, JSON.stringify(trendingIds));
-
-        return products;
-
-    } catch (err) {
-        console.error('❌ Network error:', err);
-        return getLocalProducts();
+        localStorage.setItem(TRENDING_CACHE_KEY, JSON.stringify(trendingIds));
+    } catch (e) {
+        console.warn('Failed to save to cache:', e);
     }
-};
+}
 
 /**
  * Get products from localStorage cache
  */
-export const getLocalProducts = (): Product[] => {
+function getFromCache(): Product[] {
     try {
-        const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (saved) {
-            const products = JSON.parse(saved);
-            console.log('📦 Loaded', products.length, 'products from cache');
-            return products;
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+            return JSON.parse(cached);
         }
     } catch (e) {
-        console.error('Error reading cache:', e);
+        console.warn('Failed to read from cache:', e);
     }
     return [];
-};
+}
+
+// =============================================================================
+// MAIN EXPORT FUNCTIONS
+// =============================================================================
 
 /**
- * Save a product to Supabase
+ * Fetch all products from Supabase
+ * This is the main function to get products for display
  */
-export const saveProduct = async (product: Product, isNew: boolean = false): Promise<{ success: boolean; product?: Product; error?: string }> => {
+export async function fetchProducts(): Promise<Product[]> {
+    console.log('📦 fetchProducts: Starting...');
+
     try {
-        // Check for duplicate name when adding new
+        const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            .order('id', { ascending: true });
+
+        if (error) {
+            console.error('📦 fetchProducts: Supabase error:', error.message);
+            // Return cached data on error
+            const cached = getFromCache();
+            console.log('📦 fetchProducts: Returning', cached.length, 'cached products');
+            return cached;
+        }
+
+        if (!data || data.length === 0) {
+            console.log('📦 fetchProducts: No products in database');
+            saveToCache([]);
+            return [];
+        }
+
+        // Convert to Product format
+        const products = data.map(dbToProduct);
+        console.log('📦 fetchProducts: Got', products.length, 'products from Supabase');
+
+        // Update cache
+        saveToCache(products);
+
+        return products;
+
+    } catch (err: any) {
+        console.error('📦 fetchProducts: Error:', err.message);
+        // Return cached data on error
+        const cached = getFromCache();
+        console.log('📦 fetchProducts: Returning', cached.length, 'cached products (error fallback)');
+        return cached;
+    }
+}
+
+/**
+ * Get products from localStorage cache (synchronous)
+ */
+export function getLocalProducts(): Product[] {
+    return getFromCache();
+}
+
+/**
+ * Save a product to Supabase (create or update)
+ */
+export async function saveProduct(
+    product: Product,
+    isNew: boolean = false
+): Promise<{ success: boolean; product?: Product; error?: string }> {
+    console.log('📦 saveProduct:', isNew ? 'Creating new' : 'Updating', product.name);
+
+    try {
+        // Check for duplicate name when creating new
         if (isNew) {
             const { data: existing } = await supabase
                 .from('products')
@@ -104,199 +168,121 @@ export const saveProduct = async (product: Product, isNew: boolean = false): Pro
             }
         }
 
-        // Format price with $ if needed
-        let formattedPrice = product.priceRange || '';
-        if (formattedPrice && !formattedPrice.startsWith('$')) {
-            formattedPrice = '$' + formattedPrice;
-        }
-
-        const dbProduct = {
-            name: product.name.trim(),
-            cat: product.cat,
-            subcategory: product.subcategory || null,
-            images: product.images,
-            thumbnail: product.thumbnail || null,
-            video: product.video || null,
-            description: product.description,
-            specs: product.specs,
-            key_specs: product.keySpecs || [],
-            moq: product.moq,
-            price_range: formattedPrice,
-            hsn: product.hsn,
-            certifications: product.certifications,
-            is_trending: product.isTrending || false,
-            tab_description: product.tabDescription || null,
-            tab_specifications: product.tabSpecifications || null,
-            tab_advantage: product.tabAdvantage || null,
-            tab_benefit: product.tabBenefit || null,
-            updated_at: new Date().toISOString()
-        };
-
+        const dbData = productToDb(product);
         let result;
 
         if (isNew) {
+            // Create new product
             const { data, error } = await supabase
                 .from('products')
-                .insert([dbProduct])
+                .insert([dbData])
                 .select()
                 .single();
 
             if (error) {
-                console.error('Insert error:', error);
-                return { success: false, error: 'Failed to save product' };
+                console.error('📦 saveProduct: Insert error:', error.message);
+                return { success: false, error: error.message };
             }
             result = data;
         } else {
+            // Update existing product
             const { data, error } = await supabase
                 .from('products')
-                .update(dbProduct)
+                .update(dbData)
                 .eq('id', product.id)
                 .select()
                 .single();
 
             if (error) {
-                console.error('Update error:', error);
-                return { success: false, error: 'Failed to update product' };
+                console.error('📦 saveProduct: Update error:', error.message);
+                return { success: false, error: error.message };
             }
             result = data;
         }
 
-        // Transform back to Product type
-        const savedProduct: Product = {
-            id: result.id,
-            name: result.name,
-            cat: result.cat,
-            subcategory: result.subcategory,
-            images: result.images || [],
-            thumbnail: result.thumbnail,
-            video: result.video,
-            description: result.description,
-            specs: result.specs || [],
-            keySpecs: result.key_specs || [],
-            moq: result.moq,
-            priceRange: result.price_range,
-            hsn: result.hsn,
-            certifications: result.certifications || [],
-            isTrending: result.is_trending || false,
-            tabDescription: result.tab_description,
-            tabSpecifications: result.tab_specifications,
-            tabAdvantage: result.tab_advantage,
-            tabBenefit: result.tab_benefit
-        };
+        const savedProduct = dbToProduct(result);
+        console.log('📦 saveProduct: Success, ID:', savedProduct.id);
 
-        console.log('✅ Product saved:', savedProduct.id);
         return { success: true, product: savedProduct };
 
-    } catch (err) {
-        console.error('Save error:', err);
-        return { success: false, error: 'Failed to save product' };
+    } catch (err: any) {
+        console.error('📦 saveProduct: Error:', err.message);
+        return { success: false, error: err.message };
     }
-};
+}
 
 /**
  * Delete a product from Supabase
  */
-export const deleteProduct = async (productId: number): Promise<{ success: boolean; error?: string }> => {
-    try {
-        console.log('🗑️ Deleting product:', productId);
+export async function deleteProduct(
+    productId: number
+): Promise<{ success: boolean; error?: string }> {
+    console.log('📦 deleteProduct: Deleting ID', productId);
 
+    try {
         const { error } = await supabase
             .from('products')
             .delete()
             .eq('id', productId);
 
         if (error) {
-            console.error('Delete error:', error);
+            console.error('📦 deleteProduct: Error:', error.message);
             return { success: false, error: error.message };
         }
 
-        console.log('✅ Product deleted:', productId);
+        console.log('📦 deleteProduct: Success');
         return { success: true };
 
     } catch (err: any) {
-        console.error('Delete error:', err);
-        return { success: false, error: err.message || 'Failed to delete' };
+        console.error('📦 deleteProduct: Error:', err.message);
+        return { success: false, error: err.message };
     }
-};
+}
 
 /**
- * Refresh localStorage cache from Supabase
+ * Refresh the local cache from Supabase
  */
-export const refreshLocalCache = async (): Promise<void> => {
+export async function refreshLocalCache(): Promise<void> {
+    console.log('📦 refreshLocalCache: Refreshing...');
     await fetchProducts();
-};
+}
 
 /**
- * Clear localStorage cache
+ * Clear the local cache
  */
-export const clearLocalCache = (): void => {
-    localStorage.removeItem(LOCAL_STORAGE_KEY);
-    localStorage.removeItem(TRENDING_STORAGE_KEY);
-    console.log('🗑️ Cache cleared');
-};
-
-/**
- * Sync initial products to Supabase (only if table is empty)
- */
-export const syncInitialProductsToSupabase = async (forceResync: boolean = false): Promise<{ success: boolean; error?: string }> => {
+export function clearLocalCache(): void {
+    console.log('📦 clearLocalCache: Clearing...');
     try {
-        // Check if products exist
+        localStorage.removeItem(CACHE_KEY);
+        localStorage.removeItem(TRENDING_CACHE_KEY);
+    } catch (e) {
+        console.warn('Failed to clear cache:', e);
+    }
+}
+
+/**
+ * Sync initial products to Supabase (only used for initial setup)
+ */
+export async function syncInitialProductsToSupabase(): Promise<{ success: boolean; error?: string }> {
+    console.log('📦 syncInitialProductsToSupabase: Checking...');
+
+    try {
+        // Check if products already exist
         const { data: existing } = await supabase
             .from('products')
             .select('id')
             .limit(1);
 
-        if (!forceResync && existing && existing.length > 0) {
-            console.log('📦 Products already exist in Supabase');
+        if (existing && existing.length > 0) {
+            console.log('📦 syncInitialProductsToSupabase: Products already exist');
             return { success: true };
         }
 
-        // Only sync if initialProducts has data
-        if (initialProducts.length === 0) {
-            console.log('📦 No initial products to sync');
-            return { success: true };
-        }
-
-        // Delete all if force resync
-        if (forceResync && existing && existing.length > 0) {
-            await supabase.from('products').delete().neq('id', 0);
-        }
-
-        // Upload initial products
-        const toInsert = initialProducts.map(p => ({
-            name: p.name,
-            cat: p.cat,
-            subcategory: p.subcategory || null,
-            images: p.images,
-            thumbnail: p.thumbnail || null,
-            video: p.video || null,
-            description: p.description,
-            specs: p.specs,
-            key_specs: p.keySpecs || [],
-            moq: p.moq,
-            price_range: p.priceRange,
-            hsn: p.hsn,
-            certifications: p.certifications,
-            is_trending: p.isTrending || false,
-            tab_description: p.tabDescription || null,
-            tab_specifications: p.tabSpecifications || null,
-            tab_advantage: p.tabAdvantage || null,
-            tab_benefit: p.tabBenefit || null
-        }));
-
-        const { error } = await supabase.from('products').insert(toInsert);
-
-        if (error) {
-            console.error('Sync error:', error);
-            return { success: false, error: error.message };
-        }
-
-        console.log('✅ Synced', toInsert.length, 'products');
-        clearLocalCache();
+        console.log('📦 syncInitialProductsToSupabase: No products found');
         return { success: true };
 
-    } catch (err) {
-        console.error('Sync error:', err);
-        return { success: false, error: String(err) };
+    } catch (err: any) {
+        console.error('📦 syncInitialProductsToSupabase: Error:', err.message);
+        return { success: false, error: err.message };
     }
-};
+}
