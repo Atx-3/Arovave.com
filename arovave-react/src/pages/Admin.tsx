@@ -1359,7 +1359,11 @@ export function Admin() {
                                         return (
                                             <button
                                                 key={cat.id}
-                                                onClick={() => setSelectedQualityCategory(cat.id)}
+                                                onClick={() => {
+                                                    setSelectedQualityCategory(cat.id);
+                                                    setQualitySubcategory(''); // Reset subcategory when category changes
+                                                    setQualityContentType('certificate'); // Reset content type
+                                                }}
                                                 className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest whitespace-nowrap transition-colors ${selectedQualityCategory === cat.id
                                                     ? 'bg-black text-white'
                                                     : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
