@@ -5,6 +5,7 @@ import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
 import { fetchProducts as fetchProductsFromSupabase, saveProduct as saveProductToSupabase, deleteProduct as deleteProductFromSupabase, getLocalProducts, syncInitialProductsToSupabase } from '../utils/productStorage';
+import { compressImage, compressImages, processVideo, checkVideoSize, formatFileSize } from '../utils/mediaCompression';
 import type { Product, Enquiry } from '../types';
 import type { AdminPermission } from '../context/AuthContext';
 
@@ -1436,73 +1437,59 @@ export function Admin() {
                                     />
                                     <p className="text-[10px] sm:text-xs text-zinc-400 mb-4">Max 5MB image file. Supports JPG, PNG, WebP.</p>
                                     <button
+                                        type="button"
                                         onClick={async () => {
+                                            console.log('📝 Add Item button clicked');
                                             const title = (document.getElementById('qualityItemTitle') as HTMLInputElement)?.value;
                                             const fileInput = document.getElementById('qualityItemImage') as HTMLInputElement;
                                             const description = (document.getElementById('qualityItemDesc') as HTMLTextAreaElement)?.value;
                                             const file = fileInput?.files?.[0];
 
-                                            if (!title) return alert('Please enter a title');
-                                            if (!file) return alert('Please select an image file');
-                                            if (file.size > 5 * 1024 * 1024) return alert('Image too large! Max 5MB.');
+                                            console.log('📝 Form values:', { title, hasFile: !!file, description: description?.substring(0, 50) });
+
+                                            if (!title) {
+                                                alert('Please enter a title');
+                                                return;
+                                            }
+                                            if (!file) {
+                                                alert('Please select an image file');
+                                                return;
+                                            }
+                                            if (file.size > 5 * 1024 * 1024) {
+                                                alert('Image too large! Max 5MB.');
+                                                return;
+                                            }
 
                                             try {
-                                                // Upload image to Supabase Storage
-                                                const fileName = `quality/${selectedQualityCategory}/${qualitySubcategory}/${qualityContentType}/${Date.now()}_${file.name}`;
-                                                const { data: uploadData, error: uploadError } = await supabase.storage
-                                                    .from('quality-images')
-                                                    .upload(fileName, file, { cacheControl: '3600', upsert: false });
+                                                console.log('📝 Compressing and processing image...');
+                                                // Compress image first
+                                                const compressedImage = await compressImage(file);
+                                                console.log('📝 Image compressed, saving to database...');
 
-                                                if (uploadError) {
-                                                    // If bucket doesn't exist, use base64 as fallback
-                                                    console.warn('Storage upload failed, using base64 fallback:', uploadError);
-                                                    const reader = new FileReader();
-                                                    reader.onload = async () => {
-                                                        const imageUrl = reader.result as string;
-                                                        const saved = await saveQualityUploadToSupabase(
-                                                            selectedQualityCategory,
-                                                            qualitySubcategory,
-                                                            qualityContentType,
-                                                            title,
-                                                            imageUrl,
-                                                            description
-                                                        );
-                                                        if (saved) {
-                                                            await fetchQualityUploadsFromSupabase();
-                                                            (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
-                                                            (document.getElementById('qualityItemDesc') as HTMLTextAreaElement).value = '';
-                                                            fileInput.value = '';
-                                                            alert('✅ Item added!');
-                                                        }
-                                                    };
-                                                    reader.readAsDataURL(file);
-                                                    return;
-                                                }
-
-                                                // Get public URL
-                                                const { data: urlData } = supabase.storage.from('quality-images').getPublicUrl(fileName);
-                                                const imageUrl = urlData.publicUrl;
-
-                                                // Save to database
+                                                // Save to database with compressed image
                                                 const saved = await saveQualityUploadToSupabase(
                                                     selectedQualityCategory,
                                                     qualitySubcategory,
                                                     qualityContentType,
                                                     title,
-                                                    imageUrl,
+                                                    compressedImage,
                                                     description
                                                 );
 
                                                 if (saved) {
+                                                    console.log('📝 Item saved successfully!');
                                                     await fetchQualityUploadsFromSupabase();
                                                     (document.getElementById('qualityItemTitle') as HTMLInputElement).value = '';
                                                     (document.getElementById('qualityItemDesc') as HTMLTextAreaElement).value = '';
                                                     fileInput.value = '';
-                                                    alert('✅ Item added!');
+                                                    alert('✅ Item added successfully!');
+                                                } else {
+                                                    console.error('📝 Save returned null');
+                                                    alert('Failed to save item. Check console for details.');
                                                 }
                                             } catch (err) {
-                                                console.error('Error adding item:', err);
-                                                alert('Failed to add item. Please try again.');
+                                                console.error('📝 Error adding item:', err);
+                                                alert('Failed to add item: ' + (err as Error).message);
                                             }
                                         }}
                                         className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
@@ -2025,19 +2012,29 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
     const currentCategory = managedCategories.find(c => c.id === formData.cat);
     const subcategories = currentCategory?.subcategories || [];
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files) return;
 
-        Array.from(files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const url = e.target?.result as string;
-                setImagePreviews(prev => [...prev, url]);
-                setFormData(prev => ({ ...prev, images: [...prev.images, url] }));
-            };
-            reader.readAsDataURL(file);
-        });
+        // Process each file with compression
+        for (const file of Array.from(files)) {
+            try {
+                console.log(`📸 Processing: ${file.name} (${formatFileSize(file.size)})`);
+                const compressed = await compressImage(file);
+                setImagePreviews(prev => [...prev, compressed]);
+                setFormData(prev => ({ ...prev, images: [...prev.images, compressed] }));
+            } catch (error) {
+                console.error('Failed to compress image:', error);
+                // Fallback to original if compression fails
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const url = e.target?.result as string;
+                    setImagePreviews(prev => [...prev, url]);
+                    setFormData(prev => ({ ...prev, images: [...prev.images, url] }));
+                };
+                reader.readAsDataURL(file);
+            }
+        }
     };
 
     const handleDeleteImage = (indexToDelete: number) => {
@@ -2051,16 +2048,30 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
         }
     };
 
-    const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const url = e.target?.result as string;
-            setFormData(prev => ({ ...prev, video: url }));
-        };
-        reader.readAsDataURL(file);
+        console.log(`🎬 Processing video: ${file.name} (${formatFileSize(file.size)})`);
+
+        // Check video size
+        const sizeCheck = checkVideoSize(file);
+        if (!sizeCheck.isValid) {
+            alert(sizeCheck.message);
+            return; // Don't upload if too large
+        }
+
+        try {
+            const { data, warning } = await processVideo(file);
+            if (warning) {
+                console.warn('⚠️ Video warning:', warning);
+            }
+            setFormData(prev => ({ ...prev, video: data }));
+            console.log(`🎬 Video processed: ${formatFileSize(file.size)}`);
+        } catch (error) {
+            console.error('Failed to process video:', error);
+            alert('Failed to process video. Please try a different file.');
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {

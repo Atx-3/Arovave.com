@@ -4,6 +4,7 @@ import { Package, BadgeCheck, Play, ChevronLeft, ChevronRight, Check, Clock, Shi
 import { useTranslation, useEnquiry, useAuth } from '../context';
 import { products as initialProducts } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
+import { ProductLoader } from '../components/ProductLoader';
 import { fetchProducts as fetchProductsFromSupabase, getLocalProducts } from '../utils/productStorage';
 import type { Product } from '../types';
 
@@ -17,27 +18,30 @@ export function ProductDetail() {
     const { isAuthenticated } = useAuth();
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isVideo, setIsVideo] = useState(false);
-    const [products, setProducts] = useState<Product[]>(getLocalProducts);
+    const [products, setProducts] = useState<Product[]>([]);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('description');
     const [isLoading, setIsLoading] = useState(true);
 
-    // Fetch products from Supabase on mount
+    // FAST LOAD: Show cached products instantly, then refresh
     useEffect(() => {
-        const loadProducts = async () => {
-            setIsLoading(true);
-            try {
-                const fetchedProducts = await fetchProductsFromSupabase();
-                setProducts(fetchedProducts);
-            } catch (err) {
-                console.error('Error loading products:', err);
-                setProducts(getLocalProducts());
-            } finally {
-                setIsLoading(false);
+        // Show cached products instantly
+        const cachedProducts = getLocalProducts();
+        if (cachedProducts.length > 0) {
+            setProducts(cachedProducts);
+            setIsLoading(false);
+        }
+
+        // Background refresh from Supabase
+        fetchProductsFromSupabase().then(freshProducts => {
+            if (freshProducts.length > 0) {
+                setProducts(freshProducts);
             }
-        };
-        loadProducts();
+            setIsLoading(false);
+        }).catch(() => {
+            setIsLoading(false);
+        });
     }, []);
 
     // Auto-close popup after 3 seconds
@@ -76,6 +80,15 @@ export function ProductDetail() {
         setShowPopup(true);
         setTimeout(() => navigate('/enquiries'), 2000);
     };
+
+    // Show loading animation while products are loading
+    if (isLoading && products.length === 0) {
+        return (
+            <div className="max-w-7xl mx-auto px-6 py-12">
+                <ProductLoader message="Loading product details..." />
+            </div>
+        );
+    }
 
     if (!product) {
         return (
@@ -294,8 +307,8 @@ export function ProductDetail() {
                                         key={tab}
                                         onClick={() => setActiveTab(tab)}
                                         className={`pb-2 md:pb-3 text-xs md:text-sm font-bold transition-colors relative whitespace-nowrap ${activeTab === tab
-                                                ? 'text-black'
-                                                : 'text-zinc-400 hover:text-zinc-600'
+                                            ? 'text-black'
+                                            : 'text-zinc-400 hover:text-zinc-600'
                                             }`}
                                     >
                                         {tabLabels[tab]}
