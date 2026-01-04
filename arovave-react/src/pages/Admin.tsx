@@ -61,6 +61,7 @@ export function Admin() {
     const [selectedQualityCategory, setSelectedQualityCategory] = useState<string>('food');
     const [qualitySubcategory, setQualitySubcategory] = useState<string>('');
     const [qualityContentType, setQualityContentType] = useState<string>('certificate');
+    const [isAddingQualityItem, setIsAddingQualityItem] = useState(false);
 
     // Video URL state
     const [videoUrl, setVideoUrl] = useState('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
@@ -1438,14 +1439,16 @@ export function Admin() {
                                     <p className="text-[10px] sm:text-xs text-zinc-400 mb-4">Max 5MB image file. Supports JPG, PNG, WebP.</p>
                                     <button
                                         type="button"
+                                        disabled={isAddingQualityItem}
                                         onClick={async () => {
+                                            // Prevent double-click
+                                            if (isAddingQualityItem) return;
+
                                             console.log('📝 Add Item button clicked');
-                                            const title = (document.getElementById('qualityItemTitle') as HTMLInputElement)?.value;
+                                            const title = (document.getElementById('qualityItemTitle') as HTMLInputElement)?.value?.trim();
                                             const fileInput = document.getElementById('qualityItemImage') as HTMLInputElement;
                                             const description = (document.getElementById('qualityItemDesc') as HTMLTextAreaElement)?.value;
                                             const file = fileInput?.files?.[0];
-
-                                            console.log('📝 Form values:', { title, hasFile: !!file, description: description?.substring(0, 50) });
 
                                             if (!title) {
                                                 alert('Please enter a title');
@@ -1460,13 +1463,20 @@ export function Admin() {
                                                 return;
                                             }
 
+                                            // Check for duplicate title in current items
+                                            const key = `${selectedQualityCategory}_${qualitySubcategory}_${qualityContentType}`;
+                                            const existingItems = qualityContent[key] || [];
+                                            if (existingItems.some((item: any) => item.title.toLowerCase() === title.toLowerCase())) {
+                                                alert('An item with this title already exists!');
+                                                return;
+                                            }
+
+                                            setIsAddingQualityItem(true);
                                             try {
                                                 console.log('📝 Compressing and processing image...');
-                                                // Compress image first
                                                 const compressedImage = await compressImage(file);
                                                 console.log('📝 Image compressed, saving to database...');
 
-                                                // Save to database with compressed image
                                                 const saved = await saveQualityUploadToSupabase(
                                                     selectedQualityCategory,
                                                     qualitySubcategory,
@@ -1490,11 +1500,14 @@ export function Admin() {
                                             } catch (err) {
                                                 console.error('📝 Error adding item:', err);
                                                 alert('Failed to add item: ' + (err as Error).message);
+                                            } finally {
+                                                setIsAddingQualityItem(false);
                                             }
                                         }}
-                                        className="px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                        className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2 ${isAddingQualityItem ? 'bg-zinc-400 cursor-not-allowed' : 'bg-black text-white hover:bg-zinc-800'}`}
                                     >
-                                        Add Item
+                                        {isAddingQualityItem && <Loader2 className="w-4 h-4 animate-spin" />}
+                                        {isAddingQualityItem ? 'Adding...' : 'Add Item'}
                                     </button>
                                 </div>
                             )}
