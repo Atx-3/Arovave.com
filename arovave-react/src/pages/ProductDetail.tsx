@@ -18,22 +18,19 @@ export function ProductDetail() {
     const { isAuthenticated } = useAuth();
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isVideo, setIsVideo] = useState(false);
-    const [products, setProducts] = useState<Product[]>([]);
+    // Initialize with cached products immediately
+    const [products, setProducts] = useState<Product[]>(() => getLocalProducts());
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('description');
-    const [isLoading, setIsLoading] = useState(true);
+    // Only show loading if no cached products exist
+    const [isLoading, setIsLoading] = useState(() => {
+        const cached = localStorage.getItem('arovaveProducts');
+        return !cached || JSON.parse(cached).length === 0;
+    });
 
-    // FAST LOAD: Show cached products instantly, then refresh
+    // Background refresh from Supabase
     useEffect(() => {
-        // Show cached products instantly
-        const cachedProducts = getLocalProducts();
-        if (cachedProducts.length > 0) {
-            setProducts(cachedProducts);
-            setIsLoading(false);
-        }
-
-        // Background refresh from Supabase
         fetchProductsFromSupabase().then(freshProducts => {
             if (freshProducts.length > 0) {
                 setProducts(freshProducts);

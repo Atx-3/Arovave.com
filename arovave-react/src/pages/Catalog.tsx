@@ -56,7 +56,11 @@ export function Catalog() {
     const [showPopup, setShowPopup] = useState(false);
     const [showSubcategoryNav, setShowSubcategoryNav] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
-    const [isLoading, setIsLoading] = useState(true);
+    // Only show loading if no cached products exist
+    const [isLoading, setIsLoading] = useState(() => {
+        const cached = localStorage.getItem('arovaveProducts');
+        return !cached || JSON.parse(cached).length === 0;
+    });
 
     // Scroll detection for subcategory nav
     useEffect(() => {

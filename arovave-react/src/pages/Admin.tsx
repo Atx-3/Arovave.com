@@ -1387,10 +1387,11 @@ export function Admin() {
                                         className="px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none"
                                     >
                                         <option value="">-- Select Subcategory --</option>
-                                        <option value="all">All {managedCategories.find(c => c.id === selectedQualityCategory)?.name}</option>
-                                        {managedCategories.find(c => c.id === selectedQualityCategory)?.subcategories?.map(sub => (
-                                            <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                        ))}
+                                        {managedCategories.find(c => c.id === selectedQualityCategory)?.subcategories
+                                            ?.filter(sub => !sub.name.toLowerCase().startsWith('all '))
+                                            .map(sub => (
+                                                <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                            ))}
                                     </select>
                                 </div>
                             )}
