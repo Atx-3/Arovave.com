@@ -2,10 +2,9 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Package, BadgeCheck, Play, ChevronLeft, ChevronRight, Check, Clock, Shield, FileText } from 'lucide-react';
 import { useTranslation, useEnquiry, useAuth } from '../context';
-import { products as initialProducts } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
-import { fetchProducts as fetchProductsFromSupabase, getLocalProducts } from '../utils/productStorage';
+import { getProducts, subscribeToProducts, refreshProducts } from '../stores/productStore';
 import type { Product } from '../types';
 
 type TabType = 'description' | 'benefit' | 'advantage';
@@ -18,27 +17,27 @@ export function ProductDetail() {
     const { isAuthenticated } = useAuth();
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isVideo, setIsVideo] = useState(false);
-    // Initialize with cached products immediately
-    const [products, setProducts] = useState<Product[]>(() => getLocalProducts());
+
+    // INSTANT load from memory - no lag!
+    const [products, setProducts] = useState<Product[]>(() => getProducts());
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('description');
-    // Only show loading if no cached products exist
-    const [isLoading, setIsLoading] = useState(() => {
-        const cached = localStorage.getItem('arovaveProducts');
-        return !cached || JSON.parse(cached).length === 0;
-    });
 
-    // Background refresh from Supabase
+    // No loading needed - products are instant from memory!
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Subscribe to product updates
     useEffect(() => {
-        fetchProductsFromSupabase().then(freshProducts => {
-            if (freshProducts.length > 0) {
-                setProducts(freshProducts);
-            }
-            setIsLoading(false);
-        }).catch(() => {
+        const unsubscribe = subscribeToProducts((newProducts) => {
+            setProducts(newProducts);
             setIsLoading(false);
         });
+
+        // Trigger background refresh
+        refreshProducts();
+
+        return () => unsubscribe();
     }, []);
 
     // Auto-close popup after 3 seconds

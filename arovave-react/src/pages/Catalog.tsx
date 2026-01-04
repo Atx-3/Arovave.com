@@ -2,11 +2,11 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Utensils, Pill, FlaskConical, Gift, ChevronDown, Check } from 'lucide-react';
 import { useTranslation, useEnquiry, useAuth } from '../context';
-import { products as initialProducts, categories } from '../data';
+import { categories } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
 import { supabase } from '../lib/supabase';
-import { fetchProducts as fetchProductsFromSupabase, getLocalProducts } from '../utils/productStorage';
+import { getProducts, subscribeToProducts, refreshProducts } from '../stores/productStore';
 import type { Product } from '../types';
 
 // Category type for managed categories
@@ -14,15 +14,6 @@ type Category = {
     id: string;
     name: string;
     subcategories: { id: string; name: string; }[];
-};
-
-// Get products from localStorage or use initial
-const getStoredProducts = (): Product[] => {
-    const saved = localStorage.getItem('arovaveProducts');
-    if (saved) {
-        return JSON.parse(saved);
-    }
-    return [...initialProducts];
 };
 
 // Get categories from localStorage or use initial
@@ -49,28 +40,26 @@ export function Catalog() {
     const searchQuery = searchParams.get('search')?.toLowerCase() || '';
     const filterType = searchParams.get('filter');
     const [expandedCategory, setExpandedCategory] = useState<string | null>(selectedCategory);
-    const [products, setProducts] = useState<Product[]>(getStoredProducts);
+
+    // INSTANT load from memory - no lag!
+    const [products, setProducts] = useState<Product[]>(() => getProducts());
     const [managedCategories, setManagedCategories] = useState<Category[]>(getStoredCategories);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
     const [showPopup, setShowPopup] = useState(false);
     const [showSubcategoryNav, setShowSubcategoryNav] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
-    // Only show loading if no cached products exist
-    const [isLoading, setIsLoading] = useState(() => {
-        const cached = localStorage.getItem('arovaveProducts');
-        return !cached || JSON.parse(cached).length === 0;
-    });
+
+    // No loading state needed - products are instant from memory!
+    const [isLoading, setIsLoading] = useState(false);
 
     // Scroll detection for subcategory nav
     useEffect(() => {
         const handleScroll = () => {
             const currentScrollY = window.scrollY;
             if (currentScrollY > lastScrollY && currentScrollY > 150) {
-                // Scrolling down - hide
                 setShowSubcategoryNav(false);
             } else {
-                // Scrolling up - show
                 setShowSubcategoryNav(true);
             }
             setLastScrollY(currentScrollY);
@@ -85,6 +74,14 @@ export function Catalog() {
     }, []);
 
     useEffect(() => {
+        // Subscribe to product updates - instant updates when data changes
+        const unsubscribe = subscribeToProducts((newProducts) => {
+            console.log('⚡ Catalog: Instant update with', newProducts.length, 'products');
+            setProducts(newProducts);
+            setIsLoading(false);
+        });
+
+        // Fetch categories
         const fetchCategoriesFromSupabase = async () => {
             try {
                 const { data, error } = await supabase
@@ -106,42 +103,13 @@ export function Catalog() {
             }
         };
 
-        // FAST LOAD: Show cached products INSTANTLY, then refresh in background
-        const cachedProducts = getLocalProducts();
-        if (cachedProducts.length > 0) {
-            console.log('📦 Catalog: Showing', cachedProducts.length, 'cached products instantly');
-            setProducts(cachedProducts);
-            setIsLoading(false); // Have cached data, no loading needed
-        }
-
-        // Background refresh from Supabase
-        fetchProductsFromSupabase().then(freshProducts => {
-            if (freshProducts.length > 0) {
-                console.log('📦 Catalog: Got', freshProducts.length, 'fresh products');
-                setProducts(freshProducts);
-            }
-            setIsLoading(false); // Done loading
-        }).catch(() => {
-            setIsLoading(false); // Error, stop loading
-        });
-
         fetchCategoriesFromSupabase();
 
-        // Subscribe to real-time changes
-        const subscription = supabase
-            .channel('catalog-products-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'products' },
-                () => {
-                    console.log('📦 Real-time update - refreshing products');
-                    fetchProductsFromSupabase().then(setProducts);
-                }
-            )
-            .subscribe();
+        // Trigger background refresh
+        refreshProducts();
 
         return () => {
-            subscription.unsubscribe();
+            unsubscribe();
         };
     }, []);
 

@@ -1,11 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Utensils, Pill, FlaskConical, Gift, Handshake, Award, TrendingUp, Calendar, ArrowRight, MessageCircle, X, ChevronDown } from 'lucide-react';
 import { useTranslation, useEnquiry, useAuth } from '../context';
-import { products, categories } from '../data';
+import { categories } from '../data';
 import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 import { supabase } from '../lib/supabase';
-import { fetchProducts as fetchProductsFromSupabase, getLocalProducts } from '../utils/productStorage';
+import { getProducts, subscribeToProducts, refreshProducts } from '../stores/productStore';
 
 export function Home() {
     const t = useTranslation();
@@ -15,33 +15,38 @@ export function Home() {
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<number | null>(null);
     const [showPopup, setShowPopup] = useState(false);
-    const [trendingProducts, setTrendingProducts] = useState(products.filter(p => p.isTrending).slice(0, 4));
+
+    // INSTANT load trending from memory - no lag!
+    const [trendingProducts, setTrendingProducts] = useState(() => {
+        const products = getProducts();
+        return products.filter(p => p.isTrending).slice(0, 4);
+    });
     const [videoUrl, setVideoUrl] = useState<string>('');
     const [trustExpanded, setTrustExpanded] = useState(false);
 
-    // Scroll to top on mount
+    // Fetch video URL from Supabase settings
     useEffect(() => {
-        window.scrollTo(0, 0);
-    }, []);
-
-    // Load video from Supabase
-    useEffect(() => {
-        const loadVideo = async () => {
+        const fetchVideoUrl = async () => {
             try {
                 const { data, error } = await supabase
-                    .from('site_settings')
-                    .select('video_url')
-                    .eq('id', 'global')
+                    .from('settings')
+                    .select('value')
+                    .eq('key', 'landing_video_url')
                     .single();
 
-                if (!error && data?.video_url) {
-                    setVideoUrl(data.video_url);
+                if (!error && data && data.value) {
+                    setVideoUrl(data.value);
+                } else {
+                    // Fallback video URL
+                    setVideoUrl('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
                 }
             } catch (err) {
-                console.error('Error loading video URL:', err);
+                console.error('Error fetching video URL:', err);
+                setVideoUrl('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
             }
         };
-        loadVideo();
+
+        fetchVideoUrl();
     }, []);
 
     // Auto-close popup after 3 seconds
@@ -55,6 +60,7 @@ export function Home() {
     // After login, submit pending enquiry
     useEffect(() => {
         if (isAuthenticated && pendingProduct) {
+            const products = getProducts();
             const product = products.find(p => p.id === pendingProduct);
             if (product) {
                 submitProductEnquiry(product);
@@ -65,44 +71,18 @@ export function Home() {
         }
     }, [isAuthenticated, pendingProduct]);
 
-    // Refresh trending products from Supabase
+    // Subscribe to product updates for instant trending products
     useEffect(() => {
-        // FAST LOAD: Show cached trending products INSTANTLY
-        const cachedProducts = getLocalProducts();
-        const cachedTrending = cachedProducts.filter((p: any) => p.isTrending).slice(0, 4);
-        if (cachedTrending.length > 0) {
-            console.log('🏠 Home: Showing', cachedTrending.length, 'cached trending products instantly');
-            setTrendingProducts(cachedTrending);
-        }
-
-        // Background refresh from Supabase
-        fetchProductsFromSupabase().then(allProducts => {
-            const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
-            if (trending.length > 0) {
-                console.log('🏠 Home: Got', trending.length, 'fresh trending products');
-                setTrendingProducts(trending);
-            }
+        const unsubscribe = subscribeToProducts((allProducts) => {
+            const trending = allProducts.filter(p => p.isTrending).slice(0, 4);
+            console.log('⚡ Home: Instant update with', trending.length, 'trending products');
+            setTrendingProducts(trending);
         });
 
-        // Subscribe to real-time changes
-        const subscription = supabase
-            .channel('home-products-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'products' },
-                () => {
-                    console.log('🏠 Home: Real-time update');
-                    fetchProductsFromSupabase().then(allProducts => {
-                        const trending = allProducts.filter((p: any) => p.isTrending).slice(0, 4);
-                        setTrendingProducts(trending);
-                    });
-                }
-            )
-            .subscribe();
+        // Trigger background refresh
+        refreshProducts();
 
-        return () => {
-            subscription.unsubscribe();
-        };
+        return () => unsubscribe();
     }, []);
 
 
@@ -194,7 +174,8 @@ export function Home() {
     };
 
     const handleProductEnquiry = (productId: number) => {
-        const product = products.find(p => p.id === productId);
+        const allProducts = getProducts();
+        const product = allProducts.find(p => p.id === productId);
         if (!product) return;
 
         if (!isAuthenticated) {
@@ -244,7 +225,7 @@ export function Home() {
                         {categoryNav.map(cat => (
                             <Link
                                 key={cat.id}
-                                to={`/catalog?category=${cat.id}`}
+                                to={`/ catalog ? category = ${cat.id} `}
                                 className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 hover:text-black transition-colors whitespace-nowrap"
                             >
                                 {cat.name}
@@ -333,7 +314,7 @@ export function Home() {
                                 className="flex items-center gap-1 mx-auto text-xs font-bold text-black uppercase tracking-widest hover:text-zinc-600 transition-colors"
                             >
                                 {trustExpanded ? 'Read Less' : 'Read More'}
-                                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${trustExpanded ? 'rotate-180' : ''}`} />
+                                <ChevronDown className={`w - 4 h - 4 transition - transform duration - 300 ${trustExpanded ? 'rotate-180' : ''} `} />
                             </button>
                         </div>
                     </div>
@@ -377,7 +358,7 @@ export function Home() {
                             return (
                                 <Link
                                     key={cat.id}
-                                    to={`/catalog?category=${cat.id}`}
+                                    to={`/ catalog ? category = ${cat.id} `}
                                     className="category-box rounded-2xl md:rounded-3xl p-4 md:p-8 text-center group cursor-pointer"
                                 >
                                     <Icon className="w-8 h-8 md:w-12 md:h-12 mx-auto mb-2 md:mb-4" />
@@ -405,7 +386,7 @@ export function Home() {
                     <div className="md:hidden">
                         {displayProducts.slice(0, 1).map(product => (
                             <div key={product.id} className="bg-zinc-50 rounded-2xl overflow-hidden group">
-                                <Link to={`/product/${product.id}`}>
+                                <Link to={`/ product / ${product.id} `}>
                                     <div className="aspect-[4/3] overflow-hidden">
                                         <img
                                             src={product.thumbnail || product.images[0]}
@@ -422,7 +403,7 @@ export function Home() {
                                     <p className="text-sm font-bold text-zinc-600 mb-3">{product.priceRange}</p>
                                     <div className="flex gap-2">
                                         <Link
-                                            to={`/product/${product.id}`}
+                                            to={`/ product / ${product.id} `}
                                             className="flex-1 py-2.5 border-2 border-zinc-200 rounded-lg text-center text-[9px] font-black uppercase tracking-widest hover:border-black transition-colors"
                                         >
                                             {t('viewDetails')}
@@ -450,7 +431,7 @@ export function Home() {
                     <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {displayProducts.map(product => (
                             <div key={product.id} className="bg-zinc-50 rounded-3xl overflow-hidden group">
-                                <Link to={`/product/${product.id}`}>
+                                <Link to={`/ product / ${product.id} `}>
                                     <div className="aspect-square overflow-hidden">
                                         <img
                                             src={product.thumbnail || product.images[0]}
@@ -467,7 +448,7 @@ export function Home() {
                                     <p className="text-sm font-bold text-zinc-600 mb-4">{product.priceRange}</p>
                                     <div className="flex gap-2">
                                         <Link
-                                            to={`/product/${product.id}`}
+                                            to={`/ product / ${product.id} `}
                                             className="flex-1 py-3 border-2 border-zinc-200 rounded-xl text-center text-[9px] font-black uppercase tracking-widest hover:border-black transition-colors"
                                         >
                                             {t('viewDetails')}
