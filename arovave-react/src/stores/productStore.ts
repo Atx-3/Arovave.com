@@ -1,6 +1,7 @@
 /**
- * Global Product Store - ZERO LAG product access
- * Products are stored in memory for instant access
+ * Global Product Store - SESSION-ONLY caching
+ * Products are stored in memory for the current session only
+ * Cache is cleared when browser/tab is closed
  */
 
 import { supabase } from '../lib/supabase';
@@ -9,12 +10,7 @@ import type { Product } from '../types';
 // In-memory cache for INSTANT access
 let memoryCache: Product[] = [];
 let isInitialized = false;
-let initPromise: Promise<Product[]> | null = null;
-
-// Cache keys
-const CACHE_KEY = 'arovaveProducts';
-const CACHE_TIMESTAMP_KEY = 'arovaveProductsTimestamp';
-const CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
+let isFetching = false;
 
 // Database to App product converter
 function dbToProduct(db: any): Product {
@@ -42,76 +38,50 @@ function dbToProduct(db: any): Product {
 }
 
 /**
- * Initialize the product store - call this on app start
- * Loads from localStorage immediately, then fetches fresh data
+ * Clear old localStorage cache on startup (one-time migration)
  */
-export function initProductStore(): Promise<Product[]> {
-    if (initPromise) return initPromise;
-
-    initPromise = (async () => {
-        // Step 1: Load from localStorage IMMEDIATELY (sync)
-        try {
-            const cached = localStorage.getItem(CACHE_KEY);
-            if (cached) {
-                memoryCache = JSON.parse(cached);
-                isInitialized = true;
-                console.log('⚡ Products loaded from cache:', memoryCache.length);
-            }
-        } catch (e) {
-            console.error('Cache parse error:', e);
-        }
-
-        // Step 2: Fetch fresh data in background
-        fetchFreshProducts();
-
-        return memoryCache;
-    })();
-
-    return initPromise;
+function clearOldCache() {
+    try {
+        localStorage.removeItem('arovaveProducts');
+        localStorage.removeItem('arovaveProductsTimestamp');
+        console.log('🧹 Cleared old localStorage cache');
+    } catch (e) {
+        // Ignore
+    }
 }
 
 /**
- * Get products INSTANTLY from memory
- * Never waits, returns cached data immediately
+ * Initialize the product store - fetches fresh data from Supabase
+ * No old cache is used - always starts fresh each session
+ */
+export async function initProductStore(): Promise<Product[]> {
+    // Clear old localStorage cache
+    clearOldCache();
+
+    // Fetch fresh products immediately
+    return fetchFreshProducts();
+}
+
+/**
+ * Get products from memory
+ * If no products yet, triggers fetch
  */
 export function getProducts(): Product[] {
-    // If not initialized, try to load from localStorage sync
-    if (!isInitialized) {
-        try {
-            const cached = localStorage.getItem(CACHE_KEY);
-            if (cached) {
-                memoryCache = JSON.parse(cached);
-                isInitialized = true;
-            }
-        } catch (e) {
-            // Ignore
-        }
+    // If not initialized and not fetching, start fetch
+    if (!isInitialized && !isFetching) {
+        fetchFreshProducts();
     }
     return memoryCache;
 }
 
 /**
- * Get products with a background refresh
- * Returns cached data immediately, triggers refresh
- */
-export function getProductsWithRefresh(): Product[] {
-    const products = getProducts();
-
-    // Check if cache is stale
-    const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
-    const isStale = !timestamp || (Date.now() - parseInt(timestamp)) > CACHE_MAX_AGE;
-
-    if (isStale) {
-        fetchFreshProducts();
-    }
-
-    return products;
-}
-
-/**
- * Fetch fresh products from Supabase (background)
+ * Fetch fresh products from Supabase
  */
 async function fetchFreshProducts(): Promise<Product[]> {
+    if (isFetching) return memoryCache;
+
+    isFetching = true;
+
     try {
         console.log('🔄 Fetching fresh products from Supabase...');
         const { data, error } = await supabase
@@ -121,26 +91,24 @@ async function fetchFreshProducts(): Promise<Product[]> {
 
         if (error) {
             console.error('Supabase error:', error);
+            isFetching = false;
             return memoryCache;
         }
 
-        if (data && data.length > 0) {
+        if (data) {
             memoryCache = data.map(dbToProduct);
             isInitialized = true;
-
-            // Save to localStorage
-            localStorage.setItem(CACHE_KEY, JSON.stringify(memoryCache));
-            localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
-
             console.log('✅ Fresh products loaded:', memoryCache.length);
 
             // Notify listeners
             notifyListeners();
         }
 
+        isFetching = false;
         return memoryCache;
     } catch (e) {
         console.error('Fetch error:', e);
+        isFetching = false;
         return memoryCache;
     }
 }
@@ -214,7 +182,6 @@ export async function saveProduct(product: Product, isNew: boolean): Promise<{ s
 
             const savedProduct = dbToProduct(data);
             memoryCache = [savedProduct, ...memoryCache];
-            saveToLocalStorage();
             notifyListeners();
 
             return { success: true, product: savedProduct };
@@ -230,7 +197,6 @@ export async function saveProduct(product: Product, isNew: boolean): Promise<{ s
 
             const savedProduct = dbToProduct(data);
             memoryCache = memoryCache.map(p => p.id === savedProduct.id ? savedProduct : p);
-            saveToLocalStorage();
             notifyListeners();
 
             return { success: true, product: savedProduct };
@@ -256,7 +222,6 @@ export async function deleteProduct(id: number): Promise<boolean> {
         }
 
         memoryCache = memoryCache.filter(p => p.id !== id);
-        saveToLocalStorage();
         notifyListeners();
 
         return true;
@@ -266,14 +231,5 @@ export async function deleteProduct(id: number): Promise<boolean> {
     }
 }
 
-function saveToLocalStorage() {
-    try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(memoryCache));
-        localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
-    } catch (e) {
-        console.error('localStorage save error:', e);
-    }
-}
-
-// Initialize on module load for fastest possible start
+// Initialize on module load - fetch fresh data immediately
 initProductStore();
