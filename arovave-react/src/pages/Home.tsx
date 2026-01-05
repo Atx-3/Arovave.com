@@ -225,7 +225,7 @@ export function Home() {
                         {categoryNav.map(cat => (
                             <Link
                                 key={cat.id}
-                                to={`/ catalog ? category = ${cat.id} `}
+                                to={`/catalog?category=${cat.id}`}
                                 className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 hover:text-black transition-colors whitespace-nowrap"
                             >
                                 {cat.name}
@@ -314,7 +314,7 @@ export function Home() {
                                 className="flex items-center gap-1 mx-auto text-xs font-bold text-black uppercase tracking-widest hover:text-zinc-600 transition-colors"
                             >
                                 {trustExpanded ? 'Read Less' : 'Read More'}
-                                <ChevronDown className={`w - 4 h - 4 transition - transform duration - 300 ${trustExpanded ? 'rotate-180' : ''} `} />
+                                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${trustExpanded ? 'rotate-180' : ''}`} />
                             </button>
                         </div>
                     </div>
