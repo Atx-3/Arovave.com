@@ -24,20 +24,22 @@ export function Home() {
     const [videoUrl, setVideoUrl] = useState<string>('');
     const [trustExpanded, setTrustExpanded] = useState(false);
 
-    // Fetch video URL from Supabase settings
+    // Fetch video URL from Supabase site_settings
     useEffect(() => {
         const fetchVideoUrl = async () => {
             try {
                 const { data, error } = await supabase
-                    .from('settings')
-                    .select('value')
-                    .eq('key', 'landing_video_url')
+                    .from('site_settings')
+                    .select('video_url')
+                    .eq('id', 'global')
                     .single();
 
-                if (!error && data && data.value) {
-                    setVideoUrl(data.value);
+                if (!error && data && data.video_url) {
+                    console.log('✅ Loaded video URL from database:', data.video_url);
+                    setVideoUrl(data.video_url);
                 } else {
                     // Fallback video URL
+                    console.log('⚠️ No video in database, using fallback');
                     setVideoUrl('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
                 }
             } catch (err) {
