@@ -1,7 +1,10 @@
 /**
- * Global Product Store - SESSION-ONLY caching
- * Products are stored in memory for the current session only
- * Cache is cleared when browser/tab is closed
+ * Global Product Store - SMART CACHING
+ * 
+ * Strategy:
+ * 1. Load from localStorage cache immediately (fast initial display)
+ * 2. Fetch fresh data from Supabase in background
+ * 3. Clear cache if older than 24 hours (not stale beyond 1 day)
  */
 
 import { supabase } from '../lib/supabase';
@@ -11,6 +14,11 @@ import type { Product } from '../types';
 let memoryCache: Product[] = [];
 let isInitialized = false;
 let isFetching = false;
+
+// Cache settings
+const CACHE_KEY = 'arovaveProducts_v2';
+const CACHE_TIMESTAMP_KEY = 'arovaveProductsTime_v2';
+const MAX_CACHE_AGE = 24 * 60 * 60 * 1000; // 24 hours - clear cache older than this
 
 // Database to App product converter
 function dbToProduct(db: any): Product {
@@ -38,39 +46,95 @@ function dbToProduct(db: any): Product {
 }
 
 /**
- * Clear old localStorage cache on startup (one-time migration)
+ * Clean up old cache versions
  */
-function clearOldCache() {
+function cleanOldCacheVersions() {
     try {
+        // Remove old cache keys from previous versions
         localStorage.removeItem('arovaveProducts');
         localStorage.removeItem('arovaveProductsTimestamp');
-        console.log('🧹 Cleared old localStorage cache');
     } catch (e) {
         // Ignore
     }
 }
 
 /**
- * Initialize the product store - fetches fresh data from Supabase
- * No old cache is used - always starts fresh each session
+ * Check if cache is still valid (within 24 hours)
  */
-export async function initProductStore(): Promise<Product[]> {
-    // Clear old localStorage cache
-    clearOldCache();
+function isCacheValid(): boolean {
+    try {
+        const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+        if (!timestamp) return false;
 
-    // Fetch fresh products immediately
-    return fetchFreshProducts();
+        const age = Date.now() - parseInt(timestamp);
+        return age < MAX_CACHE_AGE;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * Load products from localStorage cache
+ */
+function loadFromCache(): Product[] {
+    try {
+        if (!isCacheValid()) {
+            console.log('📦 Cache expired or missing, will fetch fresh');
+            return [];
+        }
+
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+            const products = JSON.parse(cached);
+            console.log('⚡ Loaded', products.length, 'products from cache (instant!)');
+            return products;
+        }
+    } catch (e) {
+        console.error('Cache load error:', e);
+    }
+    return [];
+}
+
+/**
+ * Save products to localStorage cache
+ */
+function saveToCache(products: Product[]) {
+    try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(products));
+        localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+        console.log('💾 Saved', products.length, 'products to cache');
+    } catch (e) {
+        console.error('Cache save error:', e);
+    }
+}
+
+/**
+ * Initialize the product store
+ * 1. Load from cache immediately
+ * 2. Fetch fresh data in background
+ */
+export function initProductStore(): Product[] {
+    // Clean up old versions
+    cleanOldCacheVersions();
+
+    // Load from cache for instant display
+    const cached = loadFromCache();
+    if (cached.length > 0) {
+        memoryCache = cached;
+        isInitialized = true;
+        notifyListeners();
+    }
+
+    // Always fetch fresh data in background
+    fetchFreshProducts();
+
+    return memoryCache;
 }
 
 /**
  * Get products from memory
- * If no products yet, triggers fetch
  */
 export function getProducts(): Product[] {
-    // If not initialized and not fetching, start fetch
-    if (!isInitialized && !isFetching) {
-        fetchFreshProducts();
-    }
     return memoryCache;
 }
 
@@ -98,6 +162,10 @@ async function fetchFreshProducts(): Promise<Product[]> {
         if (data) {
             memoryCache = data.map(dbToProduct);
             isInitialized = true;
+
+            // Save to cache for next session
+            saveToCache(memoryCache);
+
             console.log('✅ Fresh products loaded:', memoryCache.length);
 
             // Notify listeners
@@ -182,6 +250,7 @@ export async function saveProduct(product: Product, isNew: boolean): Promise<{ s
 
             const savedProduct = dbToProduct(data);
             memoryCache = [savedProduct, ...memoryCache];
+            saveToCache(memoryCache);
             notifyListeners();
 
             return { success: true, product: savedProduct };
@@ -197,6 +266,7 @@ export async function saveProduct(product: Product, isNew: boolean): Promise<{ s
 
             const savedProduct = dbToProduct(data);
             memoryCache = memoryCache.map(p => p.id === savedProduct.id ? savedProduct : p);
+            saveToCache(memoryCache);
             notifyListeners();
 
             return { success: true, product: savedProduct };
@@ -222,6 +292,7 @@ export async function deleteProduct(id: number): Promise<boolean> {
         }
 
         memoryCache = memoryCache.filter(p => p.id !== id);
+        saveToCache(memoryCache);
         notifyListeners();
 
         return true;
@@ -231,5 +302,5 @@ export async function deleteProduct(id: number): Promise<boolean> {
     }
 }
 
-// Initialize on module load - fetch fresh data immediately
+// Initialize on module load
 initProductStore();
