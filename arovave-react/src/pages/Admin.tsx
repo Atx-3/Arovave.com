@@ -564,22 +564,17 @@ export function Admin() {
     useEffect(() => {
         window.scrollTo(0, 0);
 
-        // Load products from Supabase
-        const loadProducts = async () => {
-            setIsLoadingProducts(true);
-            try {
-                // First try to sync initial products if table is empty
-                await syncInitialProductsToSupabase();
-                // Then fetch all products
-                const fetchedProducts = await fetchProductsFromSupabase();
-                setProducts(fetchedProducts);
-            } catch (err) {
-                console.error('Error loading products:', err);
-            } finally {
+        // Subscribe to product updates - instant updates from productStore
+        const unsubscribeProducts = subscribeToProducts((newProducts) => {
+            console.log('⚡ Admin: Product update with', newProducts.length, 'products');
+            setProducts(newProducts);
+            if (newProducts.length > 0) {
                 setIsLoadingProducts(false);
             }
-        };
-        loadProducts();
+        });
+
+        // Trigger background refresh
+        refreshProducts();
 
         // Load quality uploads from Supabase
         fetchQualityUploadsFromSupabase();
@@ -641,17 +636,15 @@ export function Admin() {
         if (confirm('Delete this product?')) {
             setIsSavingProduct(true);
             try {
-                const result = await deleteProductFromSupabase(id);
+                const success = await deleteProductFromStore(id);
 
-                if (!result.success) {
-                    showNotification(result.error || 'Failed to delete product', 'error');
+                if (!success) {
+                    showNotification('Failed to delete product', 'error');
                     setIsSavingProduct(false);
                     return;
                 }
 
-                // Refresh products from Supabase
-                const fetchedProducts = await fetchProductsFromSupabase();
-                setProducts(fetchedProducts);
+                // Products update automatically via subscription
                 showNotification('Product deleted successfully', 'success');
             } catch (err: any) {
                 console.error('Error deleting product:', err);
