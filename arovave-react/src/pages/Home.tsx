@@ -360,7 +360,7 @@ export function Home() {
                             return (
                                 <Link
                                     key={cat.id}
-                                    to={`/ catalog ? category = ${cat.id} `}
+                                    to={`/catalog?category=${cat.id}`}
                                     className="category-box rounded-2xl md:rounded-3xl p-4 md:p-8 text-center group cursor-pointer"
                                 >
                                     <Icon className="w-8 h-8 md:w-12 md:h-12 mx-auto mb-2 md:mb-4" />
