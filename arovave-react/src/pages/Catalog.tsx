@@ -76,9 +76,12 @@ export function Catalog() {
     useEffect(() => {
         // Subscribe to product updates - instant updates when data changes
         const unsubscribe = subscribeToProducts((newProducts) => {
-            console.log('⚡ Catalog: Instant update with', newProducts.length, 'products');
+            console.log('⚡ Catalog: Update with', newProducts.length, 'products');
             setProducts(newProducts);
-            setIsLoading(false);
+            // Only hide loading when we actually have products
+            if (newProducts.length > 0) {
+                setIsLoading(false);
+            }
         });
 
         // Fetch categories

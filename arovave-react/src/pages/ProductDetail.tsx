@@ -31,7 +31,10 @@ export function ProductDetail() {
     useEffect(() => {
         const unsubscribe = subscribeToProducts((newProducts) => {
             setProducts(newProducts);
-            setIsLoading(false);
+            // Only hide loading when we have products
+            if (newProducts.length > 0) {
+                setIsLoading(false);
+            }
         });
 
         // Trigger background refresh
