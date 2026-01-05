@@ -24,8 +24,8 @@ export function ProductDetail() {
     const [showPopup, setShowPopup] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('description');
 
-    // No loading needed - products are instant from memory!
-    const [isLoading, setIsLoading] = useState(false);
+    // Show loading if no products in memory initially
+    const [isLoading, setIsLoading] = useState(() => getProducts().length === 0);
 
     // Subscribe to product updates
     useEffect(() => {

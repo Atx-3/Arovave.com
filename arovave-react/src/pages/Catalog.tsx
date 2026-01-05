@@ -50,8 +50,8 @@ export function Catalog() {
     const [showSubcategoryNav, setShowSubcategoryNav] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
 
-    // No loading state needed - products are instant from memory!
-    const [isLoading, setIsLoading] = useState(false);
+    // Show loading if no products in memory initially
+    const [isLoading, setIsLoading] = useState(() => getProducts().length === 0);
 
     // Scroll detection for subcategory nav
     useEffect(() => {
