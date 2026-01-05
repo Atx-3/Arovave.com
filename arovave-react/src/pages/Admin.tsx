@@ -4,7 +4,7 @@ import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, 
 import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
-import { fetchProducts as fetchProductsFromSupabase, saveProduct as saveProductToSupabase, deleteProduct as deleteProductFromSupabase, getLocalProducts, syncInitialProductsToSupabase } from '../utils/productStorage';
+import { getProducts, subscribeToProducts, saveProduct as saveProductToStore, deleteProduct as deleteProductFromStore, refreshProducts } from '../stores/productStore';
 import { compressImage, compressImages, processVideo, checkVideoSize, formatFileSize } from '../utils/mediaCompression';
 import type { Product, Enquiry } from '../types';
 import type { AdminPermission } from '../context/AuthContext';
@@ -39,10 +39,12 @@ export function Admin() {
     const { hasPermission, isSuperAdmin, currentUser } = useAuth();
     const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins' | 'categories' | 'support'>('enquiries');
     const { allEnquiries, updateEnquiryStatus, isLoadingEnquiries } = useEnquiry();
-    const [products, setProducts] = useState<Product[]>(getLocalProducts);
+
+    // Products state - instant load from productStore cache
+    const [products, setProducts] = useState<Product[]>(() => getProducts());
     const [showProductModal, setShowProductModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+    const [isLoadingProducts, setIsLoadingProducts] = useState(() => getProducts().length === 0);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
 
     // Category management state
