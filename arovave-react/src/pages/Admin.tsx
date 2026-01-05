@@ -2177,7 +2177,7 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
                                 onChange={e => setFormData({ ...formData, cat: e.target.value, subcategory: '' })}
                                 className="w-full px-4 py-3 border-2 border-zinc-200 rounded-xl font-semibold focus:border-black focus:outline-none bg-white"
                             >
-                                {categories.map(cat => (
+                                {managedCategories.map(cat => (
                                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                                 ))}
                             </select>
