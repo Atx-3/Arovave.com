@@ -85,17 +85,19 @@ export function Catalog() {
             } catch (e) { }
         }
 
-        // BACKGROUND: Fetch fresh from Supabase (EXACTLY like quality content)
+        // PHASE 1: FAST - Load product data only (no images) - ~130ms
         const fetchProductsFromSupabase = async () => {
-            console.log('🔄 Fetching products from Supabase...');
+            console.log('🔄 Phase 1: Fetching product data (fast)...');
+            const startTime = Date.now();
             try {
                 const { data, error } = await supabase
                     .from('products')
-                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
+                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, specs, key_specs, is_trending, created_at')
                     .order('created_at', { ascending: false });
 
+                const elapsed = Date.now() - startTime;
+
                 if (!error && data && data.length > 0) {
-                    // Convert DB format to Product format
                     const formattedProducts: Product[] = data.map((db: any) => ({
                         id: db.id,
                         name: db.name || '',
@@ -106,23 +108,39 @@ export function Catalog() {
                         priceRange: db.price_range || '',
                         description: db.description || '',
                         certifications: db.certifications || [],
-                        images: db.images || [],
-                        video: db.video || undefined,
-                        thumbnail: db.thumbnail || (db.images?.[0] || ''),
+                        images: [],
+                        video: undefined,
+                        thumbnail: '', // Will be loaded in phase 2
                         specs: db.specs || [],
                         keySpecs: db.key_specs || [],
                         isTrending: db.is_trending || false
                     }));
 
-                    console.log('✅ Loaded', formattedProducts.length, 'products from Supabase');
+                    console.log(`✅ Phase 1 complete: ${formattedProducts.length} products in ${elapsed}ms`);
                     setProducts(formattedProducts);
                     setIsLoading(false);
 
-                    // Save to cache (like quality content does)
-                    try {
-                        localStorage.setItem('arovaveProducts_v2', JSON.stringify(formattedProducts));
-                    } catch (e) {
-                        console.warn('Could not cache products');
+                    // PHASE 2: Load thumbnails in background (slower, but UI is already showing)
+                    console.log('🔄 Phase 2: Loading thumbnails...');
+                    const { data: thumbData } = await supabase
+                        .from('products')
+                        .select('id, thumbnail');
+
+                    if (thumbData) {
+                        const thumbMap = new Map(thumbData.map((t: any) => [t.id, t.thumbnail]));
+                        const productsWithThumbs = formattedProducts.map(p => ({
+                            ...p,
+                            thumbnail: thumbMap.get(p.id) || ''
+                        }));
+                        setProducts(productsWithThumbs);
+                        console.log(`✅ Phase 2 complete: Thumbnails loaded`);
+
+                        // Save to cache
+                        try {
+                            localStorage.setItem('arovaveProducts_v2', JSON.stringify(productsWithThumbs));
+                        } catch (e) {
+                            console.warn('Could not cache products');
+                        }
                     }
                 } else if (error) {
                     console.error('❌ Supabase error:', error.message);
@@ -411,8 +429,16 @@ export function Catalog() {
                         {filteredProducts.map(product => (
                             <div key={product.id} className="bg-white rounded-2xl md:rounded-3xl border border-zinc-100 overflow-hidden group hover:shadow-lg transition-shadow">
                                 <Link to={`/product/${product.id}`}>
-                                    <div className="aspect-[4/3] overflow-hidden">
-                                        <img src={product.thumbnail || product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                    <div className="aspect-[4/3] overflow-hidden bg-zinc-100">
+                                        {product.thumbnail ? (
+                                            <img src={product.thumbnail} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200 animate-pulse">
+                                                <svg className="w-12 h-12 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                            </div>
+                                        )}
                                     </div>
                                 </Link>
                                 <div className="p-3 md:p-6">

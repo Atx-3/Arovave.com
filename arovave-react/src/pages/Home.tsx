@@ -44,13 +44,17 @@ export function Home() {
             } catch (e) { }
         }
 
-        // BACKGROUND: Fetch fresh from Supabase (EXACTLY like quality content)
+        // PHASE 1: FAST - Load product data only (no images) - ~130ms
         const fetchProductsFromSupabase = async () => {
+            console.log('🔄 Home Phase 1: Fetching product data...');
+            const startTime = Date.now();
             try {
                 const { data, error } = await supabase
                     .from('products')
-                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
+                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, specs, key_specs, is_trending, created_at')
                     .order('created_at', { ascending: false });
+
+                const elapsed = Date.now() - startTime;
 
                 if (!error && data && data.length > 0) {
                     const formattedProducts: Product[] = data.map((db: any) => ({
@@ -63,21 +67,37 @@ export function Home() {
                         priceRange: db.price_range || '',
                         description: db.description || '',
                         certifications: db.certifications || [],
-                        images: db.images || [],
-                        video: db.video || undefined,
-                        thumbnail: db.thumbnail || (db.images?.[0] || ''),
+                        images: [],
+                        video: undefined,
+                        thumbnail: '', // Will be loaded in phase 2
                         specs: db.specs || [],
                         keySpecs: db.key_specs || [],
                         isTrending: db.is_trending || false
                     }));
 
-                    console.log('✅ Home: Loaded', formattedProducts.length, 'products');
+                    console.log(`✅ Home Phase 1 complete: ${formattedProducts.length} products in ${elapsed}ms`);
                     setAllProducts(formattedProducts);
                     setTrendingProducts(formattedProducts.filter(p => p.isTrending).slice(0, 4));
 
-                    try {
-                        localStorage.setItem('arovaveProducts_v2', JSON.stringify(formattedProducts));
-                    } catch (e) { }
+                    // PHASE 2: Load thumbnails in background
+                    const { data: thumbData } = await supabase
+                        .from('products')
+                        .select('id, thumbnail');
+
+                    if (thumbData) {
+                        const thumbMap = new Map(thumbData.map((t: any) => [t.id, t.thumbnail]));
+                        const productsWithThumbs = formattedProducts.map(p => ({
+                            ...p,
+                            thumbnail: thumbMap.get(p.id) || ''
+                        }));
+                        setAllProducts(productsWithThumbs);
+                        setTrendingProducts(productsWithThumbs.filter(p => p.isTrending).slice(0, 4));
+                        console.log(`✅ Home Phase 2 complete: Thumbnails loaded`);
+
+                        try {
+                            localStorage.setItem('arovaveProducts_v2', JSON.stringify(productsWithThumbs));
+                        } catch (e) { }
+                    }
                 }
             } catch (err) {
                 console.error('Error fetching products:', err);

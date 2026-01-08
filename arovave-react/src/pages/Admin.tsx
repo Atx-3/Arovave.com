@@ -4,7 +4,6 @@ import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, 
 import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
-import { subscribeToProducts, saveProduct as saveProductToStore, deleteProduct as deleteProductFromStore, refreshProducts } from '../stores/productStore';
 import { compressImage, compressImages, processVideo, checkVideoSize, formatFileSize } from '../utils/mediaCompression';
 import type { Product, Enquiry } from '../types';
 import type { AdminPermission } from '../context/AuthContext';
@@ -583,22 +582,46 @@ export function Admin() {
     useEffect(() => {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }, [tab]);
-
     // Scroll to top on mount and load data
     useEffect(() => {
         window.scrollTo(0, 0);
 
-        // Subscribe to product updates - instant updates from productStore
-        const unsubscribeProducts = subscribeToProducts((newProducts) => {
-            console.log('⚡ Admin: Product update with', newProducts.length, 'products');
-            setProducts(newProducts);
-            if (newProducts.length > 0) {
-                setIsLoadingProducts(false);
-            }
-        });
+        // DIRECT: Fetch products from Supabase (like quality content)
+        const fetchProductsFromSupabase = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
+                    .order('created_at', { ascending: false });
 
-        // Trigger background refresh
-        refreshProducts();
+                if (!error && data && data.length > 0) {
+                    const formattedProducts: Product[] = data.map((db: any) => ({
+                        id: db.id,
+                        name: db.name || '',
+                        cat: db.cat || 'food',
+                        subcategory: db.subcategory || '',
+                        hsn: db.hsn || '',
+                        moq: db.moq || '',
+                        priceRange: db.price_range || '',
+                        description: db.description || '',
+                        certifications: db.certifications || [],
+                        images: db.images || [],
+                        video: db.video || undefined,
+                        thumbnail: db.thumbnail || (db.images?.[0] || ''),
+                        specs: db.specs || [],
+                        keySpecs: db.key_specs || [],
+                        isTrending: db.is_trending || false
+                    }));
+                    console.log('✅ Admin: Loaded', formattedProducts.length, 'products');
+                    setProducts(formattedProducts);
+                    setIsLoadingProducts(false);
+                }
+            } catch (err) {
+                console.error('Error fetching products:', err);
+            }
+        };
+
+        fetchProductsFromSupabase();
 
         // Load quality uploads from Supabase
         fetchQualityUploadsFromSupabase();
@@ -660,15 +683,16 @@ export function Admin() {
         if (confirm('Delete this product?')) {
             setIsSavingProduct(true);
             try {
-                const success = await deleteProductFromStore(id);
+                const { error } = await supabase.from('products').delete().eq('id', id);
 
-                if (!success) {
-                    showNotification('Failed to delete product', 'error');
+                if (error) {
+                    showNotification('Failed to delete product: ' + error.message, 'error');
                     setIsSavingProduct(false);
                     return;
                 }
 
-                // Products update automatically via subscription
+                // Remove from local state
+                setProducts(prev => prev.filter(p => p.id !== id));
                 showNotification('Product deleted successfully', 'success');
             } catch (err: any) {
                 console.error('Error deleting product:', err);
@@ -1588,21 +1612,69 @@ export function Admin() {
                                 setIsSavingProduct(true);
                                 try {
                                     const isNew = !editingProduct;
-                                    const result = await saveProductToStore(product, isNew);
 
-                                    if (result.success && result.product) {
-                                        // Refresh products from Supabase
-                                        await refreshProducts();
+                                    // Direct Supabase save
+                                    const dbProduct = {
+                                        name: product.name,
+                                        cat: product.cat,
+                                        subcategory: product.subcategory,
+                                        hsn: product.hsn,
+                                        moq: product.moq,
+                                        price_range: product.priceRange,
+                                        description: product.description,
+                                        certifications: product.certifications,
+                                        images: product.images,
+                                        video: product.video,
+                                        thumbnail: product.thumbnail,
+                                        specs: product.specs,
+                                        key_specs: product.keySpecs,
+                                        is_trending: product.isTrending
+                                    };
+
+                                    let error;
+                                    if (isNew) {
+                                        const result = await supabase.from('products').insert(dbProduct);
+                                        error = result.error;
+                                    } else {
+                                        const result = await supabase.from('products').update(dbProduct).eq('id', product.id);
+                                        error = result.error;
+                                    }
+
+                                    if (error) {
+                                        showNotification('Error: ' + error.message, 'error');
+                                    } else {
+                                        // Refresh products
+                                        const { data } = await supabase
+                                            .from('products')
+                                            .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
+                                            .order('created_at', { ascending: false });
+
+                                        if (data) {
+                                            const formattedProducts: Product[] = data.map((db: any) => ({
+                                                id: db.id,
+                                                name: db.name || '',
+                                                cat: db.cat || 'food',
+                                                subcategory: db.subcategory || '',
+                                                hsn: db.hsn || '',
+                                                moq: db.moq || '',
+                                                priceRange: db.price_range || '',
+                                                description: db.description || '',
+                                                certifications: db.certifications || [],
+                                                images: db.images || [],
+                                                video: db.video || undefined,
+                                                thumbnail: db.thumbnail || (db.images?.[0] || ''),
+                                                specs: db.specs || [],
+                                                keySpecs: db.key_specs || [],
+                                                isTrending: db.is_trending || false
+                                            }));
+                                            setProducts(formattedProducts);
+                                        }
+
                                         closeModal();
-                                        // Show success notification
                                         showNotification(
                                             isNew ? `Product "${product.name}" added successfully!` : `Product "${product.name}" updated successfully!`,
                                             'success'
                                         );
-                                    } else if (result.error) {
-                                        // Show error message (e.g., duplicate product name)
-                                        showNotification(result.error, 'error');
-                                        // Don't close modal so user can fix the issue
                                     }
                                 } catch (err) {
                                     console.error('Error saving product:', err);

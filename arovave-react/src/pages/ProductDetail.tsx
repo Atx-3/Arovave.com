@@ -4,7 +4,6 @@ import { Package, BadgeCheck, Play, ChevronLeft, ChevronRight, Check, Clock, Shi
 import { useTranslation, useEnquiry, useAuth } from '../context';
 import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
-import { subscribeToProducts, refreshProducts } from '../stores/productStore';
 import { supabase } from '../lib/supabase';
 import type { Product } from '../types';
 
@@ -18,21 +17,6 @@ type TabContent = {
     tabBenefit?: string;
 };
 
-// INSTANT: Get products directly from localStorage (synchronous)
-const getProductsFromCache = (): Product[] => {
-    try {
-        const cached = localStorage.getItem('arovaveProducts_v2');
-        if (cached) {
-            const products = JSON.parse(cached);
-            if (products && products.length > 0) {
-                console.log('⚡ ProductDetail: INSTANT load from localStorage');
-                return products;
-            }
-        }
-    } catch (e) { }
-    return [];
-};
-
 export function ProductDetail() {
     const { id } = useParams();
     const t = useTranslation();
@@ -42,8 +26,8 @@ export function ProductDetail() {
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isVideo, setIsVideo] = useState(false);
 
-    // INSTANT load from localStorage - no lag!
-    const [products, setProducts] = useState<Product[]>(() => getProductsFromCache());
+    // Products state
+    const [products, setProducts] = useState<Product[]>([]);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('description');
@@ -51,10 +35,61 @@ export function ProductDetail() {
     // Tab content fetched separately (heavy data not in main cache)
     const [tabContent, setTabContent] = useState<TabContent>({});
 
-    // Only show loading if cache is completely empty
-    const [isLoading, setIsLoading] = useState(() => getProductsFromCache().length === 0);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Fetch tab content separately (not cached to save space)
+    // DIRECT FETCH - SAME PATTERN AS QUALITY CONTENT
+    useEffect(() => {
+        // INSTANT: Load from cache first
+        const cached = localStorage.getItem('arovaveProducts_v2');
+        if (cached) {
+            try {
+                const cachedProducts = JSON.parse(cached);
+                if (cachedProducts && cachedProducts.length > 0) {
+                    console.log('⚡ ProductDetail: INSTANT load from cache');
+                    setProducts(cachedProducts);
+                    setIsLoading(false);
+                }
+            } catch (e) { }
+        }
+
+        // BACKGROUND: Fetch fresh from Supabase
+        const fetchProductsFromSupabase = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
+                    .order('created_at', { ascending: false });
+
+                if (!error && data && data.length > 0) {
+                    const formattedProducts: Product[] = data.map((db: any) => ({
+                        id: db.id,
+                        name: db.name || '',
+                        cat: db.cat || 'food',
+                        subcategory: db.subcategory || '',
+                        hsn: db.hsn || '',
+                        moq: db.moq || '',
+                        priceRange: db.price_range || '',
+                        description: db.description || '',
+                        certifications: db.certifications || [],
+                        images: db.images || [],
+                        video: db.video || undefined,
+                        thumbnail: db.thumbnail || (db.images?.[0] || ''),
+                        specs: db.specs || [],
+                        keySpecs: db.key_specs || [],
+                        isTrending: db.is_trending || false
+                    }));
+                    setProducts(formattedProducts);
+                    setIsLoading(false);
+                }
+            } catch (err) {
+                console.error('Error fetching products:', err);
+            }
+        };
+
+        fetchProductsFromSupabase();
+    }, []);
+
+    // Fetch tab content separately
     useEffect(() => {
         if (!id) return;
 
@@ -81,22 +116,6 @@ export function ProductDetail() {
 
         fetchTabContent();
     }, [id]);
-
-    // Subscribe to product updates
-    useEffect(() => {
-        const unsubscribe = subscribeToProducts((newProducts) => {
-            setProducts(newProducts);
-            // Only hide loading when we have products
-            if (newProducts.length > 0) {
-                setIsLoading(false);
-            }
-        });
-
-        // Trigger background refresh
-        refreshProducts();
-
-        return () => unsubscribe();
-    }, []);
 
     // Auto-close popup after 3 seconds
     useEffect(() => {
