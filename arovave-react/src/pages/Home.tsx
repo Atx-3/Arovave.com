@@ -450,13 +450,17 @@ export function Home() {
                     <div className="md:hidden">
                         {displayProducts.slice(0, 1).map(product => (
                             <div key={product.id} className="bg-zinc-50 rounded-2xl overflow-hidden group">
-                                <Link to={`/ product / ${product.id} `}>
-                                    <div className="aspect-[4/3] overflow-hidden">
-                                        <img
-                                            src={product.thumbnail || product.images[0]}
-                                            alt={product.name}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        />
+                                <Link to={`/product/${product.id}`}>
+                                    <div className="aspect-[4/3] overflow-hidden bg-zinc-100">
+                                        {product.thumbnail ? (
+                                            <img src={product.thumbnail} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200 animate-pulse">
+                                                <svg className="w-10 h-10 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                            </div>
+                                        )}
                                     </div>
                                 </Link>
                                 <div className="p-4">
@@ -495,13 +499,17 @@ export function Home() {
                     <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {displayProducts.map(product => (
                             <div key={product.id} className="bg-zinc-50 rounded-3xl overflow-hidden group">
-                                <Link to={`/ product / ${product.id} `}>
-                                    <div className="aspect-square overflow-hidden">
-                                        <img
-                                            src={product.thumbnail || product.images[0]}
-                                            alt={product.name}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        />
+                                <Link to={`/product/${product.id}`}>
+                                    <div className="aspect-square overflow-hidden bg-zinc-100">
+                                        {product.thumbnail ? (
+                                            <img src={product.thumbnail} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200 animate-pulse">
+                                                <svg className="w-12 h-12 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                            </div>
+                                        )}
                                     </div>
                                 </Link>
                                 <div className="p-6">
