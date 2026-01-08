@@ -5,9 +5,18 @@ import { useTranslation, useEnquiry, useAuth } from '../context';
 import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
 import { subscribeToProducts, refreshProducts } from '../stores/productStore';
+import { supabase } from '../lib/supabase';
 import type { Product } from '../types';
 
 type TabType = 'description' | 'benefit' | 'advantage';
+
+// Tab content fetched separately (not cached due to size)
+type TabContent = {
+    tabDescription?: string;
+    tabSpecifications?: string;
+    tabAdvantage?: string;
+    tabBenefit?: string;
+};
 
 // INSTANT: Get products directly from localStorage (synchronous)
 const getProductsFromCache = (): Product[] => {
@@ -39,8 +48,39 @@ export function ProductDetail() {
     const [showPopup, setShowPopup] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('description');
 
+    // Tab content fetched separately (heavy data not in main cache)
+    const [tabContent, setTabContent] = useState<TabContent>({});
+
     // Only show loading if cache is completely empty
     const [isLoading, setIsLoading] = useState(() => getProductsFromCache().length === 0);
+
+    // Fetch tab content separately (not cached to save space)
+    useEffect(() => {
+        if (!id) return;
+
+        const fetchTabContent = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('tab_description, tab_specifications, tab_advantage, tab_benefit')
+                    .eq('id', Number(id))
+                    .single();
+
+                if (!error && data) {
+                    setTabContent({
+                        tabDescription: data.tab_description,
+                        tabSpecifications: data.tab_specifications,
+                        tabAdvantage: data.tab_advantage,
+                        tabBenefit: data.tab_benefit
+                    });
+                }
+            } catch (e) {
+                console.error('Error fetching tab content:', e);
+            }
+        };
+
+        fetchTabContent();
+    }, [id]);
 
     // Subscribe to product updates
     useEffect(() => {
@@ -339,23 +379,23 @@ export function ProductDetail() {
                     <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-8 min-h-[150px] md:min-h-[200px] border border-zinc-100">
                         {activeTab === 'description' && (
                             <div className="text-zinc-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base space-y-4">
-                                <p>{product.tabDescription || product.description || 'No description available.'}</p>
-                                {product.tabSpecifications && (
+                                <p>{tabContent.tabDescription || product.description || 'No description available.'}</p>
+                                {tabContent.tabSpecifications && (
                                     <div className="mt-4 pt-4 border-t border-zinc-200">
                                         <h4 className="font-bold text-black mb-2">Specifications</h4>
-                                        <p>{product.tabSpecifications}</p>
+                                        <p>{tabContent.tabSpecifications}</p>
                                     </div>
                                 )}
                             </div>
                         )}
                         {activeTab === 'benefit' && (
                             <p className="text-zinc-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
-                                {product.tabBenefit || 'No benefit details available.'}
+                                {tabContent.tabBenefit || 'No benefit details available.'}
                             </p>
                         )}
                         {activeTab === 'advantage' && (
                             <p className="text-zinc-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
-                                {product.tabAdvantage || 'No advantage details available.'}
+                                {tabContent.tabAdvantage || 'No advantage details available.'}
                             </p>
                         )}
                     </div>

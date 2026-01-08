@@ -5,22 +5,7 @@ import { categories } from '../data';
 import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 import { supabase } from '../lib/supabase';
-import { subscribeToProducts, refreshProducts } from '../stores/productStore';
 import type { Product } from '../types';
-
-// INSTANT: Get products directly from localStorage (synchronous)
-const getProductsFromCache = (): Product[] => {
-    try {
-        const cached = localStorage.getItem('arovaveProducts_v2');
-        if (cached) {
-            const products = JSON.parse(cached);
-            if (products && products.length > 0) {
-                return products;
-            }
-        }
-    } catch (e) { }
-    return [];
-};
 
 // INSTANT: Get video URL from cache
 const getVideoFromCache = (): string => {
@@ -36,16 +21,71 @@ export function Home() {
     const [pendingProduct, setPendingProduct] = useState<number | null>(null);
     const [showPopup, setShowPopup] = useState(false);
 
-    // INSTANT load trending from localStorage - no lag!
-    const [trendingProducts, setTrendingProducts] = useState(() => {
-        const products = getProductsFromCache();
-        console.log('⚡ Home: INSTANT load', products.filter(p => p.isTrending).length, 'trending products');
-        return products.filter(p => p.isTrending).slice(0, 4);
-    });
+    // Trending products state
+    const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
 
     // INSTANT load video URL from cache
     const [videoUrl, setVideoUrl] = useState<string>(() => getVideoFromCache());
     const [trustExpanded, setTrustExpanded] = useState(false);
+
+    // DIRECT FETCH - SAME PATTERN AS QUALITY CONTENT
+    useEffect(() => {
+        // INSTANT: Load from cache first
+        const cached = localStorage.getItem('arovaveProducts_v2');
+        if (cached) {
+            try {
+                const cachedProducts = JSON.parse(cached);
+                if (cachedProducts && cachedProducts.length > 0) {
+                    console.log('⚡ Home: INSTANT load from cache');
+                    setAllProducts(cachedProducts);
+                    setTrendingProducts(cachedProducts.filter((p: Product) => p.isTrending).slice(0, 4));
+                }
+            } catch (e) { }
+        }
+
+        // BACKGROUND: Fetch fresh from Supabase (EXACTLY like quality content)
+        const fetchProductsFromSupabase = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
+                    .order('created_at', { ascending: false });
+
+                if (!error && data && data.length > 0) {
+                    const formattedProducts: Product[] = data.map((db: any) => ({
+                        id: db.id,
+                        name: db.name || '',
+                        cat: db.cat || 'food',
+                        subcategory: db.subcategory || '',
+                        hsn: db.hsn || '',
+                        moq: db.moq || '',
+                        priceRange: db.price_range || '',
+                        description: db.description || '',
+                        certifications: db.certifications || [],
+                        images: db.images || [],
+                        video: db.video || undefined,
+                        thumbnail: db.thumbnail || (db.images?.[0] || ''),
+                        specs: db.specs || [],
+                        keySpecs: db.key_specs || [],
+                        isTrending: db.is_trending || false
+                    }));
+
+                    console.log('✅ Home: Loaded', formattedProducts.length, 'products');
+                    setAllProducts(formattedProducts);
+                    setTrendingProducts(formattedProducts.filter(p => p.isTrending).slice(0, 4));
+
+                    try {
+                        localStorage.setItem('arovaveProducts_v2', JSON.stringify(formattedProducts));
+                    } catch (e) { }
+                }
+            } catch (err) {
+                console.error('Error fetching products:', err);
+            }
+        };
+
+        fetchProductsFromSupabase();
+    }, []);
 
     // Background fetch video URL from Supabase
     useEffect(() => {
@@ -80,8 +120,7 @@ export function Home() {
     // After login, submit pending enquiry
     useEffect(() => {
         if (isAuthenticated && pendingProduct) {
-            const products = getProductsFromCache();
-            const product = products.find(p => p.id === pendingProduct);
+            const product = allProducts.find(p => p.id === pendingProduct);
             if (product) {
                 submitProductEnquiry(product);
                 setShowPopup(true);
@@ -89,21 +128,7 @@ export function Home() {
             }
             setPendingProduct(null);
         }
-    }, [isAuthenticated, pendingProduct]);
-
-    // Subscribe to product updates for instant trending products
-    useEffect(() => {
-        const unsubscribe = subscribeToProducts((allProducts) => {
-            const trending = allProducts.filter(p => p.isTrending).slice(0, 4);
-            console.log('⚡ Home: Instant update with', trending.length, 'trending products');
-            setTrendingProducts(trending);
-        });
-
-        // Trigger background refresh
-        refreshProducts();
-
-        return () => unsubscribe();
-    }, []);
+    }, [isAuthenticated, pendingProduct, allProducts]);
 
 
     // Trust tabs - original 4 tabs with updated professional content
@@ -194,7 +219,6 @@ export function Home() {
     };
 
     const handleProductEnquiry = (productId: number) => {
-        const allProducts = getProductsFromCache();
         const product = allProducts.find(p => p.id === productId);
         if (!product) return;
 

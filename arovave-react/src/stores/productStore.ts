@@ -59,6 +59,8 @@ function cleanOldCacheVersions() {
         // Also clean up v3 if it exists
         localStorage.removeItem('arovaveProducts_v3');
         localStorage.removeItem('arovaveProductsTime_v3');
+        // Clear other large items that might be taking space
+        localStorage.removeItem('arovaveQualityUploads');
     } catch (e) {
         // Ignore
     }
@@ -111,15 +113,49 @@ function loadFromCache(): Product[] {
 }
 
 /**
- * Save products to localStorage cache
+ * Save products to localStorage cache - with quota handling
  */
 function saveToCache(products: Product[]) {
     try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(products));
+        // Create a lightweight version for caching (remove heavy tab content)
+        const lightProducts = products.map(p => ({
+            ...p,
+            tabDescription: undefined,
+            tabSpecifications: undefined,
+            tabAdvantage: undefined,
+            tabBenefit: undefined
+        }));
+        localStorage.setItem(CACHE_KEY, JSON.stringify(lightProducts));
         localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
         console.log('💾 Cached', products.length, 'products');
-    } catch (e) {
-        console.error('Cache save error:', e);
+    } catch (e: any) {
+        // Handle quota exceeded error
+        if (e?.name === 'QuotaExceededError' || e?.code === 22) {
+            console.warn('⚠️ localStorage quota exceeded, clearing old data...');
+            try {
+                // Clear other cached data to make room
+                localStorage.removeItem('arovaveQualityUploads');
+                localStorage.removeItem('arovaveCategories');
+                localStorage.removeItem('arovaveVideoUrl');
+                // Try saving again with minimal data
+                const minimalProducts = products.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    cat: p.cat,
+                    subcategory: p.subcategory,
+                    thumbnail: p.thumbnail,
+                    priceRange: p.priceRange,
+                    moq: p.moq,
+                    isTrending: p.isTrending
+                }));
+                localStorage.setItem(CACHE_KEY, JSON.stringify(minimalProducts));
+                console.log('💾 Cached minimal product data');
+            } catch (e2) {
+                console.error('❌ Failed to cache even minimal data:', e2);
+            }
+        } else {
+            console.error('Cache save error:', e);
+        }
     }
 }
 
@@ -182,10 +218,11 @@ async function fetchFreshProducts(): Promise<Product[]> {
         console.log('🔄 Background: Fetching fresh products...');
         const startTime = Date.now();
 
-        // Optimized query - fetch all columns but with efficient ordering
+        // OPTIMIZED query - only essential display columns (no heavy tab content)
+        // Tab content is fetched separately when needed
         const { data, error } = await supabase
             .from('products')
-            .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, tab_description, tab_specifications, tab_advantage, tab_benefit, created_at')
+            .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
             .order('created_at', { ascending: false });
 
         const elapsed = Date.now() - startTime;

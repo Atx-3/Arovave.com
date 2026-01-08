@@ -6,7 +6,6 @@ import { categories } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
 import { supabase } from '../lib/supabase';
-import { subscribeToProducts, refreshProducts } from '../stores/productStore';
 import type { Product } from '../types';
 
 // Category type for managed categories
@@ -14,23 +13,6 @@ type Category = {
     id: string;
     name: string;
     subcategories: { id: string; name: string; }[];
-};
-
-// INSTANT: Get products directly from localStorage (synchronous)
-const getProductsFromCache = (): Product[] => {
-    try {
-        const cached = localStorage.getItem('arovaveProducts_v2');
-        if (cached) {
-            const products = JSON.parse(cached);
-            if (products && products.length > 0) {
-                console.log('⚡ INSTANT: Loaded', products.length, 'products from localStorage');
-                return products;
-            }
-        }
-    } catch (e) {
-        console.error('Cache read error:', e);
-    }
-    return [];
 };
 
 // Get categories from localStorage or use initial
@@ -58,17 +40,15 @@ export function Catalog() {
     const filterType = searchParams.get('filter');
     const [expandedCategory, setExpandedCategory] = useState<string | null>(selectedCategory);
 
-    // INSTANT load from localStorage - no lag!
-    const [products, setProducts] = useState<Product[]>(() => getProductsFromCache());
+    // Products state - SAME PATTERN AS QUALITY CONTENT
+    const [products, setProducts] = useState<Product[]>([]);
     const [managedCategories, setManagedCategories] = useState<Category[]>(getStoredCategories);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
     const [showPopup, setShowPopup] = useState(false);
     const [showSubcategoryNav, setShowSubcategoryNav] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
-
-    // Only show loading if cache is completely empty
-    const [isLoading, setIsLoading] = useState(() => getProductsFromCache().length === 0);
+    const [isLoading, setIsLoading] = useState(true);
 
     // Scroll detection for subcategory nav
     useEffect(() => {
@@ -90,18 +70,69 @@ export function Catalog() {
         window.scrollTo(0, 0);
     }, []);
 
+    // DIRECT FETCH - SAME PATTERN AS QUALITY CONTENT (NO MIDDLEWARE)
     useEffect(() => {
-        // Subscribe to product updates - instant updates when data changes
-        const unsubscribe = subscribeToProducts((newProducts) => {
-            console.log('⚡ Catalog: Update with', newProducts.length, 'products');
-            setProducts(newProducts);
-            // Only hide loading when we actually have products
-            if (newProducts.length > 0) {
-                setIsLoading(false);
-            }
-        });
+        // INSTANT: Load from cache first (same as quality content)
+        const cached = localStorage.getItem('arovaveProducts_v2');
+        if (cached) {
+            try {
+                const cachedProducts = JSON.parse(cached);
+                if (cachedProducts && cachedProducts.length > 0) {
+                    console.log('⚡ INSTANT: Loaded', cachedProducts.length, 'products from cache');
+                    setProducts(cachedProducts);
+                    setIsLoading(false);
+                }
+            } catch (e) { }
+        }
 
-        // Fetch categories
+        // BACKGROUND: Fetch fresh from Supabase (EXACTLY like quality content)
+        const fetchProductsFromSupabase = async () => {
+            console.log('🔄 Fetching products from Supabase...');
+            try {
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
+                    .order('created_at', { ascending: false });
+
+                if (!error && data && data.length > 0) {
+                    // Convert DB format to Product format
+                    const formattedProducts: Product[] = data.map((db: any) => ({
+                        id: db.id,
+                        name: db.name || '',
+                        cat: db.cat || 'food',
+                        subcategory: db.subcategory || '',
+                        hsn: db.hsn || '',
+                        moq: db.moq || '',
+                        priceRange: db.price_range || '',
+                        description: db.description || '',
+                        certifications: db.certifications || [],
+                        images: db.images || [],
+                        video: db.video || undefined,
+                        thumbnail: db.thumbnail || (db.images?.[0] || ''),
+                        specs: db.specs || [],
+                        keySpecs: db.key_specs || [],
+                        isTrending: db.is_trending || false
+                    }));
+
+                    console.log('✅ Loaded', formattedProducts.length, 'products from Supabase');
+                    setProducts(formattedProducts);
+                    setIsLoading(false);
+
+                    // Save to cache (like quality content does)
+                    try {
+                        localStorage.setItem('arovaveProducts_v2', JSON.stringify(formattedProducts));
+                    } catch (e) {
+                        console.warn('Could not cache products');
+                    }
+                } else if (error) {
+                    console.error('❌ Supabase error:', error.message);
+                }
+            } catch (err) {
+                console.error('Error fetching products:', err);
+            }
+        };
+
+        // Fetch categories (same as before)
         const fetchCategoriesFromSupabase = async () => {
             try {
                 const { data, error } = await supabase
@@ -123,14 +154,8 @@ export function Catalog() {
             }
         };
 
+        fetchProductsFromSupabase();
         fetchCategoriesFromSupabase();
-
-        // Trigger background refresh
-        refreshProducts();
-
-        return () => {
-            unsubscribe();
-        };
     }, []);
 
     useEffect(() => {

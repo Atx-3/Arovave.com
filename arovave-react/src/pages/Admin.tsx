@@ -4,16 +4,24 @@ import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, 
 import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
-import { getProducts, subscribeToProducts, saveProduct as saveProductToStore, deleteProduct as deleteProductFromStore, refreshProducts } from '../stores/productStore';
+import { subscribeToProducts, saveProduct as saveProductToStore, deleteProduct as deleteProductFromStore, refreshProducts } from '../stores/productStore';
 import { compressImage, compressImages, processVideo, checkVideoSize, formatFileSize } from '../utils/mediaCompression';
 import type { Product, Enquiry } from '../types';
 import type { AdminPermission } from '../context/AuthContext';
 
-// Get products from localStorage or use initial
+// INSTANT: Get products directly from localStorage with correct cache key
 const getStoredProducts = (): Product[] => {
-    const saved = localStorage.getItem('arovaveProducts');
-    if (saved) {
-        return JSON.parse(saved);
+    try {
+        const saved = localStorage.getItem('arovaveProducts_v2');
+        if (saved) {
+            const products = JSON.parse(saved);
+            if (products && products.length > 0) {
+                console.log('⚡ Admin: INSTANT load', products.length, 'products from cache');
+                return products;
+            }
+        }
+    } catch (e) {
+        console.error('Cache read error:', e);
     }
     return [...initialProducts];
 };
@@ -40,11 +48,11 @@ export function Admin() {
     const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins' | 'categories' | 'support'>('enquiries');
     const { allEnquiries, updateEnquiryStatus, isLoadingEnquiries } = useEnquiry();
 
-    // Products state - instant load from productStore cache
-    const [products, setProducts] = useState<Product[]>(() => getProducts());
+    // Products state - INSTANT load from localStorage cache (same pattern as quality content)
+    const [products, setProducts] = useState<Product[]>(() => getStoredProducts());
     const [showProductModal, setShowProductModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const [isLoadingProducts, setIsLoadingProducts] = useState(() => getProducts().length === 0);
+    const [isLoadingProducts, setIsLoadingProducts] = useState(() => getStoredProducts().length === 0);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
 
     // Category management state
