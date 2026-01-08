@@ -214,8 +214,15 @@ export function Admin() {
     // Check if user is logged in and is admin
     const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
 
-    // Fetch video URL from Supabase
+    // Fetch video URL from Supabase (cache-first for instant loading)
     const fetchVideoUrl = async () => {
+        // INSTANT: Load from cache first
+        const cached = localStorage.getItem('arovaveVideoUrl');
+        if (cached) {
+            setVideoUrl(cached);
+        }
+
+        // BACKGROUND: Fetch fresh from Supabase
         try {
             const { data, error } = await supabase
                 .from('site_settings')
@@ -225,6 +232,7 @@ export function Admin() {
 
             if (!error && data?.video_url) {
                 setVideoUrl(data.video_url);
+                localStorage.setItem('arovaveVideoUrl', data.video_url);
             }
         } catch (err) {
             console.error('Error fetching video URL:', err);
@@ -437,8 +445,10 @@ export function Admin() {
         closed: { color: 'bg-zinc-100 text-zinc-600', label: 'Closed' }
     };
 
-    // Fetch categories from Supabase
+    // Fetch categories from Supabase (cache-first for instant loading)
     const fetchCategoriesFromSupabase = async () => {
+        // INSTANT: Load from cache first (already done in getStoredCategories)
+        // BACKGROUND: Fetch fresh from Supabase
         try {
             const { data, error } = await supabase
                 .from('categories')
@@ -453,7 +463,6 @@ export function Admin() {
                     subcategories: cat.subcategories || []
                 }));
                 setManagedCategories(formattedCategories);
-                // Also save to localStorage for faster loading
                 localStorage.setItem('arovaveCategories', JSON.stringify(formattedCategories));
             }
         } catch (err) {
@@ -482,8 +491,17 @@ export function Admin() {
         }
     };
 
-    // Fetch quality uploads from Supabase
+    // Fetch quality uploads from Supabase (cache-first for instant loading)
     const fetchQualityUploadsFromSupabase = async () => {
+        // INSTANT: Load from cache first
+        const cached = localStorage.getItem('arovaveQualityUploads');
+        if (cached) {
+            try {
+                setQualityContent(JSON.parse(cached));
+            } catch (e) { }
+        }
+
+        // BACKGROUND: Fetch fresh from Supabase
         try {
             const { data, error } = await supabase
                 .from('quality_uploads')
@@ -491,7 +509,6 @@ export function Admin() {
                 .order('created_at', { ascending: false });
 
             if (!error && data) {
-                // Group by key (category_subcategory_contentType)
                 const grouped: Record<string, any[]> = {};
                 data.forEach((item: any) => {
                     const key = `${item.category_id}_${item.subcategory_id}_${item.content_type}`;
@@ -504,7 +521,6 @@ export function Admin() {
                     });
                 });
                 setQualityContent(grouped);
-                // Also cache to localStorage
                 localStorage.setItem('arovaveQualityUploads', JSON.stringify(grouped));
             }
         } catch (err) {
@@ -1564,12 +1580,11 @@ export function Admin() {
                                 setIsSavingProduct(true);
                                 try {
                                     const isNew = !editingProduct;
-                                    const result = await saveProductToSupabase(product, isNew);
+                                    const result = await saveProductToStore(product, isNew);
 
                                     if (result.success && result.product) {
                                         // Refresh products from Supabase
-                                        const fetchedProducts = await fetchProductsFromSupabase();
-                                        setProducts(fetchedProducts);
+                                        await refreshProducts();
                                         closeModal();
                                         // Show success notification
                                         showNotification(

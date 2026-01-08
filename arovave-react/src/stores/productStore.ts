@@ -1,10 +1,11 @@
 /**
- * Global Product Store - SMART CACHING
+ * Global Product Store - ULTRA-FAST CACHING
  * 
  * Strategy:
- * 1. Load from localStorage cache immediately (fast initial display)
- * 2. Fetch fresh data from Supabase in background
- * 3. Clear cache if older than 24 hours (not stale beyond 1 day)
+ * 1. INSTANT: Load from localStorage cache immediately (no waiting ever)
+ * 2. BACKGROUND: Fetch fresh data from Supabase silently
+ * 3. LONG CACHE: Keep cache for 7 days (stale-while-revalidate pattern)
+ * 4. OPTIMIZED QUERIES: Only fetch essential columns for speed
  */
 
 import { supabase } from '../lib/supabase';
@@ -14,11 +15,13 @@ import type { Product } from '../types';
 let memoryCache: Product[] = [];
 let isInitialized = false;
 let isFetching = false;
+let lastFetchTime = 0;
 
-// Cache settings
-const CACHE_KEY = 'arovaveProducts_v2';
+// Cache settings - AGGRESSIVE caching for instant loading
+const CACHE_KEY = 'arovaveProducts_v2';  // Keep v2 for backward compatibility
 const CACHE_TIMESTAMP_KEY = 'arovaveProductsTime_v2';
-const MAX_CACHE_AGE = 24 * 60 * 60 * 1000; // 24 hours - clear cache older than this
+const MAX_CACHE_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days - long cache for instant loading
+const MIN_FETCH_INTERVAL = 30 * 1000; // 30 seconds - don't fetch too frequently
 
 // Database to App product converter
 function dbToProduct(db: any): Product {
@@ -46,22 +49,37 @@ function dbToProduct(db: any): Product {
 }
 
 /**
- * Clean up old cache versions
+ * Clean up old cache versions - only remove v1 keys
  */
 function cleanOldCacheVersions() {
     try {
-        // Remove old cache keys from previous versions
+        // Remove only v1 cache keys
         localStorage.removeItem('arovaveProducts');
         localStorage.removeItem('arovaveProductsTimestamp');
+        // Also clean up v3 if it exists
+        localStorage.removeItem('arovaveProducts_v3');
+        localStorage.removeItem('arovaveProductsTime_v3');
     } catch (e) {
         // Ignore
     }
 }
 
 /**
- * Check if cache is still valid (within 24 hours)
+ * Check if cache exists (we ALWAYS use cache if it exists - stale-while-revalidate)
  */
-function isCacheValid(): boolean {
+function hasCacheData(): boolean {
+    try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        return cached !== null && cached.length > 2; // Not empty array "[]"
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * Check if cache is fresh (within 7 days)
+ */
+function isCacheFresh(): boolean {
     try {
         const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
         if (!timestamp) return false;
@@ -74,20 +92,17 @@ function isCacheValid(): boolean {
 }
 
 /**
- * Load products from localStorage cache
+ * Load products from localStorage cache - ALWAYS returns data if available
  */
 function loadFromCache(): Product[] {
     try {
-        if (!isCacheValid()) {
-            console.log('📦 Cache expired or missing, will fetch fresh');
-            return [];
-        }
-
         const cached = localStorage.getItem(CACHE_KEY);
         if (cached) {
             const products = JSON.parse(cached);
-            console.log('⚡ Loaded', products.length, 'products from cache (instant!)');
-            return products;
+            if (products.length > 0) {
+                console.log('⚡ INSTANT: Loaded', products.length, 'products from cache');
+                return products;
+            }
         }
     } catch (e) {
         console.error('Cache load error:', e);
@@ -102,80 +117,102 @@ function saveToCache(products: Product[]) {
     try {
         localStorage.setItem(CACHE_KEY, JSON.stringify(products));
         localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
-        console.log('💾 Saved', products.length, 'products to cache');
+        console.log('💾 Cached', products.length, 'products');
     } catch (e) {
         console.error('Cache save error:', e);
     }
 }
 
 /**
- * Initialize the product store
- * 1. Load from cache immediately
- * 2. Fetch fresh data in background
+ * Initialize the product store - ALWAYS shows cached data instantly
+ * Never blocks on network requests
  */
 export function initProductStore(): Product[] {
     // Clean up old versions
     cleanOldCacheVersions();
 
-    // Load from cache for instant display
+    // INSTANT: Load from cache first (no waiting)
     const cached = loadFromCache();
     if (cached.length > 0) {
         memoryCache = cached;
         isInitialized = true;
-        notifyListeners();
+        // Notify immediately with cached data
+        setTimeout(() => notifyListeners(), 0);
     }
 
-    // Always fetch fresh data in background
-    fetchFreshProducts();
+    // BACKGROUND: Fetch fresh data silently (don't block)
+    if (!isCacheFresh() || cached.length === 0) {
+        fetchFreshProducts();
+    } else {
+        // Even if cache is fresh, refresh in background after a delay
+        setTimeout(() => fetchFreshProducts(), 5000);
+    }
 
     return memoryCache;
 }
 
 /**
- * Get products from memory
+ * Get products from memory - INSTANT, never async
  */
 export function getProducts(): Product[] {
+    // If memory is empty but cache exists, load from cache
+    if (memoryCache.length === 0 && hasCacheData()) {
+        memoryCache = loadFromCache();
+    }
     return memoryCache;
 }
 
 /**
- * Fetch fresh products from Supabase
+ * Fetch fresh products from Supabase - BACKGROUND operation
+ * Uses optimized query to reduce response time
  */
 async function fetchFreshProducts(): Promise<Product[]> {
+    // Don't fetch if already fetching
     if (isFetching) return memoryCache;
 
+    // Don't fetch too frequently
+    if (Date.now() - lastFetchTime < MIN_FETCH_INTERVAL) {
+        return memoryCache;
+    }
+
     isFetching = true;
+    lastFetchTime = Date.now();
 
     try {
-        console.log('🔄 Fetching fresh products from Supabase...');
+        console.log('🔄 Background: Fetching fresh products...');
+        const startTime = Date.now();
+
+        // Optimized query - fetch all columns but with efficient ordering
         const { data, error } = await supabase
             .from('products')
-            .select('*')
+            .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, tab_description, tab_specifications, tab_advantage, tab_benefit, created_at')
             .order('created_at', { ascending: false });
 
+        const elapsed = Date.now() - startTime;
+
         if (error) {
-            console.error('Supabase error:', error);
+            console.error('❌ Supabase error:', error.message);
             isFetching = false;
             return memoryCache;
         }
 
-        if (data) {
+        if (data && data.length > 0) {
             memoryCache = data.map(dbToProduct);
             isInitialized = true;
 
             // Save to cache for next session
             saveToCache(memoryCache);
 
-            console.log('✅ Fresh products loaded:', memoryCache.length);
+            console.log(`✅ Loaded ${memoryCache.length} products in ${elapsed}ms`);
 
-            // Notify listeners
+            // Notify listeners with fresh data
             notifyListeners();
         }
 
         isFetching = false;
         return memoryCache;
-    } catch (e) {
-        console.error('Fetch error:', e);
+    } catch (e: any) {
+        console.error('❌ Fetch error:', e.message || e);
         isFetching = false;
         return memoryCache;
     }

@@ -4,10 +4,25 @@ import { Package, BadgeCheck, Play, ChevronLeft, ChevronRight, Check, Clock, Shi
 import { useTranslation, useEnquiry, useAuth } from '../context';
 import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
-import { getProducts, subscribeToProducts, refreshProducts } from '../stores/productStore';
+import { subscribeToProducts, refreshProducts } from '../stores/productStore';
 import type { Product } from '../types';
 
 type TabType = 'description' | 'benefit' | 'advantage';
+
+// INSTANT: Get products directly from localStorage (synchronous)
+const getProductsFromCache = (): Product[] => {
+    try {
+        const cached = localStorage.getItem('arovaveProducts_v2');
+        if (cached) {
+            const products = JSON.parse(cached);
+            if (products && products.length > 0) {
+                console.log('⚡ ProductDetail: INSTANT load from localStorage');
+                return products;
+            }
+        }
+    } catch (e) { }
+    return [];
+};
 
 export function ProductDetail() {
     const { id } = useParams();
@@ -18,14 +33,14 @@ export function ProductDetail() {
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isVideo, setIsVideo] = useState(false);
 
-    // INSTANT load from memory - no lag!
-    const [products, setProducts] = useState<Product[]>(() => getProducts());
+    // INSTANT load from localStorage - no lag!
+    const [products, setProducts] = useState<Product[]>(() => getProductsFromCache());
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('description');
 
-    // Show loading if no products in memory initially
-    const [isLoading, setIsLoading] = useState(() => getProducts().length === 0);
+    // Only show loading if cache is completely empty
+    const [isLoading, setIsLoading] = useState(() => getProductsFromCache().length === 0);
 
     // Subscribe to product updates
     useEffect(() => {

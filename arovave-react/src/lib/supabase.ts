@@ -25,6 +25,40 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 // Log connection status
 console.log('✅ Supabase client initialized:', supabaseUrl);
 
+/**
+ * Connection Keep-Alive: Pre-warm Supabase connection to reduce cold starts
+ * Runs a lightweight ping every 4 minutes to keep the connection alive
+ */
+let keepAliveInterval: ReturnType<typeof setInterval> | null = null;
+
+async function pingSupabase() {
+    try {
+        await supabase.from('products').select('id').limit(1);
+    } catch {
+        // Ignore errors - this is just a keep-alive ping
+    }
+}
+
+export function startConnectionKeepAlive() {
+    if (keepAliveInterval) return; // Already running
+
+    // Initial warm-up ping (lightweight query)
+    pingSupabase().then(() => {
+        console.log('🔥 Supabase connection warmed up');
+    });
+
+    // Keep connection alive every 4 minutes
+    keepAliveInterval = setInterval(() => {
+        pingSupabase();
+    }, 4 * 60 * 1000);
+}
+
+// Auto-start keep-alive when this module loads (browser only)
+if (typeof window !== 'undefined') {
+    startConnectionKeepAlive();
+}
+
+
 // Types for database tables
 export interface Profile {
     id: string;

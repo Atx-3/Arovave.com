@@ -5,7 +5,27 @@ import { categories } from '../data';
 import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 import { supabase } from '../lib/supabase';
-import { getProducts, subscribeToProducts, refreshProducts } from '../stores/productStore';
+import { subscribeToProducts, refreshProducts } from '../stores/productStore';
+import type { Product } from '../types';
+
+// INSTANT: Get products directly from localStorage (synchronous)
+const getProductsFromCache = (): Product[] => {
+    try {
+        const cached = localStorage.getItem('arovaveProducts_v2');
+        if (cached) {
+            const products = JSON.parse(cached);
+            if (products && products.length > 0) {
+                return products;
+            }
+        }
+    } catch (e) { }
+    return [];
+};
+
+// INSTANT: Get video URL from cache
+const getVideoFromCache = (): string => {
+    return localStorage.getItem('arovaveVideoUrl') || 'https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4';
+};
 
 export function Home() {
     const t = useTranslation();
@@ -16,15 +36,18 @@ export function Home() {
     const [pendingProduct, setPendingProduct] = useState<number | null>(null);
     const [showPopup, setShowPopup] = useState(false);
 
-    // INSTANT load trending from memory - no lag!
+    // INSTANT load trending from localStorage - no lag!
     const [trendingProducts, setTrendingProducts] = useState(() => {
-        const products = getProducts();
+        const products = getProductsFromCache();
+        console.log('⚡ Home: INSTANT load', products.filter(p => p.isTrending).length, 'trending products');
         return products.filter(p => p.isTrending).slice(0, 4);
     });
-    const [videoUrl, setVideoUrl] = useState<string>('');
+
+    // INSTANT load video URL from cache
+    const [videoUrl, setVideoUrl] = useState<string>(() => getVideoFromCache());
     const [trustExpanded, setTrustExpanded] = useState(false);
 
-    // Fetch video URL from Supabase site_settings
+    // Background fetch video URL from Supabase
     useEffect(() => {
         const fetchVideoUrl = async () => {
             try {
@@ -35,16 +58,11 @@ export function Home() {
                     .single();
 
                 if (!error && data && data.video_url) {
-                    console.log('✅ Loaded video URL from database:', data.video_url);
                     setVideoUrl(data.video_url);
-                } else {
-                    // Fallback video URL
-                    console.log('⚠️ No video in database, using fallback');
-                    setVideoUrl('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
+                    localStorage.setItem('arovaveVideoUrl', data.video_url);
                 }
             } catch (err) {
                 console.error('Error fetching video URL:', err);
-                setVideoUrl('https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4');
             }
         };
 
@@ -62,7 +80,7 @@ export function Home() {
     // After login, submit pending enquiry
     useEffect(() => {
         if (isAuthenticated && pendingProduct) {
-            const products = getProducts();
+            const products = getProductsFromCache();
             const product = products.find(p => p.id === pendingProduct);
             if (product) {
                 submitProductEnquiry(product);
@@ -176,7 +194,7 @@ export function Home() {
     };
 
     const handleProductEnquiry = (productId: number) => {
-        const allProducts = getProducts();
+        const allProducts = getProductsFromCache();
         const product = allProducts.find(p => p.id === productId);
         if (!product) return;
 

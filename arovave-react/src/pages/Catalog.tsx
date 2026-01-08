@@ -6,7 +6,7 @@ import { categories } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
 import { supabase } from '../lib/supabase';
-import { getProducts, subscribeToProducts, refreshProducts } from '../stores/productStore';
+import { subscribeToProducts, refreshProducts } from '../stores/productStore';
 import type { Product } from '../types';
 
 // Category type for managed categories
@@ -14,6 +14,23 @@ type Category = {
     id: string;
     name: string;
     subcategories: { id: string; name: string; }[];
+};
+
+// INSTANT: Get products directly from localStorage (synchronous)
+const getProductsFromCache = (): Product[] => {
+    try {
+        const cached = localStorage.getItem('arovaveProducts_v2');
+        if (cached) {
+            const products = JSON.parse(cached);
+            if (products && products.length > 0) {
+                console.log('⚡ INSTANT: Loaded', products.length, 'products from localStorage');
+                return products;
+            }
+        }
+    } catch (e) {
+        console.error('Cache read error:', e);
+    }
+    return [];
 };
 
 // Get categories from localStorage or use initial
@@ -41,8 +58,8 @@ export function Catalog() {
     const filterType = searchParams.get('filter');
     const [expandedCategory, setExpandedCategory] = useState<string | null>(selectedCategory);
 
-    // INSTANT load from memory - no lag!
-    const [products, setProducts] = useState<Product[]>(() => getProducts());
+    // INSTANT load from localStorage - no lag!
+    const [products, setProducts] = useState<Product[]>(() => getProductsFromCache());
     const [managedCategories, setManagedCategories] = useState<Category[]>(getStoredCategories);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
@@ -50,8 +67,8 @@ export function Catalog() {
     const [showSubcategoryNav, setShowSubcategoryNav] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
 
-    // Show loading if no products in memory initially
-    const [isLoading, setIsLoading] = useState(() => getProducts().length === 0);
+    // Only show loading if cache is completely empty
+    const [isLoading, setIsLoading] = useState(() => getProductsFromCache().length === 0);
 
     // Scroll detection for subcategory nav
     useEffect(() => {
