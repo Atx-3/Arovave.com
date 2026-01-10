@@ -5,23 +5,16 @@ import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
 import { compressImage, compressImages, processVideo, checkVideoSize, formatFileSize } from '../utils/mediaCompression';
+import { cacheProducts, loadCachedProducts } from '../utils/productCache';
 import { LazyImage } from '../components/LazyImage';
 import type { Product, Enquiry } from '../types';
 import type { AdminPermission } from '../context/AuthContext';
 
-// INSTANT: Get products directly from localStorage with correct cache key
+// INSTANT: Get products from smart cache (text only, no images to avoid quota issues)
 const getStoredProducts = (): Product[] => {
-    try {
-        const saved = localStorage.getItem('arovaveProducts_v2');
-        if (saved) {
-            const products = JSON.parse(saved);
-            if (products && products.length > 0) {
-                console.log('⚡ Admin: INSTANT load', products.length, 'products from cache');
-                return products;
-            }
-        }
-    } catch (e) {
-        console.error('Cache read error:', e);
+    const cached = loadCachedProducts();
+    if (cached.length > 0) {
+        return cached;
     }
     return [...initialProducts];
 };
@@ -651,12 +644,8 @@ export function Admin() {
                     setProducts(productsWithImages);
                     console.log(`✅ Admin Phase 2 complete: Images loaded`);
 
-                    // Save to cache
-                    try {
-                        localStorage.setItem('arovaveProducts_v2', JSON.stringify(productsWithImages));
-                    } catch (e) {
-                        console.warn('Could not cache products');
-                    }
+                    // Save to cache (without images to avoid quota issues)
+                    cacheProducts(productsWithImages);
                 }
             } catch (err) {
                 console.error('❌ Error fetching products:', err);
@@ -735,7 +724,11 @@ export function Admin() {
                 }
 
                 // Remove from local state
-                setProducts(prev => prev.filter(p => p.id !== id));
+                const updatedProducts = products.filter(p => p.id !== id);
+                setProducts(updatedProducts);
+
+                // CRITICAL: Also update cache to keep in sync
+                cacheProducts(updatedProducts);
                 showNotification('Product deleted successfully', 'success');
             } catch (err: any) {
                 console.error('Error deleting product:', err);
@@ -1253,13 +1246,14 @@ export function Admin() {
 
                             {/* Products Grid - Text shows immediately, images lazy load */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                                {products.map(p => (
+                                {products.map((p, index) => (
                                     <div key={p.id} className="bg-white rounded-3xl border border-zinc-100 overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                                        {/* Lazy loaded image */}
+                                        {/* Priority load first 6 images (above fold), lazy load rest */}
                                         <LazyImage
-                                            src={p.images[0] || p.thumbnail || ''}
+                                            src={p.thumbnail || p.images[0] || ''}
                                             alt={p.name}
                                             className="aspect-video"
+                                            priority={index < 6}
                                         />
                                         {/* Text content shows immediately */}
                                         <div className="p-5">
@@ -1741,6 +1735,9 @@ export function Admin() {
                                                 isTrending: db.is_trending || false
                                             }));
                                             setProducts(formattedProducts);
+
+                                            // CRITICAL: Update cache (without images to avoid quota issues)
+                                            cacheProducts(formattedProducts);
                                         }
 
                                         closeModal();
