@@ -5,6 +5,7 @@ import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
 import { compressImage, compressImages, processVideo, checkVideoSize, formatFileSize } from '../utils/mediaCompression';
+import { LazyImage } from '../components/LazyImage';
 import type { Product, Enquiry } from '../types';
 import type { AdminPermission } from '../context/AuthContext';
 
@@ -586,38 +587,80 @@ export function Admin() {
     useEffect(() => {
         window.scrollTo(0, 0);
 
-        // DIRECT: Fetch products from Supabase (like quality content)
+        // 2-PHASE LOADING - SAME PATTERN AS CATALOG.TSX (PROVEN TO WORK)
         const fetchProductsFromSupabase = async () => {
+            console.log('🔄 Admin Phase 1: Fetching product data (fast)...');
+            const startTime = Date.now();
             try {
+                // PHASE 1: FAST - Load product data only (no images) - ~130ms
                 const { data, error } = await supabase
                     .from('products')
-                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
+                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, specs, key_specs, is_trending, created_at')
                     .order('created_at', { ascending: false });
 
-                if (!error && data && data.length > 0) {
-                    const formattedProducts: Product[] = data.map((db: any) => ({
-                        id: db.id,
-                        name: db.name || '',
-                        cat: db.cat || 'food',
-                        subcategory: db.subcategory || '',
-                        hsn: db.hsn || '',
-                        moq: db.moq || '',
-                        priceRange: db.price_range || '',
-                        description: db.description || '',
-                        certifications: db.certifications || [],
-                        images: db.images || [],
-                        video: db.video || undefined,
-                        thumbnail: db.thumbnail || (db.images?.[0] || ''),
-                        specs: db.specs || [],
-                        keySpecs: db.key_specs || [],
-                        isTrending: db.is_trending || false
-                    }));
-                    console.log('✅ Admin: Loaded', formattedProducts.length, 'products');
-                    setProducts(formattedProducts);
+                const elapsed = Date.now() - startTime;
+
+                if (error) {
+                    console.error('❌ Supabase error:', error.message);
                     setIsLoadingProducts(false);
+                    return;
+                }
+
+                if (!data || data.length === 0) {
+                    console.log('📦 Admin: No products found in database');
+                    setIsLoadingProducts(false);
+                    return;
+                }
+
+                // Format products WITHOUT images first (fast)
+                const formattedProducts: Product[] = data.map((db: any) => ({
+                    id: db.id,
+                    name: db.name || '',
+                    cat: db.cat || 'food',
+                    subcategory: db.subcategory || '',
+                    hsn: db.hsn || '',
+                    moq: db.moq || '',
+                    priceRange: db.price_range || '',
+                    description: db.description || '',
+                    certifications: db.certifications || [],
+                    images: [], // Will be loaded in phase 2
+                    video: undefined,
+                    thumbnail: '', // Will be loaded in phase 2
+                    specs: db.specs || [],
+                    keySpecs: db.key_specs || [],
+                    isTrending: db.is_trending || false
+                }));
+
+                console.log(`✅ Admin Phase 1 complete: ${formattedProducts.length} products in ${elapsed}ms`);
+                setProducts(formattedProducts);
+                setIsLoadingProducts(false); // Show products immediately!
+
+                // PHASE 2: Load images in background (slower, but UI is already showing)
+                console.log('🔄 Admin Phase 2: Loading images...');
+                const { data: imageData } = await supabase
+                    .from('products')
+                    .select('id, images, thumbnail');
+
+                if (imageData) {
+                    const imageMap = new Map(imageData.map((t: any) => [t.id, { images: t.images || [], thumbnail: t.thumbnail }]));
+                    const productsWithImages = formattedProducts.map(p => ({
+                        ...p,
+                        images: imageMap.get(p.id)?.images || [],
+                        thumbnail: imageMap.get(p.id)?.thumbnail || ''
+                    }));
+                    setProducts(productsWithImages);
+                    console.log(`✅ Admin Phase 2 complete: Images loaded`);
+
+                    // Save to cache
+                    try {
+                        localStorage.setItem('arovaveProducts_v2', JSON.stringify(productsWithImages));
+                    } catch (e) {
+                        console.warn('Could not cache products');
+                    }
                 }
             } catch (err) {
-                console.error('Error fetching products:', err);
+                console.error('❌ Error fetching products:', err);
+                setIsLoadingProducts(false);
             }
         };
 
@@ -1175,7 +1218,10 @@ export function Admin() {
                     {/* Products Tab */}
                     {tab === 'products' && (isSuperAdmin || hasPermission('products')) && (
                         <div>
-                            <div className="flex justify-end mb-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <p className="text-zinc-500 text-sm">
+                                    {isLoadingProducts ? 'Loading...' : `${products.length} products`}
+                                </p>
                                 <button
                                     onClick={() => setShowProductModal(true)}
                                     className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
@@ -1183,12 +1229,39 @@ export function Admin() {
                                     <Plus className="w-4 h-4" /> Add Product
                                 </button>
                             </div>
+
+                            {/* Loading skeleton */}
+                            {isLoadingProducts && products.length === 0 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                                    {[1, 2, 3, 4, 5, 6].map(i => (
+                                        <div key={i} className="bg-white rounded-3xl border border-zinc-100 overflow-hidden animate-pulse">
+                                            <div className="aspect-video bg-zinc-100" />
+                                            <div className="p-5">
+                                                <div className="h-3 bg-zinc-100 rounded w-16 mb-2" />
+                                                <div className="h-5 bg-zinc-100 rounded w-3/4 mb-2" />
+                                                <div className="h-4 bg-zinc-100 rounded w-24 mb-1" />
+                                                <div className="h-3 bg-zinc-100 rounded w-32 mb-4" />
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1 h-9 bg-zinc-100 rounded-lg" />
+                                                    <div className="w-12 h-9 bg-zinc-100 rounded-lg" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Products Grid - Text shows immediately, images lazy load */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                                 {products.map(p => (
-                                    <div key={p.id} className="bg-white rounded-3xl border border-zinc-100 overflow-hidden">
-                                        <div className="aspect-video overflow-hidden">
-                                            <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
-                                        </div>
+                                    <div key={p.id} className="bg-white rounded-3xl border border-zinc-100 overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                                        {/* Lazy loaded image */}
+                                        <LazyImage
+                                            src={p.images[0] || p.thumbnail || ''}
+                                            alt={p.name}
+                                            className="aspect-video"
+                                        />
+                                        {/* Text content shows immediately */}
                                         <div className="p-5">
                                             <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">{p.cat}</span>
                                             <h4 className="font-bold text-lg">{p.name}</h4>
