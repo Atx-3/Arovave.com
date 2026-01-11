@@ -5,6 +5,7 @@ import { useTranslation, useEnquiry, useAuth } from '../context';
 import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
 import { supabase } from '../lib/supabase';
+import { formatPrice } from '../utils/formatPrice';
 import type { Product } from '../types';
 
 type TabType = 'description' | 'benefit' | 'advantage';
@@ -366,7 +367,7 @@ export function ProductDetail() {
                         {/* Price Range */}
                         <div className="bg-zinc-900 text-white rounded-xl md:rounded-2xl p-4 md:p-6 mb-6 md:mb-8">
                             <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-zinc-400 mb-1 md:mb-2">Indicative Price Range</p>
-                            <p className="text-xl md:text-3xl font-black">{product.priceRange}</p>
+                            <p className="text-xl md:text-3xl font-black">{formatPrice(product.priceRange)}</p>
                             <p className="text-[10px] md:text-xs text-zinc-400 mt-1 md:mt-2">Final price depends on volume and specifications</p>
                         </div>
 

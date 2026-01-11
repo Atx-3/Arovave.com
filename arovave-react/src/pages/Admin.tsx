@@ -5,6 +5,7 @@ import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
 import { compressImage, compressImages, processVideo, checkVideoSize, formatFileSize } from '../utils/mediaCompression';
+import { formatPrice } from '../utils/formatPrice';
 import { cacheProducts, loadCachedProducts } from '../utils/productCache';
 import { LazyImage } from '../components/LazyImage';
 import type { Product, Enquiry } from '../types';
@@ -1264,7 +1265,7 @@ export function Admin() {
                                         <div className="p-5">
                                             <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">{p.cat}</span>
                                             <h4 className="font-bold text-lg">{p.name}</h4>
-                                            <p className="text-sm text-black font-bold mb-1">{p.priceRange}</p>
+                                            <p className="text-sm text-black font-bold mb-1">{formatPrice(p.priceRange)}</p>
                                             <p className="text-xs text-zinc-400 mb-4">MOQ: {p.moq} | HSN: {p.hsn}</p>
                                             <div className="flex gap-2">
                                                 <button
@@ -2302,7 +2303,7 @@ function ProductModal({ product, onClose, onSave, managedCategories, isSaving }:
             subcategory: formData.subcategory || undefined,
             hsn: formData.hsn,
             moq: formData.moq,
-            priceRange: `${formData.price}/${formData.priceUnit}`,
+            priceRange: `$${formData.price}/${formData.priceUnit}`,
             description: formData.description,
             certifications: formData.certifications.split(',').map(s => s.trim()).filter(Boolean),
             images: orderedImages,

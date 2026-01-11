@@ -5,6 +5,7 @@ import { categories } from '../data';
 import { useState, useEffect } from 'react';
 import { AuthModal } from '../components/auth/AuthModal';
 import { supabase } from '../lib/supabase';
+import { formatPrice } from '../utils/formatPrice';
 import type { Product } from '../types';
 
 // INSTANT: Get video URL from cache
@@ -468,7 +469,7 @@ export function Home() {
                                         {product.cat}
                                     </span>
                                     <h3 className="font-bold text-base mt-1 mb-2 line-clamp-2">{product.name}</h3>
-                                    <p className="text-sm font-bold text-zinc-600 mb-3">{product.priceRange}</p>
+                                    <p className="text-sm font-bold text-zinc-600 mb-3">{formatPrice(product.priceRange)}</p>
                                     <div className="flex gap-2">
                                         <Link
                                             to={`/ product / ${product.id} `}
@@ -517,7 +518,7 @@ export function Home() {
                                         {product.cat}
                                     </span>
                                     <h3 className="font-bold text-lg mt-1 mb-3">{product.name}</h3>
-                                    <p className="text-sm font-bold text-zinc-600 mb-4">{product.priceRange}</p>
+                                    <p className="text-sm font-bold text-zinc-600 mb-4">{formatPrice(product.priceRange)}</p>
                                     <div className="flex gap-2">
                                         <Link
                                             to={`/ product / ${product.id} `}

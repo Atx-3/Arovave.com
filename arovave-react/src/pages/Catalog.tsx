@@ -6,6 +6,7 @@ import { categories } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
 import { supabase } from '../lib/supabase';
+import { formatPrice } from '../utils/formatPrice';
 import type { Product } from '../types';
 
 // Category type for managed categories
@@ -448,7 +449,7 @@ export function Catalog() {
                                     <h3 className="font-bold text-sm md:text-xl mt-1 md:mt-2 mb-1 md:mb-2 line-clamp-2">{product.name}</h3>
                                     <p className="text-xs md:text-sm text-zinc-500 mb-2 md:mb-4 line-clamp-2 hidden md:block">{product.description}</p>
                                     <div className="flex items-center justify-between mb-2 md:mb-4">
-                                        <p className="font-bold text-xs md:text-base text-black">{product.priceRange}</p>
+                                        <p className="font-bold text-xs md:text-base text-black">{formatPrice(product.priceRange)}</p>
                                         <p className="text-[10px] md:text-xs text-zinc-400">MOQ: {product.moq}</p>
                                     </div>
                                     <div className="flex flex-col md:flex-row gap-2">

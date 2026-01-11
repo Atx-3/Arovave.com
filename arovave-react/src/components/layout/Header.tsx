@@ -3,6 +3,7 @@ import { Search, Globe, User, ShoppingBag, Menu, X, ChevronDown } from 'lucide-r
 import { useState, useEffect, useRef } from 'react';
 import { useLanguage, useTranslation, useAuth, useEnquiry } from '../../context';
 import { products, categories } from '../../data';
+import { formatPrice } from '../../utils/formatPrice';
 import { supabase } from '../../lib/supabase';
 
 // Category type for managed categories
@@ -209,7 +210,7 @@ export function Header() {
                                                 <p className="font-bold text-sm truncate">{product.name}</p>
                                                 <p className="text-xs text-zinc-400 uppercase">{product.cat}</p>
                                             </div>
-                                            <span className="text-xs font-bold text-zinc-400">{product.priceRange}</span>
+                                            <span className="text-xs font-bold text-zinc-400">{formatPrice(product.priceRange)}</span>
                                         </button>
                                     ))
                                 ) : (
@@ -302,7 +303,7 @@ export function Header() {
                                             <img src={product.images[0]} alt={product.name} className="w-10 h-10 rounded-lg object-cover" />
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-bold text-sm truncate">{product.name}</p>
-                                                <p className="text-xs text-zinc-400">{product.priceRange}</p>
+                                                <p className="text-xs text-zinc-400">{formatPrice(product.priceRange)}</p>
                                             </div>
                                         </button>
                                     ))
