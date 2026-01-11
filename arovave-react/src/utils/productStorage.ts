@@ -187,6 +187,7 @@ export function fetchProductsFast(onUpdate: (products: Product[]) => void): Prod
 
 /**
  * Save a product to Supabase (create or update)
+ * Images are automatically uploaded to Supabase Storage
  */
 export async function saveProduct(
     product: Product,
@@ -207,7 +208,45 @@ export async function saveProduct(
             }
         }
 
-        const dbData = productToDb(product);
+        // Upload images to Supabase Storage if they are base64
+        let updatedImages = product.images || [];
+        let updatedThumbnail = product.thumbnail;
+
+        // Import storage functions dynamically to avoid circular deps
+        const { uploadMultipleToStorage, uploadToStorage, createThumbnail } = await import('./storageUpload');
+
+        // Check if any images are base64 (need upload)
+        const hasBase64Images = updatedImages.some(img => img.startsWith('data:'));
+
+        if (hasBase64Images) {
+            console.log('📤 Uploading images to Supabase Storage with AVIF compression...');
+            const productId = isNew ? `new-${Date.now()}` : product.id;
+
+            // Upload all images (base64 ones get uploaded, URLs stay as-is)
+            updatedImages = await uploadMultipleToStorage(updatedImages, productId);
+
+            // Create and upload thumbnail from first image
+            if (updatedImages.length > 0) {
+                const firstImage = product.images?.[0]; // Use original for thumbnail
+                if (firstImage && firstImage.startsWith('data:')) {
+                    const { blob: thumbBlob } = await createThumbnail(firstImage);
+                    updatedThumbnail = await uploadToStorage(thumbBlob, productId, 999); // 999 = thumbnail
+                } else {
+                    updatedThumbnail = updatedImages[0]; // Use uploaded URL as thumbnail
+                }
+            }
+
+            console.log('✅ All images uploaded with AVIF compression');
+        }
+
+        // Update product with storage URLs
+        const productWithUrls = {
+            ...product,
+            images: updatedImages,
+            thumbnail: updatedThumbnail
+        };
+
+        const dbData = productToDb(productWithUrls);
         let result;
 
         if (isNew) {
@@ -241,6 +280,7 @@ export async function saveProduct(
         return { success: true, product: savedProduct };
 
     } catch (err: any) {
+        console.error('❌ Save product error:', err);
         return { success: false, error: err.message };
     }
 }

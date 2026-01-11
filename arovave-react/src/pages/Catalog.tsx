@@ -1,19 +1,30 @@
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { Utensils, Pill, FlaskConical, Gift, ChevronDown, Check } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Utensils, Pill, FlaskConical, Gift, ChevronDown, Check, Loader2 } from 'lucide-react';
 import { useTranslation, useEnquiry, useAuth } from '../context';
 import { categories } from '../data';
 import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
+import { LazyImage } from '../components/LazyImage';
 import { supabase } from '../lib/supabase';
 import { formatPrice } from '../utils/formatPrice';
+import { loadCachedProducts } from '../utils/productCache';
 import type { Product } from '../types';
+
+// Page size for infinite scroll
+const PAGE_SIZE = 12;
 
 // Category type for managed categories
 type Category = {
     id: string;
     name: string;
     subcategories: { id: string; name: string; }[];
+};
+
+// INSTANT: Get products from lightweight cache (TEXT ONLY - no images)
+// This cache is tiny and doesn't affect egress/storage
+const getCachedProducts = (): Product[] => {
+    return loadCachedProducts();
 };
 
 // Get categories from localStorage or use initial
@@ -41,15 +52,24 @@ export function Catalog() {
     const filterType = searchParams.get('filter');
     const [expandedCategory, setExpandedCategory] = useState<string | null>(selectedCategory);
 
-    // Products state - SAME PATTERN AS QUALITY CONTENT
-    const [products, setProducts] = useState<Product[]>([]);
+    // INSTANT: Load from cache first, then fetch fresh data
+    const cachedProducts = getCachedProducts();
+    const [products, setProducts] = useState<Product[]>(cachedProducts.slice(0, PAGE_SIZE));
     const [managedCategories, setManagedCategories] = useState<Category[]>(getStoredCategories);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
     const [showPopup, setShowPopup] = useState(false);
     const [showSubcategoryNav, setShowSubcategoryNav] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
-    const [isLoading, setIsLoading] = useState(true);
+
+    // Infinite scroll state
+    const [isLoading, setIsLoading] = useState(cachedProducts.length === 0);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const [offset, setOffset] = useState(0);
+    const [totalCount, setTotalCount] = useState(0);
+    const sentinelRef = useRef<HTMLDivElement>(null);
+    const isLoadingRef = useRef(false);
 
     // Scroll detection for subcategory nav
     useEffect(() => {
@@ -71,87 +91,104 @@ export function Catalog() {
         window.scrollTo(0, 0);
     }, []);
 
-    // DIRECT FETCH - SAME PATTERN AS QUALITY CONTENT (NO MIDDLEWARE)
-    useEffect(() => {
-        // INSTANT: Load from cache first (same as quality content)
-        const cached = localStorage.getItem('arovaveProducts_v2');
-        if (cached) {
-            try {
-                const cachedProducts = JSON.parse(cached);
-                if (cachedProducts && cachedProducts.length > 0) {
-                    console.log('⚡ INSTANT: Loaded', cachedProducts.length, 'products from cache');
-                    setProducts(cachedProducts);
-                    setIsLoading(false);
-                }
-            } catch (e) { }
+    // Build query filters
+    const buildQuery = useCallback(() => {
+        let query = supabase
+            .from('products')
+            .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, specs, key_specs, is_trending, thumbnail, created_at', { count: 'exact' });
+
+        if (filterType === 'trending') {
+            query = query.eq('is_trending', true);
         }
 
-        // PHASE 1: FAST - Load product data only (no images) - ~130ms
-        const fetchProductsFromSupabase = async () => {
-            console.log('🔄 Phase 1: Fetching product data (fast)...');
-            const startTime = Date.now();
-            try {
-                const { data, error } = await supabase
-                    .from('products')
-                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, specs, key_specs, is_trending, created_at')
-                    .order('created_at', { ascending: false });
+        if (selectedCategory) {
+            query = query.eq('cat', selectedCategory);
+        }
 
-                const elapsed = Date.now() - startTime;
+        if (selectedSubcategory) {
+            query = query.eq('subcategory', selectedSubcategory);
+        }
 
-                if (!error && data && data.length > 0) {
-                    const formattedProducts: Product[] = data.map((db: any) => ({
-                        id: db.id,
-                        name: db.name || '',
-                        cat: db.cat || 'food',
-                        subcategory: db.subcategory || '',
-                        hsn: db.hsn || '',
-                        moq: db.moq || '',
-                        priceRange: db.price_range || '',
-                        description: db.description || '',
-                        certifications: db.certifications || [],
-                        images: [],
-                        video: undefined,
-                        thumbnail: '', // Will be loaded in phase 2
-                        specs: db.specs || [],
-                        keySpecs: db.key_specs || [],
-                        isTrending: db.is_trending || false
-                    }));
+        if (searchQuery) {
+            query = query.or(`name.ilike.%${searchQuery}%,cat.ilike.%${searchQuery}%,hsn.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+        }
 
-                    console.log(`✅ Phase 1 complete: ${formattedProducts.length} products in ${elapsed}ms`);
-                    setProducts(formattedProducts);
-                    setIsLoading(false);
+        return query.order('created_at', { ascending: false });
+    }, [filterType, selectedCategory, selectedSubcategory, searchQuery]);
 
-                    // PHASE 2: Load thumbnails in background (slower, but UI is already showing)
-                    console.log('🔄 Phase 2: Loading thumbnails...');
-                    const { data: thumbData } = await supabase
-                        .from('products')
-                        .select('id, thumbnail');
+    // Fetch products with pagination
+    const fetchProducts = useCallback(async (page: number, append: boolean = false) => {
+        if (isLoadingRef.current) return;
+        isLoadingRef.current = true;
 
-                    if (thumbData) {
-                        const thumbMap = new Map(thumbData.map((t: any) => [t.id, t.thumbnail]));
-                        const productsWithThumbs = formattedProducts.map(p => ({
-                            ...p,
-                            thumbnail: thumbMap.get(p.id) || ''
-                        }));
-                        setProducts(productsWithThumbs);
-                        console.log(`✅ Phase 2 complete: Thumbnails loaded`);
+        const startOffset = page * PAGE_SIZE;
+        console.log(`📦 Fetching products ${startOffset} to ${startOffset + PAGE_SIZE - 1}...`);
 
-                        // Save to cache
-                        try {
-                            localStorage.setItem('arovaveProducts_v2', JSON.stringify(productsWithThumbs));
-                        } catch (e) {
-                            console.warn('Could not cache products');
-                        }
-                    }
-                } else if (error) {
-                    console.error('❌ Supabase error:', error.message);
-                }
-            } catch (err) {
-                console.error('Error fetching products:', err);
+        if (append) {
+            setIsLoadingMore(true);
+        } else {
+            setIsLoading(true);
+        }
+
+        try {
+            const query = buildQuery();
+            const { data, error, count } = await query.range(startOffset, startOffset + PAGE_SIZE - 1);
+
+            if (error) {
+                console.error('❌ Supabase error:', error.message);
+                return;
             }
-        };
 
-        // Fetch categories (same as before)
+            if (data) {
+                const formattedProducts: Product[] = data.map((db: any) => ({
+                    id: db.id,
+                    name: db.name || '',
+                    cat: db.cat || 'food',
+                    subcategory: db.subcategory || '',
+                    hsn: db.hsn || '',
+                    moq: db.moq || '',
+                    priceRange: db.price_range || '',
+                    description: db.description || '',
+                    certifications: db.certifications || [],
+                    images: [],
+                    video: undefined,
+                    thumbnail: db.thumbnail || '',
+                    specs: db.specs || [],
+                    keySpecs: db.key_specs || [],
+                    isTrending: db.is_trending || false
+                }));
+
+                if (append) {
+                    setProducts(prev => [...prev, ...formattedProducts]);
+                } else {
+                    setProducts(formattedProducts);
+                }
+
+                setOffset(startOffset + formattedProducts.length);
+                setHasMore(formattedProducts.length === PAGE_SIZE);
+                setTotalCount(count || 0);
+
+                console.log(`✅ Loaded ${formattedProducts.length} products, total: ${count}`);
+            }
+        } catch (err) {
+            console.error('Error fetching products:', err);
+        } finally {
+            setIsLoading(false);
+            setIsLoadingMore(false);
+            isLoadingRef.current = false;
+        }
+    }, [buildQuery]);
+
+    // Reset and fetch when filters change
+    useEffect(() => {
+        setProducts([]);
+        setOffset(0);
+        setHasMore(true);
+        fetchProducts(0, false);
+    }, [selectedCategory, selectedSubcategory, searchQuery, filterType]);
+
+    // Fetch categories
+    useEffect(() => {
         const fetchCategoriesFromSupabase = async () => {
             try {
                 const { data, error } = await supabase
@@ -173,9 +210,31 @@ export function Catalog() {
             }
         };
 
-        fetchProductsFromSupabase();
         fetchCategoriesFromSupabase();
     }, []);
+
+    // Intersection Observer for infinite scroll
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const [entry] = entries;
+                if (entry.isIntersecting && hasMore && !isLoadingRef.current) {
+                    const nextPage = Math.floor(offset / PAGE_SIZE);
+                    fetchProducts(nextPage, true);
+                }
+            },
+            {
+                rootMargin: '300px',
+                threshold: 0.1
+            }
+        );
+
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [hasMore, offset, fetchProducts]);
 
     useEffect(() => {
         if (selectedCategory) setExpandedCategory(selectedCategory);
@@ -201,7 +260,6 @@ export function Catalog() {
 
     const handleEnquire = (product: Product) => {
         if (!isAuthenticated) {
-            // Store pending product in localStorage so it can be submitted after login
             localStorage.setItem('pendingEnquiryProduct', JSON.stringify(product));
             navigate('/login');
             return;
@@ -210,32 +268,6 @@ export function Catalog() {
         setShowPopup(true);
         setTimeout(() => navigate('/enquiries'), 2000);
     };
-
-    let filteredProducts = products;
-
-    if (filterType === 'trending') {
-        const trendingIds = JSON.parse(localStorage.getItem('arovaveTrendingProducts') || '[]');
-        const trending = filteredProducts.filter(p => p.isTrending || trendingIds.includes(p.id));
-        // If no trending products found, show all products
-        filteredProducts = trending.length > 0 ? trending : products;
-    }
-
-    if (selectedCategory) {
-        filteredProducts = filteredProducts.filter(p => p.cat === selectedCategory);
-    }
-
-    if (selectedSubcategory) {
-        filteredProducts = filteredProducts.filter(p => p.subcategory === selectedSubcategory);
-    }
-
-    if (searchQuery) {
-        filteredProducts = filteredProducts.filter(p =>
-            p.name.toLowerCase().includes(searchQuery) ||
-            p.cat.toLowerCase().includes(searchQuery) ||
-            p.hsn.includes(searchQuery) ||
-            p.description.toLowerCase().includes(searchQuery)
-        );
-    }
 
     const categoryIcons: Record<string, typeof Utensils> = {
         food: Utensils,
@@ -414,59 +446,71 @@ export function Catalog() {
                                     : 'All Products'}
                     </h1>
                     <span className="text-xs md:text-sm text-zinc-400 font-bold whitespace-nowrap">
-                        {filteredProducts.length} products
+                        {products.length}{totalCount > products.length ? ` of ${totalCount}` : ''} products
                     </span>
                 </div>
 
                 {/* Show loader while loading and no products yet */}
-                {isLoading && filteredProducts.length === 0 ? (
+                {isLoading && products.length === 0 ? (
                     <ProductLoader message="Loading products..." />
-                ) : filteredProducts.length === 0 ? (
+                ) : products.length === 0 ? (
                     <div className="text-center py-12 md:py-20">
                         <p className="text-zinc-400 text-base md:text-lg">No products found</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
-                        {filteredProducts.map(product => (
-                            <div key={product.id} className="bg-white rounded-2xl md:rounded-3xl border border-zinc-100 overflow-hidden group hover:shadow-lg transition-shadow">
-                                <Link to={`/product/${product.id}`}>
-                                    <div className="aspect-[4/3] overflow-hidden bg-zinc-100">
-                                        {product.thumbnail ? (
-                                            <img src={product.thumbnail} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200 animate-pulse">
-                                                <svg className="w-12 h-12 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                </svg>
-                                            </div>
-                                        )}
-                                    </div>
-                                </Link>
-                                <div className="p-3 md:p-6">
-                                    <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-                                        {categories.find(c => c.id === product.cat)?.name || product.cat}
-                                    </span>
-                                    <h3 className="font-bold text-sm md:text-xl mt-1 md:mt-2 mb-1 md:mb-2 line-clamp-2">{product.name}</h3>
-                                    <p className="text-xs md:text-sm text-zinc-500 mb-2 md:mb-4 line-clamp-2 hidden md:block">{product.description}</p>
-                                    <div className="flex items-center justify-between mb-2 md:mb-4">
-                                        <p className="font-bold text-xs md:text-base text-black">{formatPrice(product.priceRange)}</p>
-                                        <p className="text-[10px] md:text-xs text-zinc-400">MOQ: {product.moq}</p>
-                                    </div>
-                                    <div className="flex flex-col md:flex-row gap-2">
-                                        <Link to={`/product/${product.id}`} className="flex-1 py-2 md:py-3 border-2 border-zinc-200 rounded-lg md:rounded-xl text-center text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-black transition-colors">
-                                            {t('viewDetails')}
-                                        </Link>
-                                        <button
-                                            onClick={() => handleEnquire(product)}
-                                            className="md:px-5 py-2 md:py-3 bg-black text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
-                                        >
-                                            Enquire
-                                        </button>
+                    <>
+                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
+                            {products.map((product, index) => (
+                                <div key={product.id} className="bg-white rounded-2xl md:rounded-3xl border border-zinc-100 overflow-hidden group hover:shadow-lg transition-shadow">
+                                    <Link to={`/product/${product.id}`}>
+                                        <div className="aspect-[4/3] overflow-hidden bg-zinc-100">
+                                            <LazyImage
+                                                src={product.thumbnail}
+                                                alt={product.name}
+                                                className="w-full h-full"
+                                                priority={index < 6} // First 6 images load immediately
+                                            />
+                                        </div>
+                                    </Link>
+                                    <div className="p-3 md:p-6">
+                                        <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-zinc-400">
+                                            {categories.find(c => c.id === product.cat)?.name || product.cat}
+                                        </span>
+                                        <h3 className="font-bold text-sm md:text-xl mt-1 md:mt-2 mb-1 md:mb-2 line-clamp-2">{product.name}</h3>
+                                        <p className="text-xs md:text-sm text-zinc-500 mb-2 md:mb-4 line-clamp-2 hidden md:block">{product.description}</p>
+                                        <div className="flex items-center justify-between mb-2 md:mb-4">
+                                            <p className="font-bold text-xs md:text-base text-black">{formatPrice(product.priceRange)}</p>
+                                            <p className="text-[10px] md:text-xs text-zinc-400">MOQ: {product.moq}</p>
+                                        </div>
+                                        <div className="flex flex-col md:flex-row gap-2">
+                                            <Link to={`/product/${product.id}`} className="flex-1 py-2 md:py-3 border-2 border-zinc-200 rounded-lg md:rounded-xl text-center text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-black transition-colors">
+                                                {t('viewDetails')}
+                                            </Link>
+                                            <button
+                                                onClick={() => handleEnquire(product)}
+                                                className="md:px-5 py-2 md:py-3 bg-black text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                                            >
+                                                Enquire
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+
+                        {/* Infinite Scroll Sentinel */}
+                        <div ref={sentinelRef} className="py-8 flex justify-center">
+                            {isLoadingMore && (
+                                <div className="flex items-center gap-3 text-zinc-400">
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <span className="text-sm font-medium">Loading more products...</span>
+                                </div>
+                            )}
+                            {!hasMore && products.length > 0 && (
+                                <p className="text-zinc-400 text-sm">You've seen all {totalCount} products</p>
+                            )}
+                        </div>
+                    </>
                 )}
             </div>
         </div>

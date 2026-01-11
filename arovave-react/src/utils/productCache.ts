@@ -8,7 +8,8 @@ import type { Product } from '../types';
 
 const CACHE_KEY = 'arovaveProducts_v2';
 
-// Store product metadata only (no images) to stay under localStorage 5MB limit
+// Store product metadata + thumbnail URL (no base64 images) to stay under localStorage 5MB limit
+// After migration, thumbnails are small CDN URLs (~100 chars), not base64 (~500KB)
 interface CachedProduct {
     id: number;
     name: string;
@@ -22,15 +23,16 @@ interface CachedProduct {
     isTrending: boolean;
     specs?: any[];
     keySpecs?: any[];
+    thumbnail?: string; // CDN URL only (small)
 }
 
 /**
- * Save products to cache WITHOUT image data to avoid quota issues
- * Images will be loaded from Supabase in Phase 2 anyway
+ * Save products to cache WITH thumbnails (URLs only, not base64)
+ * Full images are loaded from CDN on demand
  */
 export function cacheProducts(products: Product[]): boolean {
     try {
-        // Strip heavy image data before caching
+        // Keep thumbnail URLs (small), strip full images (large)
         const lightProducts: CachedProduct[] = products.map(p => ({
             id: p.id,
             name: p.name,
@@ -43,7 +45,9 @@ export function cacheProducts(products: Product[]): boolean {
             certifications: p.certifications,
             isTrending: p.isTrending,
             specs: p.specs,
-            keySpecs: p.keySpecs
+            keySpecs: p.keySpecs,
+            // Only cache thumbnail if it's a URL (not base64)
+            thumbnail: p.thumbnail && !p.thumbnail.startsWith('data:') ? p.thumbnail : undefined
         }));
 
         const cacheData = JSON.stringify(lightProducts);
@@ -77,7 +81,7 @@ export function cacheProducts(products: Product[]): boolean {
 }
 
 /**
- * Load products from cache (text only, no images)
+ * Load products from cache (text + thumbnail URLs)
  */
 export function loadCachedProducts(): Product[] {
     try {
@@ -85,7 +89,7 @@ export function loadCachedProducts(): Product[] {
         if (cached) {
             const parsed = JSON.parse(cached);
             if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-                // Convert back to full Product format with empty images
+                // Convert back to full Product format with thumbnail
                 const products: Product[] = parsed.map((p: CachedProduct) => ({
                     id: p.id,
                     name: p.name,
@@ -100,10 +104,10 @@ export function loadCachedProducts(): Product[] {
                     specs: p.specs || [],
                     keySpecs: p.keySpecs || [],
                     images: [],
-                    thumbnail: '',
+                    thumbnail: p.thumbnail || '', // Include CDN thumbnail URL
                     video: undefined
                 }));
-                console.log(`⚡ Loaded ${products.length} products from cache (text only)`);
+                console.log(`⚡ Loaded ${products.length} products from cache`);
                 return products;
             }
         }

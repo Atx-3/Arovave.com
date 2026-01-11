@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2, FolderOpen, MessageCircle, Send, Clock, Settings, Filter } from 'lucide-react';
+import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2, FolderOpen, MessageCircle, Send, Clock, Settings, Filter, ChevronDown } from 'lucide-react';
 import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
@@ -48,6 +48,11 @@ export function Admin() {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isLoadingProducts, setIsLoadingProducts] = useState(() => getStoredProducts().length === 0);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
+
+    // Products pagination state
+    const PRODUCTS_PAGE_SIZE = 12;
+    const [productsDisplayCount, setProductsDisplayCount] = useState(PRODUCTS_PAGE_SIZE);
+    const [isLoadingMoreProducts, setIsLoadingMoreProducts] = useState(false);
 
     // Category management state
     const [managedCategories, setManagedCategories] = useState<Category[]>(getStoredCategories);
@@ -117,6 +122,16 @@ export function Admin() {
     const [enquiryDateFrom, setEnquiryDateFrom] = useState<string>('');
     const [enquiryDateTo, setEnquiryDateTo] = useState<string>('');
     const [enquirySingleDate, setEnquirySingleDate] = useState<string>('');
+
+    // Enquiry pagination state
+    const ENQUIRIES_PAGE_SIZE = 12;
+    const [enquiriesDisplayCount, setEnquiriesDisplayCount] = useState(ENQUIRIES_PAGE_SIZE);
+    const [isLoadingMoreEnquiries, setIsLoadingMoreEnquiries] = useState(false);
+
+    // Users pagination state
+    const USERS_PAGE_SIZE = 12;
+    const [usersDisplayCount, setUsersDisplayCount] = useState(USERS_PAGE_SIZE);
+    const [isLoadingMoreUsers, setIsLoadingMoreUsers] = useState(false);
 
     // Month names for filter
     const monthNames = [
@@ -634,25 +649,43 @@ export function Admin() {
                 setProducts(formattedProducts);
                 setIsLoadingProducts(false); // Show products immediately!
 
-                // PHASE 2: Load images in background (slower, but UI is already showing)
-                console.log('🔄 Admin Phase 2: Loading images...');
-                const { data: imageData } = await supabase
-                    .from('products')
-                    .select('id, images, thumbnail');
+                // PHASE 2: Load images in BATCHES to avoid timeout (base64 data is huge)
+                console.log('🔄 Admin Phase 2: Loading images in batches...');
+                const BATCH_SIZE = 5; // Fetch 5 products at a time
+                const imageMap = new Map<number, { images: string[]; thumbnail: string }>();
 
-                if (imageData) {
-                    const imageMap = new Map(imageData.map((t: any) => [t.id, { images: t.images || [], thumbnail: t.thumbnail }]));
-                    const productsWithImages = formattedProducts.map(p => ({
-                        ...p,
-                        images: imageMap.get(p.id)?.images || [],
-                        thumbnail: imageMap.get(p.id)?.thumbnail || ''
-                    }));
-                    setProducts(productsWithImages);
-                    console.log(`✅ Admin Phase 2 complete: Images loaded`);
+                for (let i = 0; i < data.length; i += BATCH_SIZE) {
+                    const batchIds = data.slice(i, i + BATCH_SIZE).map((p: any) => p.id);
+                    try {
+                        const { data: imageData, error: imgError } = await supabase
+                            .from('products')
+                            .select('id, images, thumbnail')
+                            .in('id', batchIds);
 
-                    // Save to cache (without images to avoid quota issues)
-                    cacheProducts(productsWithImages);
+                        if (!imgError && imageData) {
+                            imageData.forEach((t: any) => {
+                                imageMap.set(t.id, {
+                                    images: t.images || [],
+                                    thumbnail: t.thumbnail || (t.images && t.images[0]) || ''
+                                });
+                            });
+                        }
+                    } catch (batchErr) {
+                        console.warn(`⚠️ Batch ${Math.floor(i / BATCH_SIZE) + 1} failed, continuing...`);
+                    }
                 }
+
+                // Update products with images
+                const productsWithImages = formattedProducts.map(p => ({
+                    ...p,
+                    images: imageMap.get(p.id)?.images || [],
+                    thumbnail: imageMap.get(p.id)?.thumbnail || ''
+                }));
+                setProducts(productsWithImages);
+                console.log(`✅ Admin Phase 2 complete: Images loaded`);
+
+                // Save to cache (with CDN thumbnails, not base64)
+                cacheProducts(productsWithImages);
             } catch (err) {
                 console.error('❌ Error fetching products:', err);
                 setIsLoadingProducts(false);
@@ -669,6 +702,24 @@ export function Admin() {
 
         // Load categories from Supabase
         fetchCategoriesFromSupabase();
+
+        // AUTO-MIGRATION: Run image migration on admin load (only once)
+        const runAutoMigration = async () => {
+            try {
+                const { checkMigrationStatus, runMigration } = await import('../utils/imageMigration');
+                const status = await checkMigrationStatus();
+                if (status.withBase64 > 0) {
+                    console.log('🚀 Auto-migration: Found', status.withBase64, 'products to migrate');
+                    await runMigration();
+                    console.log('✅ Auto-migration complete!');
+                } else {
+                    console.log('✅ All images already migrated to CDN');
+                }
+            } catch (err) {
+                console.error('Auto-migration error:', err);
+            }
+        };
+        runAutoMigration();
 
         // Load users for superadmin or admins with users permission
         // And set up real-time subscription for profile updates
@@ -1169,8 +1220,8 @@ export function Admin() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {allUsers
-                                                .filter(user => {
+                                            {(() => {
+                                                const filteredUsersList = allUsers.filter(user => {
                                                     if (!userSearchQuery.trim()) return true;
                                                     const query = userSearchQuery.toLowerCase();
                                                     return (
@@ -1178,8 +1229,8 @@ export function Admin() {
                                                         (user.email?.toLowerCase() || '').includes(query) ||
                                                         (user.phone?.toLowerCase() || '').includes(query)
                                                     );
-                                                })
-                                                .map((user) => (
+                                                });
+                                                return filteredUsersList.slice(0, usersDisplayCount).map((user) => (
                                                     <tr key={user.id} className="border-t border-zinc-50">
                                                         <td className="p-4 font-semibold text-sm">{user.name || '-'}</td>
                                                         <td className="p-4 text-zinc-600 text-sm truncate max-w-[120px] sm:max-w-none">{user.email}</td>
@@ -1206,9 +1257,50 @@ export function Admin() {
                                                             )}
                                                         </td>
                                                     </tr>
-                                                ))}
+                                                ));
+                                            })()}
                                         </tbody>
                                     </table>
+
+                                    {/* Load More Button for Users */}
+                                    {(() => {
+                                        const filteredUsersList = allUsers.filter(user => {
+                                            if (!userSearchQuery.trim()) return true;
+                                            const query = userSearchQuery.toLowerCase();
+                                            return (
+                                                (user.name?.toLowerCase() || '').includes(query) ||
+                                                (user.email?.toLowerCase() || '').includes(query) ||
+                                                (user.phone?.toLowerCase() || '').includes(query)
+                                            );
+                                        });
+                                        return usersDisplayCount < filteredUsersList.length && (
+                                            <div className="flex justify-center p-6 border-t border-zinc-100">
+                                                <button
+                                                    onClick={() => {
+                                                        setIsLoadingMoreUsers(true);
+                                                        setTimeout(() => {
+                                                            setUsersDisplayCount(prev => prev + USERS_PAGE_SIZE);
+                                                            setIsLoadingMoreUsers(false);
+                                                        }, 300);
+                                                    }}
+                                                    disabled={isLoadingMoreUsers}
+                                                    className="flex items-center gap-2 px-6 py-2 bg-zinc-100 text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50"
+                                                >
+                                                    {isLoadingMoreUsers ? (
+                                                        <>
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                            Loading...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <ChevronDown className="w-4 h-4" />
+                                                            Load More ({filteredUsersList.length - usersDisplayCount} remaining)
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             )}
                         </div>
@@ -1252,7 +1344,7 @@ export function Admin() {
 
                             {/* Products Grid - Text shows immediately, images lazy load */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                                {products.map((p, index) => (
+                                {products.slice(0, productsDisplayCount).map((p, index) => (
                                     <div key={p.id} className="bg-white rounded-3xl border border-zinc-100 overflow-hidden hover:shadow-lg transition-shadow duration-300">
                                         {/* Priority load first 6 images (above fold), lazy load rest */}
                                         <LazyImage
@@ -1285,6 +1377,42 @@ export function Admin() {
                                     </div>
                                 ))}
                             </div>
+
+                            {/* Load More Button */}
+                            {productsDisplayCount < products.length && (
+                                <div className="flex justify-center mt-8">
+                                    <button
+                                        onClick={() => {
+                                            setIsLoadingMoreProducts(true);
+                                            setTimeout(() => {
+                                                setProductsDisplayCount(prev => prev + PRODUCTS_PAGE_SIZE);
+                                                setIsLoadingMoreProducts(false);
+                                            }, 300);
+                                        }}
+                                        disabled={isLoadingMoreProducts}
+                                        className="flex items-center gap-2 px-8 py-3 bg-zinc-100 text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50"
+                                    >
+                                        {isLoadingMoreProducts ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Loading...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ChevronDown className="w-4 h-4" />
+                                                Load More ({products.length - productsDisplayCount} remaining)
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* All products loaded message */}
+                            {productsDisplayCount >= products.length && products.length > PRODUCTS_PAGE_SIZE && (
+                                <p className="text-center text-zinc-400 text-sm mt-6">
+                                    All {products.length} products loaded
+                                </p>
+                            )}
                         </div>
                     )}
 
@@ -1416,7 +1544,7 @@ export function Admin() {
                                                 </td>
                                             </tr>
                                         ) : (
-                                            sortedFilteredEnquiries.map((enq, index) => (
+                                            sortedFilteredEnquiries.slice(0, enquiriesDisplayCount).map((enq, index) => (
                                                 <tr key={enq.id} className="border-t border-zinc-50 hover:bg-zinc-50">
                                                     <td className="p-4 font-bold text-zinc-400">#{sortedFilteredEnquiries.length - index}</td>
                                                     <td className="p-4">
@@ -1456,6 +1584,35 @@ export function Admin() {
                                         )}
                                     </tbody>
                                 </table>
+
+                                {/* Load More Button for Enquiries */}
+                                {enquiriesDisplayCount < sortedFilteredEnquiries.length && (
+                                    <div className="flex justify-center p-6 border-t border-zinc-100">
+                                        <button
+                                            onClick={() => {
+                                                setIsLoadingMoreEnquiries(true);
+                                                setTimeout(() => {
+                                                    setEnquiriesDisplayCount(prev => prev + ENQUIRIES_PAGE_SIZE);
+                                                    setIsLoadingMoreEnquiries(false);
+                                                }, 300);
+                                            }}
+                                            disabled={isLoadingMoreEnquiries}
+                                            className="flex items-center gap-2 px-6 py-2 bg-zinc-100 text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50"
+                                        >
+                                            {isLoadingMoreEnquiries ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    Loading...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <ChevronDown className="w-4 h-4" />
+                                                    Load More ({sortedFilteredEnquiries.length - enquiriesDisplayCount} remaining)
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
