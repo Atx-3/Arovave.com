@@ -133,6 +133,44 @@ export function trackPageView(path: string, title: string): void {
 }
 
 /**
+ * Set user properties when they log in
+ * THIS LETS YOU SEE USER DETAILS IN GA4!
+ */
+export function setUserProperties(user: {
+    id: string;
+    email?: string;
+    name?: string;
+    country?: string;
+    phone?: string;
+}): void {
+    if (GA4_MEASUREMENT_ID && window.gtag) {
+        // Set user ID for cross-device tracking
+        window.gtag('config', GA4_MEASUREMENT_ID, {
+            user_id: user.id
+        });
+
+        // Set user properties (visible in GA4 User Explorer)
+        window.gtag('set', 'user_properties', {
+            user_email: user.email || '',
+            user_name: user.name || '',
+            user_country: user.country || '',
+            user_phone: user.phone || ''
+        });
+
+        console.log(`👤 User set: ${user.name || user.email}`);
+    }
+
+    // Facebook - Advanced Matching
+    if (FB_PIXEL_ID && window.fbq) {
+        window.fbq('init', FB_PIXEL_ID, {
+            em: user.email?.toLowerCase() || '',
+            ph: user.phone || '',
+            country: user.country?.toLowerCase() || ''
+        });
+    }
+}
+
+/**
  * Track product view (for dynamic remarketing)
  * THIS IS KEY FOR SHOWING PRODUCT ADS!
  */
@@ -368,6 +406,7 @@ export function trackAddToCart(product: {
 export default {
     initAnalytics,
     trackPageView,
+    setUserProperties,
     trackProductView,
     trackEnquiry,
     trackSearch,

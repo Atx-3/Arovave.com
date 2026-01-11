@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { setUserProperties } from '../utils/analytics';
 
 // Admin panel tabs
 export type AdminPermission = 'enquiries' | 'products' | 'users' | 'settings' | 'quality' | 'categories' | 'support';
@@ -217,6 +218,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await fetchProfile(payload.sub, payload.email);
         setCurrentUser(profile);
 
+        // TRACK USER IN ANALYTICS
+        if (profile) {
+            setUserProperties({
+                id: profile.id,
+                email: profile.email,
+                name: profile.name,
+                country: profile.country,
+                phone: profile.phone
+            });
+        }
+
         // Clear URL hash
         console.log('🧹 Clearing URL hash');
         window.history.replaceState(null, '', window.location.pathname);
@@ -273,6 +285,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     // Fetch and set the user profile
                     const profile = await fetchProfile(newSession.user.id, newSession.user.email);
                     setCurrentUser(profile);
+
+                    // TRACK USER IN ANALYTICS
+                    if (profile) {
+                        setUserProperties({
+                            id: profile.id,
+                            email: profile.email,
+                            name: profile.name,
+                            country: profile.country,
+                            phone: profile.phone
+                        });
+                    }
 
                     // Store session in localStorage
                     localStorage.setItem(storageKey, JSON.stringify({
