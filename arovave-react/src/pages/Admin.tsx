@@ -588,7 +588,7 @@ export function Admin() {
                 // PHASE 1: FAST - Load product data only (no images) - ~130ms
                 const { data, error } = await supabase
                     .from('products')
-                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, specs, key_specs, is_trending, created_at')
+                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, specs, key_specs, is_trending, tab_description, tab_specifications, tab_advantage, tab_benefit, created_at')
                     .order('created_at', { ascending: false });
 
                 const elapsed = Date.now() - startTime;
@@ -621,7 +621,12 @@ export function Admin() {
                     thumbnail: '', // Will be loaded in phase 2
                     specs: db.specs || [],
                     keySpecs: db.key_specs || [],
-                    isTrending: db.is_trending || false
+                    isTrending: db.is_trending || false,
+                    // Tab contents
+                    tabDescription: db.tab_description || '',
+                    tabSpecifications: db.tab_specifications || '',
+                    tabAdvantage: db.tab_advantage || '',
+                    tabBenefit: db.tab_benefit || ''
                 }));
 
                 console.log(`✅ Admin Phase 1 complete: ${formattedProducts.length} products in ${elapsed}ms`);
@@ -1695,7 +1700,12 @@ export function Admin() {
                                         thumbnail: product.thumbnail,
                                         specs: product.specs,
                                         key_specs: product.keySpecs,
-                                        is_trending: product.isTrending
+                                        is_trending: product.isTrending,
+                                        // Tab contents - THESE WERE MISSING!
+                                        tab_description: product.tabDescription,
+                                        tab_specifications: product.tabSpecifications,
+                                        tab_advantage: product.tabAdvantage,
+                                        tab_benefit: product.tabBenefit
                                     };
 
                                     let error;
@@ -1710,10 +1720,10 @@ export function Admin() {
                                     if (error) {
                                         showNotification('Error: ' + error.message, 'error');
                                     } else {
-                                        // Refresh products
+                                        // Refresh products with ALL fields including tab contents
                                         const { data } = await supabase
                                             .from('products')
-                                            .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
+                                            .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, tab_description, tab_specifications, tab_advantage, tab_benefit, created_at')
                                             .order('created_at', { ascending: false });
 
                                         if (data) {
@@ -1732,7 +1742,12 @@ export function Admin() {
                                                 thumbnail: db.thumbnail || (db.images?.[0] || ''),
                                                 specs: db.specs || [],
                                                 keySpecs: db.key_specs || [],
-                                                isTrending: db.is_trending || false
+                                                isTrending: db.is_trending || false,
+                                                // Tab contents - ADDED!
+                                                tabDescription: db.tab_description || '',
+                                                tabSpecifications: db.tab_specifications || '',
+                                                tabAdvantage: db.tab_advantage || '',
+                                                tabBenefit: db.tab_benefit || ''
                                             }));
                                             setProducts(formattedProducts);
 

@@ -37,57 +37,91 @@ export function ProductDetail() {
 
     const [isLoading, setIsLoading] = useState(true);
 
-    // DIRECT FETCH - SAME PATTERN AS QUALITY CONTENT
+    // 2-PHASE LOADING - Text first (FAST), Images second (background)
     useEffect(() => {
-        // INSTANT: Load from cache first
+        if (!id) return;
+
+        const productId = Number(id);
+
+        // INSTANT: Check if product is in cache
         const cached = localStorage.getItem('arovaveProducts_v2');
         if (cached) {
             try {
                 const cachedProducts = JSON.parse(cached);
-                if (cachedProducts && cachedProducts.length > 0) {
+                const cachedProduct = cachedProducts?.find((p: Product) => p.id === productId);
+                if (cachedProduct) {
                     console.log('⚡ ProductDetail: INSTANT load from cache');
-                    setProducts(cachedProducts);
+                    setProducts([cachedProduct]);
                     setIsLoading(false);
                 }
             } catch (e) { }
         }
 
-        // BACKGROUND: Fetch fresh from Supabase
-        const fetchProductsFromSupabase = async () => {
+        // PHASE 1: FAST - Get text data only (no heavy images) ~50ms
+        const fetchProduct = async () => {
+            const startTime = Date.now();
             try {
+                console.log('🔄 ProductDetail Phase 1: Fetching text data...');
                 const { data, error } = await supabase
                     .from('products')
-                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, images, video, thumbnail, specs, key_specs, is_trending, created_at')
-                    .order('created_at', { ascending: false });
+                    .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, specs, key_specs, is_trending')
+                    .eq('id', productId)
+                    .single();
 
-                if (!error && data && data.length > 0) {
-                    const formattedProducts: Product[] = data.map((db: any) => ({
-                        id: db.id,
-                        name: db.name || '',
-                        cat: db.cat || 'food',
-                        subcategory: db.subcategory || '',
-                        hsn: db.hsn || '',
-                        moq: db.moq || '',
-                        priceRange: db.price_range || '',
-                        description: db.description || '',
-                        certifications: db.certifications || [],
-                        images: db.images || [],
-                        video: db.video || undefined,
-                        thumbnail: db.thumbnail || (db.images?.[0] || ''),
-                        specs: db.specs || [],
-                        keySpecs: db.key_specs || [],
-                        isTrending: db.is_trending || false
-                    }));
-                    setProducts(formattedProducts);
+                if (error) {
+                    console.error('❌ Error fetching product:', error.message);
                     setIsLoading(false);
+                    return;
+                }
+
+                if (data) {
+                    const formattedProduct: Product = {
+                        id: data.id,
+                        name: data.name || '',
+                        cat: data.cat || 'food',
+                        subcategory: data.subcategory || '',
+                        hsn: data.hsn || '',
+                        moq: data.moq || '',
+                        priceRange: data.price_range || '',
+                        description: data.description || '',
+                        certifications: data.certifications || [],
+                        images: [], // Will load in Phase 2
+                        video: undefined,
+                        thumbnail: '',
+                        specs: data.specs || [],
+                        keySpecs: data.key_specs || [],
+                        isTrending: data.is_trending || false
+                    };
+                    console.log(`✅ Phase 1 complete in ${Date.now() - startTime}ms:`, formattedProduct.name);
+                    setProducts([formattedProduct]);
+                    setIsLoading(false); // Show UI immediately!
+
+                    // PHASE 2: BACKGROUND - Load images (slower, ~1-3s)
+                    console.log('🔄 ProductDetail Phase 2: Loading images...');
+                    const { data: imageData } = await supabase
+                        .from('products')
+                        .select('images, video, thumbnail')
+                        .eq('id', productId)
+                        .single();
+
+                    if (imageData) {
+                        setProducts([{
+                            ...formattedProduct,
+                            images: imageData.images || [],
+                            video: imageData.video || undefined,
+                            thumbnail: imageData.thumbnail || (imageData.images?.[0] || '')
+                        }]);
+                        console.log(`✅ Phase 2 complete: Images loaded`);
+                    }
                 }
             } catch (err) {
-                console.error('Error fetching products:', err);
+                console.error('Error fetching product:', err);
+                setIsLoading(false);
             }
         };
 
-        fetchProductsFromSupabase();
-    }, []);
+        fetchProduct();
+    }, [id]);
 
     // Fetch tab content separately
     useEffect(() => {
