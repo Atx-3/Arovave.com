@@ -4,6 +4,7 @@ import type { Product, Enquiry } from '../types';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { sendEnquiryEmail, sendEnquiryUpdateEmail } from '../utils/email';
+import { trackEnquiry, trackAddToCart } from '../utils/analytics';
 
 interface EnquiryContextType {
     cart: Product[];
@@ -114,6 +115,14 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
             return false;
         }
         setCart(prev => [...prev, product]);
+
+        // Track add to cart for remarketing
+        trackAddToCart({
+            id: product.id,
+            name: product.name,
+            category: product.cat
+        });
+
         return true;
     };
 
@@ -211,9 +220,18 @@ export function EnquiryProvider({ children }: { children: ReactNode }) {
 
         console.log('✅ Product enquiry submitted:', product.name);
 
-        // Send enquiry confirmation email
+        // TRACK ENQUIRY - Lead conversion for ads!
         const userEmail = currentUser?.email || supabaseUser?.email;
         const userName = currentUser?.name || supabaseUser?.user_metadata?.full_name || 'there';
+
+        trackEnquiry({
+            products: [{ id: product.id, name: product.name }],
+            email: userEmail,
+            phone: currentUser?.phone,
+            country: currentUser?.country
+        });
+
+        // Send enquiry confirmation email
         if (userEmail && data?.id) {
             sendEnquiryEmail(userEmail, userName, product.name, data.id);
         }

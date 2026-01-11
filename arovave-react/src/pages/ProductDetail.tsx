@@ -6,6 +6,7 @@ import { AuthModal } from '../components/auth/AuthModal';
 import { ProductLoader } from '../components/ProductLoader';
 import { supabase } from '../lib/supabase';
 import { formatPrice } from '../utils/formatPrice';
+import { trackProductView, trackScrollDepth, trackTimeOnPage, trackAddToCart } from '../utils/analytics';
 import type { Product } from '../types';
 
 type TabType = 'description' | 'benefit' | 'advantage';
@@ -37,6 +38,40 @@ export function ProductDetail() {
     const [tabContent, setTabContent] = useState<TabContent>({});
 
     const [isLoading, setIsLoading] = useState(true);
+
+    // TRACK SCROLL DEPTH & TIME ON PAGE
+    useEffect(() => {
+        if (!id) return;
+
+        const startTime = Date.now();
+        const scrollMilestones = new Set<number>();
+
+        const handleScroll = () => {
+            const scrollTop = window.scrollY;
+            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            if (docHeight <= 0) return;
+
+            const scrollPercent = Math.round((scrollTop / docHeight) * 100);
+            const milestones = [25, 50, 75, 90, 100];
+
+            for (const milestone of milestones) {
+                if (scrollPercent >= milestone && !scrollMilestones.has(milestone)) {
+                    scrollMilestones.add(milestone);
+                    trackScrollDepth(milestone);
+                }
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+
+        return () => {
+            const timeSpent = Math.round((Date.now() - startTime) / 1000);
+            if (timeSpent > 2) {
+                trackTimeOnPage(timeSpent, `/product/${id}`);
+            }
+            window.removeEventListener('scroll', handleScroll);
+        };
+    }, [id]);
 
     // 2-PHASE LOADING - Text first (FAST), Images second (background)
     useEffect(() => {
@@ -96,6 +131,15 @@ export function ProductDetail() {
                     console.log(`✅ Phase 1 complete in ${Date.now() - startTime}ms:`, formattedProduct.name);
                     setProducts([formattedProduct]);
                     setIsLoading(false); // Show UI immediately!
+
+                    // TRACK PRODUCT VIEW - for dynamic remarketing ads!
+                    trackProductView({
+                        id: formattedProduct.id,
+                        name: formattedProduct.name,
+                        category: formattedProduct.cat,
+                        price: formattedProduct.priceRange,
+                        thumbnail: formattedProduct.thumbnail
+                    });
 
                     // PHASE 2: BACKGROUND - Load images (slower, ~1-3s)
                     console.log('🔄 ProductDetail Phase 2: Loading images...');

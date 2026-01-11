@@ -1,9 +1,25 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider, LanguageProvider, EnquiryProvider, LoadingProvider } from './context';
 import { Layout, ScrollToTop } from './components/layout';
 import { Home, Catalog, ProductDetail, Profile, Admin, Enquiries, TrustPage, TrustManufacturer, TrustPricing, TrustExperience, AuthPage, About, PrivacyTerms, Support } from './pages';
 import { TestProducts } from './pages/TestProducts';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { initAnalytics, trackPageView } from './utils/analytics';
+
+// Initialize analytics on app load
+initAnalytics();
+
+// Component to track page views on route changes
+function AnalyticsTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    trackPageView(location.pathname, document.title);
+  }, [location]);
+
+  return null;
+}
 
 export default function App() {
   return (
@@ -13,6 +29,7 @@ export default function App() {
           <EnquiryProvider>
             <LoadingProvider>
               <ScrollToTop />
+              <AnalyticsTracker />
               <Routes>
                 {/* Full-screen Auth Page - Outside Layout */}
                 <Route path="/auth" element={<AuthPage />} />

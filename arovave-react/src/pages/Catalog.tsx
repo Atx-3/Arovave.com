@@ -9,6 +9,7 @@ import { LazyImage } from '../components/LazyImage';
 import { supabase } from '../lib/supabase';
 import { formatPrice } from '../utils/formatPrice';
 import { loadCachedProducts } from '../utils/productCache';
+import { trackSearch, trackCategoryFilter } from '../utils/analytics';
 import type { Product } from '../types';
 
 // Page size for infinite scroll
