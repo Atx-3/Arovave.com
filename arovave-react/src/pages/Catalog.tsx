@@ -88,8 +88,31 @@ export function Catalog() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, [lastScrollY]);
 
+    // Restore scroll position when coming back from product detail
     useEffect(() => {
-        window.scrollTo(0, 0);
+        const savedScrollY = sessionStorage.getItem('catalogScrollY');
+        const savedProducts = sessionStorage.getItem('catalogProducts');
+
+        if (savedScrollY && savedProducts) {
+            // Coming back from product detail - restore position
+            try {
+                const parsedProducts = JSON.parse(savedProducts);
+                if (parsedProducts.length > 0) {
+                    setProducts(parsedProducts);
+                    setTimeout(() => {
+                        window.scrollTo(0, parseInt(savedScrollY));
+                    }, 100);
+                }
+            } catch (e) {
+                window.scrollTo(0, 0);
+            }
+        } else {
+            // Fresh visit - scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        // Clear saved position (will be saved again when clicking a product)
+        sessionStorage.removeItem('catalogScrollY');
     }, []);
 
     // Build query filters
@@ -268,6 +291,12 @@ export function Catalog() {
         submitProductEnquiry(product);
         setShowPopup(true);
         setTimeout(() => navigate('/enquiries'), 2000);
+    };
+
+    // Save scroll position before navigating to product detail
+    const saveScrollPosition = () => {
+        sessionStorage.setItem('catalogScrollY', window.scrollY.toString());
+        sessionStorage.setItem('catalogProducts', JSON.stringify(products));
     };
 
     const categoryIcons: Record<string, typeof Utensils> = {
@@ -463,7 +492,7 @@ export function Catalog() {
                         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
                             {products.map((product, index) => (
                                 <div key={product.id} className="bg-white rounded-2xl md:rounded-3xl border border-zinc-100 overflow-hidden group hover:shadow-lg transition-shadow">
-                                    <Link to={`/product/${product.id}`}>
+                                    <Link to={`/product/${product.id}`} onClick={saveScrollPosition}>
                                         <div className="aspect-[4/3] overflow-hidden bg-zinc-100">
                                             <LazyImage
                                                 src={product.images?.[0] || product.thumbnail}
@@ -484,7 +513,7 @@ export function Catalog() {
                                             <p className="text-[10px] md:text-xs text-zinc-400">MOQ: {product.moq}</p>
                                         </div>
                                         <div className="flex flex-col md:flex-row gap-2">
-                                            <Link to={`/product/${product.id}`} className="flex-1 py-2 md:py-3 border-2 border-zinc-200 rounded-lg md:rounded-xl text-center text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-black transition-colors">
+                                            <Link to={`/product/${product.id}`} onClick={saveScrollPosition} className="flex-1 py-2 md:py-3 border-2 border-zinc-200 rounded-lg md:rounded-xl text-center text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-black transition-colors">
                                                 {t('viewDetails')}
                                             </Link>
                                             <button
