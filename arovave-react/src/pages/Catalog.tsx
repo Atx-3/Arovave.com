@@ -96,7 +96,7 @@ export function Catalog() {
     const buildQuery = useCallback(() => {
         let query = supabase
             .from('products')
-            .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, specs, key_specs, is_trending, thumbnail, created_at', { count: 'exact' });
+            .select('id, name, cat, subcategory, hsn, moq, price_range, description, certifications, specs, key_specs, is_trending, thumbnail, images, created_at', { count: 'exact' });
 
         if (filterType === 'trending') {
             query = query.eq('is_trending', true);
@@ -151,9 +151,9 @@ export function Catalog() {
                     priceRange: db.price_range || '',
                     description: db.description || '',
                     certifications: db.certifications || [],
-                    images: [],
+                    images: db.images || [],
                     video: undefined,
-                    thumbnail: db.thumbnail || '',
+                    thumbnail: db.thumbnail || (db.images && db.images[0]) || '',
                     specs: db.specs || [],
                     keySpecs: db.key_specs || [],
                     isTrending: db.is_trending || false
@@ -466,7 +466,7 @@ export function Catalog() {
                                     <Link to={`/product/${product.id}`}>
                                         <div className="aspect-[4/3] overflow-hidden bg-zinc-100">
                                             <LazyImage
-                                                src={product.thumbnail}
+                                                src={product.images?.[0] || product.thumbnail}
                                                 alt={product.name}
                                                 className="w-full h-full"
                                                 priority={index < 6} // First 6 images load immediately

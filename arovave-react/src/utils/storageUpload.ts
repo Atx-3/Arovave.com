@@ -9,14 +9,14 @@ import { supabase } from '../lib/supabase';
 const BUCKET_NAME = 'product-images';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
 
-// AGGRESSIVE COMPRESSION: Target 50-100KB per image for FAST loading
+// BALANCED COMPRESSION: Good quality with reasonable file size (100-200KB)
 const COMPRESSION_SETTINGS = {
-    maxWidth: 600,       // Smaller for tiny files
-    maxHeight: 600,
-    quality: 0.55,       // Lower quality = smaller files (50-100KB target)
-    thumbnailWidth: 200,
-    thumbnailHeight: 150,
-    thumbnailQuality: 0.45  // Tiny thumbnails (~10-20KB)
+    maxWidth: 800,       // Larger for better quality
+    maxHeight: 800,
+    quality: 0.75,       // Higher quality = clearer images
+    thumbnailWidth: 300,
+    thumbnailHeight: 225,
+    thumbnailQuality: 0.60  // Better thumbnail quality
 };
 
 /**
