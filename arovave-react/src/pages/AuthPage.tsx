@@ -599,7 +599,7 @@ export function AuthPage() {
             </div>
 
             {/* Right Panel - Auth Form */}
-            <div className="flex-1 flex items-center justify-center p-8 lg:p-16 bg-white relative">
+            <div className="flex-1 flex items-center justify-center px-4 py-6 sm:p-8 lg:p-16 bg-white relative min-h-screen lg:min-h-0">
                 {/* Subtle corner decorations */}
                 <div className="absolute top-0 right-0 w-32 h-32 border-r-2 border-t-2 border-zinc-100 hidden lg:block"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 border-l-2 border-b-2 border-zinc-100 hidden lg:block"></div>
@@ -612,21 +612,21 @@ export function AuthPage() {
                     </Link>
 
                     {/* Logo for mobile */}
-                    <div className="lg:hidden mb-8">
-                        <h1 className="text-3xl font-black uppercase tracking-tighter">AROVAVE</h1>
-                        <h2 className="text-xl font-black uppercase tracking-tighter text-zinc-400">GLOBAL</h2>
-                        <div className="w-12 h-1 bg-black mt-2"></div>
+                    <div className="lg:hidden mb-6 text-center">
+                        <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">AROVAVE</h1>
+                        <h2 className="text-lg sm:text-xl font-black uppercase tracking-tighter text-zinc-400">GLOBAL</h2>
+                        <div className="w-12 h-1 bg-black mt-2 mx-auto"></div>
                     </div>
 
                     {/* Header */}
-                    <div className="mb-8">
+                    <div className="mb-6">
                         {(mode === 'forgot' || mode === 'verify-signup' || mode === 'verify-reset' || mode === 'new-password') && (
                             <button onClick={() => setMode('signin')} className="flex items-center gap-2 text-zinc-500 hover:text-black mb-4 transition-colors">
                                 <ArrowLeft className="w-4 h-4" />
                                 Back to Sign In
                             </button>
                         )}
-                        <h2 className="text-3xl font-black uppercase tracking-tighter">
+                        <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">
                             {mode === 'signin' && 'Welcome Back'}
                             {mode === 'signup' && 'Create Account'}
                             {mode === 'verify-signup' && 'Verify Email'}
@@ -634,7 +634,7 @@ export function AuthPage() {
                             {mode === 'verify-reset' && 'Enter Code'}
                             {mode === 'new-password' && 'New Password'}
                         </h2>
-                        <p className="text-zinc-500 mt-2">
+                        <p className="text-zinc-500 mt-2 text-sm sm:text-base">
                             {mode === 'signin' && 'Sign in to manage your enquiries and quotes.'}
                             {mode === 'signup' && 'Fill in your details to get started.'}
                             {mode === 'verify-signup' && 'Enter the 8-digit code we sent to your email.'}
@@ -659,7 +659,7 @@ export function AuthPage() {
                                 <label className="text-xs font-black uppercase tracking-widest text-zinc-400 block mb-4">
                                     Enter 8-digit Code
                                 </label>
-                                <div className="flex gap-2 justify-between">
+                                <div className="flex gap-1.5 sm:gap-2 justify-between">
                                     {otpCode.map((digit, index) => (
                                         <input
                                             key={index}
@@ -671,7 +671,7 @@ export function AuthPage() {
                                             onChange={(e) => handleOtpChange(index, e.target.value)}
                                             onKeyDown={(e) => handleOtpKeyDown(index, e)}
                                             onPaste={handleOtpPaste}
-                                            className="w-12 h-14 text-center text-2xl font-bold border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none transition-colors"
+                                            className="w-9 h-11 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-bold border-2 border-zinc-200 rounded-xl focus:border-black focus:outline-none transition-colors"
                                         />
                                     ))}
                                 </div>
@@ -942,7 +942,7 @@ export function AuthPage() {
                                     placeholder="you@example.com"
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div>
                                     <label className="text-xs font-black uppercase tracking-widest text-zinc-400 block mb-2">
                                         <Lock className="w-3 h-3 inline mr-1" /> Password *
@@ -952,7 +952,7 @@ export function AuthPage() {
                                             type={showPassword ? 'text' : 'password'}
                                             value={formData.password}
                                             onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                            className="w-full px-4 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors pr-10"
+                                            className="w-full px-3 sm:px-4 py-3 sm:py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors pr-10"
                                             placeholder="Min 6 chars"
                                         />
                                         <button
@@ -973,7 +973,7 @@ export function AuthPage() {
                                             type={showConfirmPassword ? 'text' : 'password'}
                                             value={formData.confirmPassword}
                                             onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                            className="w-full px-4 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors pr-10"
+                                            className="w-full px-3 sm:px-4 py-3 sm:py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors pr-10"
                                             placeholder="••••••••"
                                         />
                                         <button
