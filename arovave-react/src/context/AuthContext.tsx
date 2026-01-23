@@ -239,6 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Initialize auth
     useEffect(() => {
         console.log('🔐 AuthContext starting...');
+        let isMounted = true;
 
         // Check if URL contains auth tokens first (from OAuth/magic link callbacks)
         const hashParams = getHashParams();
@@ -250,85 +251,115 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Use Supabase's built-in session recovery (handles token refresh automatically)
-        const initSession = async () => {
-            console.log('📦 Checking for existing session...');
-
-            try {
-                const { data: { session: existingSession }, error } = await supabase.auth.getSession();
-
-                if (error) {
-                    console.log('⚠️ Session check error:', error.message);
-                } else if (existingSession) {
-                    console.log('✅ Found existing session for:', existingSession.user.email);
-                    setSession(existingSession);
-                    setSupabaseUser(existingSession.user);
-
-                    // Fetch profile
-                    const profile = await fetchProfile(existingSession.user.id, existingSession.user.email);
-                    setCurrentUser(profile);
-
-                    // Track user in analytics
-                    if (profile) {
-                        setUserProperties({
-                            id: profile.id,
-                            email: profile.email,
-                            name: profile.name,
-                            country: profile.country,
-                            phone: profile.phone
-                        });
-                    }
-                } else {
-                    console.log('ℹ️ No existing session found');
-                }
-            } catch (err) {
-                console.error('❌ Session recovery error:', err);
-            }
-        };
-
-        initSession();
-
-        // Set up auth state listener for future sign-ins
+        // Set up auth state listener FIRST - this will fire INITIAL_SESSION if there's a stored session
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, newSession) => {
                 console.log('🔔 Auth event:', event, newSession?.user?.email || 'no user');
 
+                // Handle initial session on page load (this is key for persistence!)
+                if (event === 'INITIAL_SESSION') {
+                    if (newSession) {
+                        console.log('✅ INITIAL_SESSION: Found stored session for:', newSession.user.email);
+                        if (isMounted) {
+                            setSession(newSession);
+                            setSupabaseUser(newSession.user);
+
+                            // Fetch profile
+                            const profile = await fetchProfile(newSession.user.id, newSession.user.email);
+                            if (isMounted) {
+                                setCurrentUser(profile);
+                                if (profile) {
+                                    setUserProperties({
+                                        id: profile.id,
+                                        email: profile.email,
+                                        name: profile.name,
+                                        country: profile.country,
+                                        phone: profile.phone
+                                    });
+                                }
+                            }
+                        }
+                    } else {
+                        console.log('ℹ️ INITIAL_SESSION: No stored session found');
+                    }
+                }
+
                 if (event === 'SIGNED_IN' && newSession) {
                     console.log('✅ User signed in, updating state...');
-                    setSession(newSession);
-                    setSupabaseUser(newSession.user);
+                    if (isMounted) {
+                        setSession(newSession);
+                        setSupabaseUser(newSession.user);
 
-                    // Fetch and set the user profile
-                    const profile = await fetchProfile(newSession.user.id, newSession.user.email);
-                    setCurrentUser(profile);
-
-                    // TRACK USER IN ANALYTICS
-                    if (profile) {
-                        setUserProperties({
-                            id: profile.id,
-                            email: profile.email,
-                            name: profile.name,
-                            country: profile.country,
-                            phone: profile.phone
-                        });
+                        // Fetch and set the user profile
+                        const profile = await fetchProfile(newSession.user.id, newSession.user.email);
+                        if (isMounted) {
+                            setCurrentUser(profile);
+                            if (profile) {
+                                setUserProperties({
+                                    id: profile.id,
+                                    email: profile.email,
+                                    name: profile.name,
+                                    country: profile.country,
+                                    phone: profile.phone
+                                });
+                            }
+                        }
                     }
                 }
 
                 if (event === 'TOKEN_REFRESHED' && newSession) {
                     console.log('🔄 Token refreshed');
-                    setSession(newSession);
+                    if (isMounted) {
+                        setSession(newSession);
+                        setSupabaseUser(newSession.user);
+                    }
                 }
 
                 if (event === 'SIGNED_OUT') {
-                    setSession(null);
-                    setSupabaseUser(null);
-                    setCurrentUser(null);
-                    setAuthError(null);
+                    console.log('🚪 User signed out');
+                    if (isMounted) {
+                        setSession(null);
+                        setSupabaseUser(null);
+                        setCurrentUser(null);
+                        setAuthError(null);
+                    }
                 }
             }
         );
 
+        // Also check getSession as a fallback (in case INITIAL_SESSION doesn't fire)
+        const checkSession = async () => {
+            console.log('📦 Fallback: Checking getSession()...');
+            try {
+                const { data: { session: existingSession }, error } = await supabase.auth.getSession();
+
+                if (error) {
+                    console.log('⚠️ getSession error:', error.message);
+                } else if (existingSession && isMounted) {
+                    console.log('✅ getSession found session for:', existingSession.user.email);
+                    // Only set if not already set by INITIAL_SESSION
+                    setSession(prev => prev || existingSession);
+                    setSupabaseUser(prev => prev || existingSession.user);
+
+                    if (!currentUser) {
+                        const profile = await fetchProfile(existingSession.user.id, existingSession.user.email);
+                        if (isMounted) {
+                            setCurrentUser(profile);
+                        }
+                    }
+                } else {
+                    console.log('ℹ️ getSession: No session found');
+                }
+            } catch (err) {
+                console.error('❌ getSession error:', err);
+            }
+        };
+
+        // Small delay to let INITIAL_SESSION fire first
+        setTimeout(checkSession, 100);
+
         return () => {
+            isMounted = false;
             subscription.unsubscribe();
         };
     }, []);

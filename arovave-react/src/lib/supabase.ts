@@ -12,9 +12,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     auth: {
-        flowType: 'implicit',
+        // Use PKCE flow for better security and session persistence
+        flowType: 'pkce',
+        // Persist session in localStorage
         persistSession: true,
+        // Store session in localStorage explicitly
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        storageKey: 'arovave-auth-token',
+        // Auto refresh tokens before they expire
         autoRefreshToken: true,
+        // Detect session from URL (for OAuth/magic link callbacks)
         detectSessionInUrl: true
     }
 });
