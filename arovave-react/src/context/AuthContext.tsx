@@ -240,7 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         console.log('🔐 AuthContext starting...');
 
-        // Check if URL contains auth tokens
+        // Check if URL contains auth tokens first (from OAuth/magic link callbacks)
         const hashParams = getHashParams();
         const hasAuthTokens = !!hashParams.access_token;
 
@@ -250,27 +250,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Check for stored session in localStorage
-        const storageKey = `sb-${import.meta.env.VITE_SUPABASE_URL?.replace('https://', '').split('.')[0]}-auth-token`;
-        const storedSession = localStorage.getItem(storageKey);
+        // Use Supabase's built-in session recovery (handles token refresh automatically)
+        const initSession = async () => {
+            console.log('📦 Checking for existing session...');
 
-        if (storedSession) {
             try {
-                const sessionData = JSON.parse(storedSession);
-                if (sessionData.access_token && sessionData.expires_at > Math.floor(Date.now() / 1000)) {
-                    console.log('📦 Found valid stored session');
-                    processUserFromToken(sessionData.access_token, sessionData.refresh_token || '');
-                    return;
+                const { data: { session: existingSession }, error } = await supabase.auth.getSession();
+
+                if (error) {
+                    console.log('⚠️ Session check error:', error.message);
+                } else if (existingSession) {
+                    console.log('✅ Found existing session for:', existingSession.user.email);
+                    setSession(existingSession);
+                    setSupabaseUser(existingSession.user);
+
+                    // Fetch profile
+                    const profile = await fetchProfile(existingSession.user.id, existingSession.user.email);
+                    setCurrentUser(profile);
+
+                    // Track user in analytics
+                    if (profile) {
+                        setUserProperties({
+                            id: profile.id,
+                            email: profile.email,
+                            name: profile.name,
+                            country: profile.country,
+                            phone: profile.phone
+                        });
+                    }
                 } else {
-                    console.log('ℹ️ Stored session expired');
-                    localStorage.removeItem(storageKey);
+                    console.log('ℹ️ No existing session found');
                 }
             } catch (err) {
-                console.error('Error parsing stored session:', err);
+                console.error('❌ Session recovery error:', err);
             }
-        }
+        };
 
-        console.log('ℹ️ No session found');
+        initSession();
 
         // Set up auth state listener for future sign-ins
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -296,15 +312,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             phone: profile.phone
                         });
                     }
+                }
 
-                    // Store session in localStorage
-                    localStorage.setItem(storageKey, JSON.stringify({
-                        access_token: newSession.access_token,
-                        refresh_token: newSession.refresh_token,
-                        expires_at: newSession.expires_at,
-                        token_type: 'bearer',
-                        user: newSession.user
-                    }));
+                if (event === 'TOKEN_REFRESHED' && newSession) {
+                    console.log('🔄 Token refreshed');
+                    setSession(newSession);
                 }
 
                 if (event === 'SIGNED_OUT') {
@@ -312,7 +324,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setSupabaseUser(null);
                     setCurrentUser(null);
                     setAuthError(null);
-                    localStorage.removeItem(storageKey);
                 }
             }
         );

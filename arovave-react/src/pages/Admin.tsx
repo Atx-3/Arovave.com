@@ -8,6 +8,7 @@ import { compressImage, compressImages, processVideo, checkVideoSize, formatFile
 import { formatPrice } from '../utils/formatPrice';
 import { cacheProducts, loadCachedProducts } from '../utils/productCache';
 import { LazyImage } from '../components/LazyImage';
+import { uploadToStorage } from '../utils/storageUpload';
 import type { Product, Enquiry } from '../types';
 import type { AdminPermission } from '../context/AuthContext';
 
@@ -1751,16 +1752,18 @@ export function Admin() {
 
                                             setIsAddingQualityItem(true);
                                             try {
-                                                console.log('📝 Compressing and processing image...');
-                                                const compressedImage = await compressImage(file);
-                                                console.log('📝 Image compressed, saving to database...');
+                                                console.log('📝 Uploading image to Supabase Storage...');
+                                                // Use unique ID for quality uploads to avoid conflicts
+                                                const uniqueId = `quality-${selectedQualityCategory}-${qualitySubcategory}-${Date.now()}`;
+                                                const imageUrl = await uploadToStorage(file, uniqueId, 0);
+                                                console.log('📝 Image uploaded to storage:', imageUrl);
 
                                                 const saved = await saveQualityUploadToSupabase(
                                                     selectedQualityCategory,
                                                     qualitySubcategory,
                                                     qualityContentType,
                                                     title,
-                                                    compressedImage,
+                                                    imageUrl,
                                                     description
                                                 );
 

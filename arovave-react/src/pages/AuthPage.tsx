@@ -228,18 +228,31 @@ export function AuthPage() {
                     password: pendingSignupData.password
                 });
 
-                // Create profile
-                await supabase.from('profiles').upsert({
+                // Create profile with better error handling
+                const { error: upsertError } = await supabase.from('profiles').upsert({
                     id: data.user.id,
                     email: pendingSignupData.email,
                     name: pendingSignupData.name,
                     phone: pendingSignupData.phone,
                     country: pendingSignupData.country,
                     role: 'user'
-                });
+                }, { onConflict: 'id' });
+
+                if (upsertError) {
+                    console.error('Profile upsert error:', upsertError);
+                }
+
+                // Wait a moment for the profile to be fully saved
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Refresh the session to trigger AuthContext to re-fetch profile
+                await supabase.auth.refreshSession();
 
                 // Send welcome email
                 sendWelcomeEmail(pendingSignupData.email, pendingSignupData.name);
+
+                // Clear pending data
+                setPendingSignupData(null);
 
                 // Navigate to profile
                 navigate('/profile');
@@ -866,58 +879,21 @@ export function AuthPage() {
                     {/* Sign Up Form */}
                     {mode === 'signup' && (
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-zinc-400 block mb-2">
-                                        <User className="w-3 h-3 inline mr-1" /> Name *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.name}
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        className="w-full px-4 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors"
-                                        placeholder="John Smith"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-zinc-400 block mb-2">
-                                        <Phone className="w-3 h-3 inline mr-1" /> Phone *
-                                    </label>
-                                    <div className="flex gap-2">
-                                        <select
-                                            value={formData.country}
-                                            onChange={e => {
-                                                const selectedCountry = countryData.find(c => c.name === e.target.value);
-                                                setFormData({ ...formData, country: e.target.value });
-                                            }}
-                                            className="w-24 px-2 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors bg-white cursor-pointer text-sm"
-                                        >
-                                            {countryData.map(c => (
-                                                <option key={c.name} value={c.name}>{c.code || c.name}</option>
-                                            ))}
-                                        </select>
-                                        <input
-                                            type="tel"
-                                            value={formData.phone}
-                                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                            className="flex-1 px-4 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors"
-                                            placeholder="98765 43210"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+                            {/* Name Field */}
                             <div>
                                 <label className="text-xs font-black uppercase tracking-widest text-zinc-400 block mb-2">
-                                    <Mail className="w-3 h-3 inline mr-1" /> Email *
+                                    <User className="w-3 h-3 inline mr-1" /> Full Name *
                                 </label>
                                 <input
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
                                     className="w-full px-5 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors"
-                                    placeholder="you@example.com"
+                                    placeholder="John Smith"
                                 />
                             </div>
+
+                            {/* Country Field - First to set phone code */}
                             <div>
                                 <label className="text-xs font-black uppercase tracking-widest text-zinc-400 block mb-2">
                                     Country *
@@ -931,6 +907,40 @@ export function AuthPage() {
                                         <option key={c} value={c}>{c}</option>
                                     ))}
                                 </select>
+                            </div>
+
+                            {/* Phone Field with Country Code */}
+                            <div>
+                                <label className="text-xs font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                    <Phone className="w-3 h-3 inline mr-1" /> Phone Number *
+                                </label>
+                                <div className="flex">
+                                    <div className="px-4 py-4 border-2 border-r-0 border-zinc-200 rounded-l-2xl bg-zinc-50 font-bold text-zinc-600 flex items-center">
+                                        {countryData.find(c => c.name === formData.country)?.code || '+91'}
+                                    </div>
+                                    <input
+                                        type="tel"
+                                        value={formData.phone}
+                                        onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/[^0-9\s]/g, '') })}
+                                        className="flex-1 px-4 py-4 border-2 border-zinc-200 rounded-r-2xl font-semibold focus:border-black focus:outline-none transition-colors"
+                                        placeholder="98765 43210"
+                                    />
+                                </div>
+                                <p className="text-xs text-zinc-400 mt-1">Country code is auto-filled based on your country</p>
+                            </div>
+
+                            {/* Email Field */}
+                            <div>
+                                <label className="text-xs font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                                    <Mail className="w-3 h-3 inline mr-1" /> Email *
+                                </label>
+                                <input
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                    className="w-full px-5 py-4 border-2 border-zinc-200 rounded-2xl font-semibold focus:border-black focus:outline-none transition-colors"
+                                    placeholder="you@example.com"
+                                />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
