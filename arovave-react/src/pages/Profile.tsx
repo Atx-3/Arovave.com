@@ -259,17 +259,16 @@ export function Profile() {
         setOtpCode(['', '', '', '', '', '', '', '']);
     };
 
-    // No loading check needed - isLoading is always false now
-
-    // Redirect to auth page if not authenticated (using useEffect to avoid race condition)
+    // Wait for auth to finish loading before redirecting
+    // Redirect to auth page if not authenticated
     useEffect(() => {
-        if (!isAuthenticated) {
+        if (!isLoading && !isAuthenticated) {
             navigate('/auth');
         }
-    }, [isAuthenticated, navigate]);
+    }, [isLoading, isAuthenticated, navigate]);
 
-    // Show nothing briefly while checking auth state
-    if (!isAuthenticated) {
+    // Show loading while auth is restoring session
+    if (isLoading || !isAuthenticated) {
         return (
             <div className="page-enter max-w-4xl mx-auto px-6 py-12 flex items-center justify-center min-h-[50vh]">
                 <div className="animate-pulse">
