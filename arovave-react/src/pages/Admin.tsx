@@ -39,7 +39,7 @@ const getStoredCategories = (): Category[] => {
 };
 
 export function Admin() {
-    const { hasPermission, isSuperAdmin, currentUser } = useAuth();
+    const { hasPermission, isSuperAdmin, currentUser, isLoading: isAuthLoading } = useAuth();
     const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins' | 'categories' | 'support' | 'calculator'>('enquiries');
     const { allEnquiries, updateEnquiryStatus, isLoadingEnquiries } = useEnquiry();
 
@@ -864,8 +864,15 @@ export function Admin() {
                 </div>
             )}
 
-            {/* Admin Login Form - Show if not logged in or not admin */}
-            {!isAdmin ? (
+            {/* Show loading while auth is restoring session */}
+            {isAuthLoading ? (
+                <div className="min-h-[60vh] flex items-center justify-center">
+                    <div className="text-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-3" />
+                        <p className="text-zinc-500">Loading...</p>
+                    </div>
+                </div>
+            ) : !isAdmin ? (
                 <div className="min-h-[60vh] flex items-center justify-center">
                     <div className="w-full max-w-md">
                         <div className="text-center mb-8">

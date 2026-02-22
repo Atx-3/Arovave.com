@@ -229,6 +229,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
         }
 
+        // Done loading
+        setIsLoading(false);
+
         // Clear URL hash
         console.log('🧹 Clearing URL hash');
         window.history.replaceState(null, '', window.location.pathname);
@@ -294,6 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         const profile = await fetchProfile(newSession.user.id, newSession.user.email);
                         if (isMounted) {
                             setCurrentUser(profile);
+                            setIsLoading(false);
                             if (profile) {
                                 setUserProperties({
                                     id: profile.id,
@@ -331,28 +335,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 if (error) {
                     console.log('⚠️ getSession error:', error.message);
+                    if (isMounted) setIsLoading(false);
                 } else if (existingSession && isMounted) {
                     console.log('✅ getSession found session for:', existingSession.user.email);
                     // Only set if not already set by INITIAL_SESSION
                     setSession(prev => prev || existingSession);
                     setSupabaseUser(prev => prev || existingSession.user);
 
-                    if (!currentUser) {
-                        const profile = await fetchProfile(existingSession.user.id, existingSession.user.email);
-                        if (isMounted) {
-                            setCurrentUser(profile);
+                    // Use callback to check if currentUser is already set (avoids stale closure)
+                    setCurrentUser(prev => {
+                        if (!prev) {
+                            // Profile not loaded yet, fetch it
+                            fetchProfile(existingSession.user.id, existingSession.user.email).then(profile => {
+                                if (isMounted) {
+                                    setCurrentUser(profile);
+                                    setIsLoading(false);
+                                }
+                            });
+                        } else {
+                            // Already loaded, just make sure loading is done
+                            setIsLoading(false);
                         }
-                    }
+                        return prev;
+                    });
                 } else {
                     console.log('ℹ️ getSession: No session found');
+                    if (isMounted) setIsLoading(false);
                 }
             } catch (err) {
                 console.error('❌ getSession error:', err);
+                if (isMounted) setIsLoading(false);
             }
         };
 
         // Small delay to let INITIAL_SESSION fire first
-        setTimeout(checkSession, 100);
+        setTimeout(checkSession, 500);
 
         return () => {
             isMounted = false;
