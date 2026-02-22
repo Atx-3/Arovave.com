@@ -284,48 +284,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         console.log('ℹ️ INITIAL_SESSION: No stored session found');
                         if (isMounted) setIsLoading(false);
                     }
+                } else if (event === 'SIGNED_IN' && newSession) {
+                    console.log('✅ User signed in, updating state...');
+                    if (isMounted) {
+                        setSession(newSession);
+                        setSupabaseUser(newSession.user);
 
-                    if (event === 'SIGNED_IN' && newSession) {
-                        console.log('✅ User signed in, updating state...');
+                        // Fetch and set the user profile
+                        const profile = await fetchProfile(newSession.user.id, newSession.user.email);
                         if (isMounted) {
-                            setSession(newSession);
-                            setSupabaseUser(newSession.user);
-
-                            // Fetch and set the user profile
-                            const profile = await fetchProfile(newSession.user.id, newSession.user.email);
-                            if (isMounted) {
-                                setCurrentUser(profile);
-                                if (profile) {
-                                    setUserProperties({
-                                        id: profile.id,
-                                        email: profile.email,
-                                        name: profile.name,
-                                        country: profile.country,
-                                        phone: profile.phone
-                                    });
-                                }
+                            setCurrentUser(profile);
+                            if (profile) {
+                                setUserProperties({
+                                    id: profile.id,
+                                    email: profile.email,
+                                    name: profile.name,
+                                    country: profile.country,
+                                    phone: profile.phone
+                                });
                             }
                         }
                     }
-
-                    if (event === 'TOKEN_REFRESHED' && newSession) {
-                        console.log('🔄 Token refreshed');
-                        if (isMounted) {
-                            setSession(newSession);
-                            setSupabaseUser(newSession.user);
-                        }
+                } else if (event === 'TOKEN_REFRESHED' && newSession) {
+                    console.log('🔄 Token refreshed');
+                    if (isMounted) {
+                        setSession(newSession);
+                        setSupabaseUser(newSession.user);
                     }
-
-                    if (event === 'SIGNED_OUT') {
-                        console.log('🚪 User signed out');
-                        if (isMounted) {
-                            setSession(null);
-                            setSupabaseUser(null);
-                            setCurrentUser(null);
-                            setAuthError(null);
-                        }
+                } else if (event === 'SIGNED_OUT') {
+                    console.log('🚪 User signed out');
+                    if (isMounted) {
+                        setSession(null);
+                        setSupabaseUser(null);
+                        setCurrentUser(null);
+                        setAuthError(null);
                     }
                 }
+            }
         );
 
         // Also check getSession as a fallback (in case INITIAL_SESSION doesn't fire)
