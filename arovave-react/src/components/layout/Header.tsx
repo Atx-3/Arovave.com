@@ -254,9 +254,9 @@ export function Header() {
                                 <span className="absolute -top-2 -right-2 bg-black text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{userEnquiryCount}</span>
                             )}
                         </Link>
-                        <Link to="/profile" className={`p-2 rounded-full transition-colors ${isAuthenticated ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}>
+                        <a href="/profile" className={`p-2 rounded-full transition-colors ${isAuthenticated ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}>
                             <User className="w-4 h-4" />
-                        </Link>
+                        </a>
                     </nav>
                 </div>
 
@@ -385,7 +385,7 @@ export function Header() {
                                     )}
                                 </div>
 
-                                <Link to="/profile" className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50">Profile</Link>
+                                <a href="/profile" className="block px-4 py-3 rounded-xl text-sm font-bold hover:bg-zinc-50">Profile</a>
                             </div>
 
                             {/* Language Section */}
