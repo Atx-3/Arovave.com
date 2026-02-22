@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2, FolderOpen, MessageCircle, Send, Clock, Settings, Filter, ChevronDown } from 'lucide-react';
+import { Users, Package, Inbox, ArrowLeft, Mail, Plus, Edit, Trash2, ImagePlus, Video, X, Award, Utensils, Pill, FlaskConical, Gift, Shield, UserCog, Check, Loader2, FolderOpen, MessageCircle, Send, Clock, Settings, Filter, ChevronDown, Calculator } from 'lucide-react';
 import { useEnquiry, useAuth } from '../context';
 import { supabase } from '../lib/supabase';
 import { products as initialProducts, categories } from '../data';
@@ -40,7 +40,7 @@ const getStoredCategories = (): Category[] => {
 
 export function Admin() {
     const { hasPermission, isSuperAdmin, currentUser } = useAuth();
-    const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins' | 'categories' | 'support'>('enquiries');
+    const [tab, setTab] = useState<'users' | 'products' | 'enquiries' | 'quality' | 'settings' | 'admins' | 'categories' | 'support' | 'calculator'>('enquiries');
     const { allEnquiries, updateEnquiryStatus, isLoadingEnquiries } = useEnquiry();
 
     // Products state - INSTANT load from localStorage cache (same pattern as quality content)
@@ -1007,7 +1007,35 @@ export function Admin() {
                                 <MessageCircle className="w-4 h-4" /> Support
                             </button>
                         )}
+                        {isSuperAdmin && (
+                            <button
+                                onClick={() => setTab('calculator')}
+                                className={`pb-4 px-2 text-sm font-black uppercase tracking-widest flex items-center gap-2 ${tab === 'calculator' ? 'text-black border-b-2 border-black' : 'text-zinc-400'}`}
+                            >
+                                <Calculator className="w-4 h-4" /> Calculator
+                            </button>
+                        )}
                     </div>
+
+                    {/* Calculator Tab */}
+                    {tab === 'calculator' && (
+                        <div className="flex items-center justify-center" style={{ minHeight: '60vh' }}>
+                            <div className="text-center">
+                                <Calculator className="w-16 h-16 mx-auto text-zinc-300 mb-6" />
+                                <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Arovave Global Calculator</h2>
+                                <p className="text-zinc-500 mb-8">Open the calculator in a new full-page tab</p>
+                                <a
+                                    href="https://arovave-global-calculator-real.vercel.app/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-3 px-8 py-4 bg-black text-white font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-zinc-800 transition-colors shadow-lg hover:shadow-xl"
+                                >
+                                    <Calculator className="w-5 h-5" />
+                                    Open Calculator in Full Page
+                                </a>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Manage Admins Tab (Super Admin Only) */}
                     {tab === 'admins' && isSuperAdmin && (

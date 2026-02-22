@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
     const [session, setSession] = useState<Session | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [authError, setAuthError] = useState<AuthError | null>(null);
 
     const clearAuthError = () => setAuthError(null);
@@ -268,6 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             const profile = await fetchProfile(newSession.user.id, newSession.user.email);
                             if (isMounted) {
                                 setCurrentUser(profile);
+                                setIsLoading(false);
                                 if (profile) {
                                     setUserProperties({
                                         id: profile.id,
@@ -281,50 +282,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         }
                     } else {
                         console.log('ℹ️ INITIAL_SESSION: No stored session found');
+                        if (isMounted) setIsLoading(false);
                     }
-                }
 
-                if (event === 'SIGNED_IN' && newSession) {
-                    console.log('✅ User signed in, updating state...');
-                    if (isMounted) {
-                        setSession(newSession);
-                        setSupabaseUser(newSession.user);
-
-                        // Fetch and set the user profile
-                        const profile = await fetchProfile(newSession.user.id, newSession.user.email);
+                    if (event === 'SIGNED_IN' && newSession) {
+                        console.log('✅ User signed in, updating state...');
                         if (isMounted) {
-                            setCurrentUser(profile);
-                            if (profile) {
-                                setUserProperties({
-                                    id: profile.id,
-                                    email: profile.email,
-                                    name: profile.name,
-                                    country: profile.country,
-                                    phone: profile.phone
-                                });
+                            setSession(newSession);
+                            setSupabaseUser(newSession.user);
+
+                            // Fetch and set the user profile
+                            const profile = await fetchProfile(newSession.user.id, newSession.user.email);
+                            if (isMounted) {
+                                setCurrentUser(profile);
+                                if (profile) {
+                                    setUserProperties({
+                                        id: profile.id,
+                                        email: profile.email,
+                                        name: profile.name,
+                                        country: profile.country,
+                                        phone: profile.phone
+                                    });
+                                }
                             }
                         }
                     }
-                }
 
-                if (event === 'TOKEN_REFRESHED' && newSession) {
-                    console.log('🔄 Token refreshed');
-                    if (isMounted) {
-                        setSession(newSession);
-                        setSupabaseUser(newSession.user);
+                    if (event === 'TOKEN_REFRESHED' && newSession) {
+                        console.log('🔄 Token refreshed');
+                        if (isMounted) {
+                            setSession(newSession);
+                            setSupabaseUser(newSession.user);
+                        }
+                    }
+
+                    if (event === 'SIGNED_OUT') {
+                        console.log('🚪 User signed out');
+                        if (isMounted) {
+                            setSession(null);
+                            setSupabaseUser(null);
+                            setCurrentUser(null);
+                            setAuthError(null);
+                        }
                     }
                 }
-
-                if (event === 'SIGNED_OUT') {
-                    console.log('🚪 User signed out');
-                    if (isMounted) {
-                        setSession(null);
-                        setSupabaseUser(null);
-                        setCurrentUser(null);
-                        setAuthError(null);
-                    }
-                }
-            }
         );
 
         // Also check getSession as a fallback (in case INITIAL_SESSION doesn't fire)
@@ -374,9 +375,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         setAuthError(null);
 
-        // Clear stored session
-        const storageKey = `sb-${import.meta.env.VITE_SUPABASE_URL?.replace('https://', '').split('.')[0]}-auth-token`;
-        localStorage.removeItem(storageKey);
+        // Clear stored session (must match storageKey in supabase.ts)
+        localStorage.removeItem('arovave-auth-token');
 
         // Try to sign out from Supabase (don't wait for it)
         supabase.auth.signOut().catch(() => { });
