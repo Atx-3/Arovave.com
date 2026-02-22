@@ -267,16 +267,9 @@ export function Profile() {
         }
     }, [isLoading, isAuthenticated, navigate]);
 
-    // Show loading while auth is restoring session
-    if (isLoading || !isAuthenticated) {
-        return (
-            <div className="page-enter max-w-4xl mx-auto px-6 py-12 flex items-center justify-center min-h-[50vh]">
-                <div className="animate-pulse">
-                    <div className="h-8 w-48 bg-zinc-200 rounded-lg mb-4"></div>
-                    <div className="h-4 w-32 bg-zinc-100 rounded-lg"></div>
-                </div>
-            </div>
-        );
+    // If not authenticated after loading, don't render
+    if (!isLoading && !isAuthenticated) {
+        return null;
     }
 
     return (
