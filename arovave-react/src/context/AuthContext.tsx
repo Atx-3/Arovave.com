@@ -381,19 +381,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = async () => {
         console.log('🚪 Logging out...');
 
-        // Clear local state
+        // Sign out from Supabase FIRST (await it properly!)
+        try {
+            await supabase.auth.signOut({ scope: 'local' });
+        } catch (err) {
+            console.error('⚠️ signOut error (continuing anyway):', err);
+        }
+
+        // Clear ALL auth-related localStorage items
+        localStorage.removeItem('arovave-auth-token');
+        // Also clear the sb-* key that processUserFromToken stores
+        const sbKey = `sb-${import.meta.env.VITE_SUPABASE_URL?.replace('https://', '').split('.')[0]}-auth-token`;
+        localStorage.removeItem(sbKey);
+        localStorage.removeItem('pendingProfile');
+        localStorage.removeItem('authMode');
+
+        // Clear local state AFTER signOut completes
         setCurrentUser(null);
         setSupabaseUser(null);
         setSession(null);
         setAuthError(null);
 
-        // Clear stored session (must match storageKey in supabase.ts)
-        localStorage.removeItem('arovave-auth-token');
-
-        // Try to sign out from Supabase (don't wait for it)
-        supabase.auth.signOut().catch(() => { });
-
-        console.log('✅ Logged out');
+        console.log('✅ Logged out completely');
     };
 
     // Update profile
